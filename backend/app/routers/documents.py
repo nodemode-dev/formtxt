@@ -99,6 +99,7 @@ def download(doc_id: str) -> Response:
     except store.NotFound:
         raise _missing(doc_id)
     name = "".join(c for c in doc["title"] if c.isalnum() or c in " -_").strip() or "document"
+    doc, media = package.prune(doc, media)
     return Response(package.pack(doc, media), media_type=package.MIMETYPE,
                     headers={"content-disposition": f'attachment; filename="{name}.ftxt"'})
 

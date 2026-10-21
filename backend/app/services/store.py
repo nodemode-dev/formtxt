@@ -139,6 +139,7 @@ def adopt(doc: dict, media: dict[str, bytes] | None = None, title: str = "") -> 
     now = time.time()
     fresh.setdefault("meta", {}).update(created=now, modified=now)
     model.validate(fresh)
+    fresh, media = package.prune(fresh, media)
     with _lock:
         _write(_path(fresh["id"]), package.pack(fresh, media))
     return fresh

@@ -20,6 +20,29 @@ def pack(doc: dict, media: dict[str, bytes] | None = None) -> bytes:
     return buf.getvalue()
 
 
+def referenced(doc: dict) -> set[str]:
+    names: set[str] = set()
+    stack: list = [doc.get("tabs") or []]
+    while stack:
+        item = stack.pop()
+        if isinstance(item, dict):
+            if item.get("type") == "image" and isinstance(item.get("media"), str):
+                names.add(item["media"])
+            stack.extend(item.values())
+        elif isinstance(item, list):
+            stack.extend(item)
+    return names
+
+
+def prune(doc: dict, media: dict[str, bytes] | None) -> tuple[dict, dict[str, bytes]]:
+    keep = referenced(doc)
+    kept = {k: v for k, v in (media or {}).items() if k in keep}
+    out = dict(doc)
+    if isinstance(doc.get("media"), dict):
+        out["media"] = {k: v for k, v in doc["media"].items() if k in keep}
+    return out, kept
+
+
 def unpack(data: bytes) -> tuple[dict, dict[str, bytes]]:
     if len(data) > config.MAX_DOCUMENT_BYTES:
         raise model.InvalidDocument("file is larger than FormTxt opens")
