@@ -49,6 +49,7 @@ export const ICONS: Record<string, string> = {
   painter: L('<rect x="4.5" y="3.5" width="12" height="6" rx="1.5"/><path d="M16.5 6.5h2.5v5h-8v3"/><rect x="9.5" y="14.5" width="3" height="6" rx="1"/>'),
   paragraph: L('<path d="M13 4.5v15M17 4.5v15M19.5 4.5H10a4 4 0 0 0 0 8h3"/>'),
   styles: L('<path d="M4.5 18.5L9 5.5h1.5l4.5 13M6.2 13.5h7"/><path d="M16.5 10.5h3M16.5 14.5h3M16.5 18.5h3"/>'),
+  focus: L('<path d="M4 9V5.5A1.5 1.5 0 0 1 5.5 4H9M15 4h3.5A1.5 1.5 0 0 1 20 5.5V9M20 15v3.5a1.5 1.5 0 0 1-1.5 1.5H15M9 20H5.5A1.5 1.5 0 0 1 4 18.5V15"/>'),
   pageSetup: L(`${PAGE}<path d="M8 11.5h8v6H8z"/>`),
   headerFooter: L('<rect x="4.5" y="3.5" width="15" height="17" rx="1.5"/><path d="M4.5 7.5h15M4.5 16.5h15"/>'),
   pageless: L('<path d="M5 3.5v17M19 3.5v17M8.5 7.5h7M8.5 11h7M8.5 14.5h5"/>'),

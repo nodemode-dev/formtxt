@@ -15,6 +15,9 @@ import { fromPM, toPM } from './convert';
 import { collapsePlugin, findKey, findPlugin, rules, uniqueIds } from './plugins';
 import type { DocTab, Section, Style } from '../engine/model';
 import { Paginator, pagesKey, pagesPlugin } from './pages';
+import { Ruler } from './ruler';
+
+export type ViewMode = 'print' | 'draft' | 'read' | 'focus';
 import { schema } from './schema';
 
 const PX = 96 / 72;
@@ -86,7 +89,9 @@ export class DocEditor {
   private readonly page: HTMLElement;
   private readonly pagesEl: HTMLElement;
   readonly paginator: Paginator;
+  readonly ruler: Ruler;
   zoom = 1;
+  viewMode: ViewMode = 'print';
   private readonly mount: HTMLElement;
   private readonly sheet: HTMLStyleElement;
   private readonly outline: HTMLElement;
@@ -118,7 +123,7 @@ ${TB('list.bullet', 'listBullet', 'Bulleted list', 'Ctrl+Shift+8')}${TB('list.nu
 ${TB('format.painter', 'painter', 'Format Painter', 'Ctrl+Shift+C')}${TB('format.paragraph', 'paragraph', 'Paragraph settings')}${TB('format.styles', 'styles', 'Styles')}${SEP}
 ${TB('insert.link', 'link', 'Link', 'Ctrl+K')}${TB('insert.codeBlock', 'code', 'Code block')}${TB('insert.pageBreak', 'pageBreak', 'Page break', 'Ctrl+Enter')}${TB('format.clear', 'clearFormat', 'Clear formatting', 'Ctrl+\\')}${SEP}
 ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', 'outline', 'Outline')}${SEP}
-${TB('layout.pageSetup', 'pageSetup', 'Page setup')}${TB('insert.headerFooter', 'headerFooter', 'Header and footer')}${TB('view.pageless', 'pageless', 'Pageless')}
+${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 'pageSetup', 'Page setup')}${TB('insert.headerFooter', 'headerFooter', 'Header and footer')}${TB('view.pageless', 'pageless', 'Pageless')}
 <select class="ft-tb-select ft-tb-zoom" data-cmd="view.zoom" aria-label="Zoom">${[50, 75, 90, 100, 110, 125, 150, 200].map((z) => `<option value="${z}"${z === 100 ? ' selected' : ''}>${z}%</option>`).join('')}<option value="" disabled hidden></option></select>
 </div>
 <div class="ft-editor-body">
@@ -133,8 +138,9 @@ ${TB('layout.pageSetup', 'pageSetup', 'Page setup')}${TB('insert.headerFooter', 
 </div></div>`);
     this.page = this.root.querySelector('.ft-page') as HTMLElement;
     this.pagesEl = this.root.querySelector('.ft-pages') as HTMLElement;
-    this.paginator = new Paginator(() => this.view, this.pagesEl, () => this.doc?.sections[0] ?? null, () => (this.doc?.settings ?? {}) as unknown as Record<string, unknown>, () => this.zoom);
+    this.paginator = new Paginator(() => this.view, this.pagesEl, () => this.doc?.sections[0] ?? null, () => { const st = (this.doc?.settings ?? {}) as unknown as Record<string, unknown>; return this.viewMode === 'draft' ? { ...st, pageless: true } : st; }, () => this.zoom);
     this.paginator.onLayout = () => this.hooks.status(this.words());
+    this.ruler = new Ruler(this.root.querySelector('.ft-scroll') as HTMLElement, (props) => this.paraProps(props));
     this.mount = this.root.querySelector('.ft-pm') as HTMLElement;
     this.outline = this.root.querySelector('.ft-outline-list') as HTMLElement;
     this.outlinePane = this.root.querySelector('.ft-outline') as HTMLElement;
@@ -251,7 +257,7 @@ ${TB('layout.pageSetup', 'pageSetup', 'Page setup')}${TB('insert.headerFooter', 
     const s = this.doc.sections[0];
     const m = s.margins;
     const ext = s as unknown as { pageColor?: string; pageBorder?: string };
-    const pageless = !!(this.doc.settings as unknown as { pageless?: boolean }).pageless;
+    const pageless = !!(this.doc.settings as unknown as { pageless?: boolean }).pageless || this.viewMode === 'draft';
     const W = s.page.width * PX;
     const css = pageless
       ? `width:${Math.max(W, 816).toFixed(0)}px;padding:48px 64px 96px;min-height:${(s.page.height * PX).toFixed(0)}px`
@@ -293,6 +299,28 @@ ${TB('layout.pageSetup', 'pageSetup', 'Page setup')}${TB('insert.headerFooter', 
   }
 
   pageCount(): number { return this.paginator.pages; }
+
+  setView(mode: ViewMode): ViewMode {
+    if (!this.view) throw new Error('Open a document first.');
+    this.viewMode = mode;
+    this.root.dataset.view = mode;
+    document.body.classList.toggle('ft-focus', mode === 'focus');
+    this.view.setProps({ editable: () => mode !== 'read' });
+    this.ruler.show(mode === 'print' || mode === 'focus');
+    this.applyGeometry();
+    this.paginator.layoutNow();
+    this.view.focus();
+    return mode;
+  }
+
+  insertCover(title: string, subtitle: string, byline: string): boolean {
+    if (!this.view || !this.doc) throw new Error('Open a document first.');
+    const p = (style: string, text: string, extra: Record<string, unknown> = {}) => schema.nodes.paragraph.create({ style, align: 'center', ...extra }, text ? schema.text(text) : null);
+    const nodes = [p('Title', title || this.doc.title, { spaceBefore: 220 }), p('Subtitle', subtitle), p('Normal', byline), schema.nodes.page_break.create()];
+    this.view.dispatch(this.view.state.tr.insert(0, nodes).scrollIntoView());
+    this.updatePage({ titlePage: true });
+    return true;
+  }
 
   words(): number {
     return this.view ? this.view.state.doc.textBetween(0, this.view.state.doc.content.size, ' ', ' ').split(/\s+/).filter(Boolean).length : 0;
@@ -540,6 +568,13 @@ ${TB('layout.pageSetup', 'pageSetup', 'Page setup')}${TB('insert.headerFooter', 
     for (const k of ['bullet', 'number', 'check']) setClass(this.root.querySelector(`[data-cmd="list.${k}"]`), 'is-on', para.attrs.list === k);
     setValue(this.spacingSelect, para.attrs.lineSpacing === null || para.attrs.lineSpacing === undefined ? '' : String(para.attrs.lineSpacing));
     setClass(this.root.querySelector('[data-cmd="insert.codeBlock"]'), 'is-on', para.type === schema.nodes.code_block);
+    const sec = this.doc.sections[0];
+    const a = para.attrs;
+    this.ruler.update({
+      pageWidth: sec.page.width, marginLeft: sec.margins.left, marginRight: sec.margins.right, zoom: this.zoom,
+      indent: Number(a.indent || resolved.para.indentLeft || 0), indentFirst: Number(a.indentFirst || 0), indentRight: Number(a.indentRight || resolved.para.indentRight || 0),
+      tabs: Array.isArray(a.tabs) ? (a.tabs as Array<{ pos: number; align: string }>) : [],
+    });
   }
 
   private scheduleOutline(): void {

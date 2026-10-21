@@ -2,8 +2,8 @@
 
 Living log of comment content, rationale and removed code for the frontend. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.5.0
-Last updated: 2026-10-21 · Phase 3a pages, headers and footers, page setup, zoom
+Current build version: v0.6.0
+Last updated: 2026-10-21 · app icon; Phase 3b ruler, views, line numbers, cover page, header and footer editing
 
 ---
 
@@ -32,7 +32,8 @@ frontend/
     ├── editor/editor.ts     DocEditor: toolbar, page, outline, find panel, autosave hooks
     ├── editor/register.ts   editor commands in the registry, toolbar wiring
     ├── editor/dialogs.ts    paragraph settings, style editor, page setup, header and footer, word count
-    ├── editor/pages.ts      Paginator: page sheets, spacer decorations, page number formats
+    ├── editor/pages.ts      Paginator: page sheets, spacer decorations, page number formats, line numbers
+    ├── editor/ruler.ts      the ruler: margins, indent markers, tab stops
     ├── automation/bridge.ts WebSocket to /api/live so the CLI runs commands in the window
     ├── ui/palette.ts        Find a Command
     ├── ui/shortcuts.ts      custom and global shortcuts, the shortcuts dialog
@@ -197,6 +198,18 @@ frontend/
 - kind: warning-context
 - logged: v0.5.0 · 2026-10-21
 - Three traps, each found by a throttled run that checked every line against its page body: the first paragraph's margin collapsed through the editor root and offset every coordinate (fixed with `display: flow-root`); the paged-mode CSS (page breaks lose their margins) was applied after measuring on the first pass (the mode is now set before measuring); and CSS `zoom` changed line wrapping, so zoom is now a transform that never alters layout. Spacer heights get a correction pass against their target page tops, which absorbs margin collapse and line-box rounding.
+
+### pages · margins and scroll anchoring (v0.6.0)
+- refers-to: src/editor/pages.ts :: layout() force and block breaks, lineStart(); styles/editor.css .ft-scroll overflow-anchor
+- kind: warning-context
+- logged: v0.6.0 · 2026-10-21
+- Two more traps, both found by the per-line check. A moved block's own top margin (a cover title has 220 pt before it) sits between the spacer and the block, so the running offset is now set from where the block actually lands (next page top plus its top margin), and a page-top test subtracts that margin so a tall block can never loop. And CSS scroll anchoring moved the scroll position while spacer heights were being corrected, which shifted every later measurement whenever the view was scrolled; the scroll area turns anchoring off and each correction re-reads the root's position. Line starts are found from text ranges, not screen coordinates, so splits work for paragraphs scrolled out of view.
+
+### ruler and views
+- refers-to: src/editor/ruler.ts; src/editor/editor.ts :: setView(), insertCover()
+- kind: explainer
+- logged: v0.6.0 · 2026-10-21
+- The ruler is sticky above the pages and patched from the selection (ticks rebuilt only when page width, margins or zoom change); dragging a marker sets the paragraph's indent, first-line indent or right indent on release, snapped to 4.5 pt. Views are not saved: Draft lays out like pageless with no sheets, Read mode turns editing off, Focus hides the chrome; Esc returns to Print layout. Line numbers are measured after pagination and drawn on the sheets, so they never affect the flow.
 
 ### pages · cost
 - refers-to: src/editor/pages.ts :: layout()

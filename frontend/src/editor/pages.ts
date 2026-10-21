@@ -1,7 +1,7 @@
 import { Plugin, PluginKey } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import type { Section } from '../engine/model';
-import { el, patchList, setText } from '../ui/dom';
+import { el, patchList, setHtml, setText } from '../ui/dom';
 
 export const PX = 96 / 72;
 export const GAP = 24;
@@ -47,6 +47,28 @@ function lineBoxes(p: HTMLElement): Array<{ top: number; bottom: number; left: n
     else lines.push({ top: r.top, bottom: r.bottom, left: r.left });
   }
   return lines;
+}
+
+function lineStart(view: EditorView, p: HTMLElement, viewportTop: number): number | null {
+  const walker = document.createTreeWalker(p, NodeFilter.SHOW_TEXT);
+  const range = document.createRange();
+  const topOf = (node: Text, i: number): number => {
+    range.setStart(node, i);
+    range.setEnd(node, i + 1);
+    const r = range.getClientRects()[0] ?? range.getBoundingClientRect();
+    return r.top;
+  };
+  for (let n = walker.nextNode() as Text | null; n; n = walker.nextNode() as Text | null) {
+    const len = n.data.length;
+    if (!len || topOf(n, len - 1) < viewportTop - 1) continue;
+    let lo = 0, hi = len - 1;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if (topOf(n, mid) < viewportTop - 1) lo = mid + 1; else hi = mid;
+    }
+    try { return view.posAtDOM(n, lo); } catch { return null; }
+  }
+  return null;
 }
 
 export function numberFormat(n: number, fmt: string): string {
@@ -124,14 +146,19 @@ export class Paginator {
       const posOf = (n: HTMLElement): number => { try { return view.posAtDOM(n, 0) - 1; } catch { return -1; } };
       if (force) {
         force = false;
-        const fill = (page + 1) * stride - top;
+        const next = (page + 1) * stride;
+        const fill = next - top;
         const pos = posOf(k);
-        if (pos >= 0 && fill > 0) { breaks.push({ pos, fill, inline: false, target: (page + 1) * stride }); off += fill; page++; }
+        if (pos >= 0 && fill > 0) {
+          breaks.push({ pos, fill, inline: false, target: next });
+          off = next + (parseFloat(getComputedStyle(k).marginTop) || 0) - tops[i];
+          page++;
+        }
         i--;
         continue;
       }
       if (top + height <= bottomOf(page) + 0.5) continue;
-      const atTop = top <= page * stride + 1;
+      const atTop = top - (parseFloat(getComputedStyle(k).marginTop) || 0) <= page * stride + 1;
       const isPara = k.nodeName === 'P';
       const keepLines = k.dataset.keepLines === 'true';
       const widow = k.dataset.widow !== 'off';
@@ -154,8 +181,9 @@ export class Paginator {
             s = Math.max(idx + 1, s);
           }
           if (s >= lines.length || s <= idx && !(first && atTop)) break;
-          const at = view.posAtCoords({ left: lines[s].left + 1, top: lines[s].vtop + 1 });
-          if (!at || at.pos <= posOf(k) + 1) break;
+          const pos = lineStart(view, k, lines[s].vtop);
+          if (pos === null || pos <= posOf(k) + 1) break;
+          const at = { pos };
           const fill = (page + 1) * stride - (lines[s].top + cur);
           if (fill <= 0) break;
           breaks.push({ pos: at.pos, fill, inline: true, target: (page + 1) * stride });
@@ -179,9 +207,9 @@ export class Paginator {
       const pos = posOf(kids[j]);
       if (pos < 0 || fill <= 0) continue;
       breaks.push({ pos, fill, inline: false, target: (page + 1) * stride });
-      off += fill;
+      off = (page + 1) * stride + (parseFloat(getComputedStyle(kids[j]).marginTop) || 0) - tops[j];
       page++;
-      i--;
+      i = j - 1;
     }
     const contentBottom = rootRect.height / ratio + off;
     this.pages = Math.max(page + 1, Math.ceil((contentBottom + 1) / stride));
@@ -189,18 +217,38 @@ export class Paginator {
       const decos = breaks.map((b, n) => Decoration.widget(b.pos, () => spacer(b.fill, b.inline, b.target ?? 0), { side: -1, key: `pg${n}-${b.fill.toFixed(1)}-${b.inline ? 'i' : 'b'}`, ignoreSelection: true }));
       view.dispatch(view.state.tr.setMeta(pagesKey, DecorationSet.create(view.state.doc, decos)).setMeta('addToHistory', false));
       const spacers = Array.from(root.querySelectorAll<HTMLElement>('.ft-pg-spacer'));
-      const top0 = root.getBoundingClientRect().top;
       for (const sp of spacers) {
         const target = Number(sp.dataset.target);
         if (!target) continue;
+        const top0 = root.getBoundingClientRect().top;
         const bottom = (sp.getBoundingClientRect().bottom - top0) / ratio;
         const delta = target - bottom;
         if (Math.abs(delta) > 0.5) sp.style.height = `${Math.max(0, parseFloat(sp.style.height) + delta).toFixed(2)}px`;
       }
     }
+    this.lineMarks = [];
+    const numbering = String(this.settings().lineNumbers ?? '');
+    if (numbering) {
+      const top0 = root.getBoundingClientRect().top;
+      let n = 0;
+      let lastPage = -1;
+      for (const k of Array.from(root.children) as HTMLElement[]) {
+        if (k.nodeName !== 'P' || !k.textContent) continue;
+        for (const l of lineBoxes(k)) {
+          const y = (l.top - top0) / ratio;
+          const pg = Math.floor(y / stride);
+          if (numbering === 'page' && pg !== lastPage) n = 0;
+          lastPage = pg;
+          n++;
+          this.lineMarks.push({ page: pg, y: y - pg * stride, n, h: (l.bottom - l.top) / ratio });
+        }
+      }
+    }
     this.paint(g, false);
     this.onLayout?.();
   }
+
+  private lineMarks: Array<{ page: number; y: number; n: number; h: number }> = [];
 
   private paint(g: { H: number; W: number; bodyH: number }, pageless: boolean): void {
     const s = this.section()!;
@@ -224,7 +272,7 @@ export class Paginator {
     const watermark = String(settings.watermark ?? '');
     patchList(this.sheets, items, {
       key: (i) => String(i),
-      create: () => el('<div class="ft-sheet"><div class="ft-sheet-header"></div><div class="ft-sheet-watermark"></div><div class="ft-sheet-footer"></div></div>'),
+      create: () => el('<div class="ft-sheet"><div class="ft-sheet-header" data-part="headers"></div><div class="ft-sheet-watermark"></div><div class="ft-sheet-lines"></div><div class="ft-sheet-footer" data-part="footers"></div></div>'),
       update: () => undefined,
     });
     Array.from(this.sheets.children).forEach((n, i) => {
@@ -239,6 +287,9 @@ export class Paginator {
       hd.style.textAlign = h?.align ?? 'left';
       fd.style.textAlign = f?.align ?? 'center';
       setText(sheet.querySelector('.ft-sheet-watermark'), watermark);
+      const marks = this.lineMarks.filter((m) => m.page === i);
+      const top = s.margins.top * PX;
+      setHtml(sheet.querySelector('.ft-sheet-lines') as HTMLElement, marks.map((m) => `<span style="top:${(top + m.y).toFixed(1)}px;height:${m.h.toFixed(1)}px">${m.n}</span>`).join(''), marks.map((m) => `${m.n}@${m.y.toFixed(0)}`).join(','));
     });
   }
 }

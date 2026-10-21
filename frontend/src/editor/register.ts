@@ -88,6 +88,32 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   add('view.zoom', 'Zoom', 'View', 'Set the zoom in percent.', (p) => ed.setZoom(Number(p.percent ?? p.value ?? 100) / 100), [{ name: 'percent', type: 'number', description: '25 to 300' }]);
   add('view.zoomIn', 'Zoom in', 'View', 'Zoom in by 10 percent.', () => ed.setZoom(ed.zoom + 0.1), [], ['Ctrl+=']);
   add('view.zoomOut', 'Zoom out', 'View', 'Zoom out by 10 percent.', () => ed.setZoom(ed.zoom - 0.1), [], ['Ctrl+-']);
+  for (const [mode, label, desc] of [['print', 'Print layout', 'Pages as they will print.'], ['draft', 'Draft', 'Text only: no pages, headers or ruler.'], ['read', 'Read mode', 'Pages without editing; press Esc or choose Print layout to edit.'], ['focus', 'Focus mode', 'Hide the toolbar, outline and status bar; Esc returns.']] as const) {
+    add(`view.${mode}`, label, 'View', desc, () => ed.setView(mode));
+  }
+  add('view.ruler', 'Ruler', 'View', 'Show or hide the ruler.', () => { const on = ed.ruler.root.hidden === true; ed.ruler.show(on); return on; });
+  add('layout.lineNumbers', 'Line numbers', 'Layout', 'Number lines in the margin: continuous, restart each page, or off.', (p) => {
+    const mode = String(p.mode ?? '');
+    return ed.updatePage({}, { lineNumbers: ['continuous', 'page'].includes(mode) ? mode : '' });
+  }, [{ name: 'mode', type: 'string', description: 'continuous, page, or empty for off' }]);
+  add('layout.lineNumbersToggle', 'Line numbers on or off', 'Layout', 'Turn continuous line numbers on or off.', () => {
+    const on = !(ed.doc?.settings as unknown as { lineNumbers?: string })?.lineNumbers;
+    ed.updatePage({}, { lineNumbers: on ? 'continuous' : '' });
+    return on;
+  });
+  add('insert.coverPage', 'Cover page', 'Insert', 'Insert a centred title page and a page break at the start; the first page gets no header or footer.', (p) => ed.insertCover(String(p.title ?? ''), String(p.subtitle ?? ''), String(p.byline ?? '')), [
+    { name: 'title', type: 'string', description: 'Defaults to the document title' }, { name: 'subtitle', type: 'string', description: 'Optional' }, { name: 'byline', type: 'string', description: 'Author, date or organisation' },
+  ]);
+  add('insert.coverPageDefault', 'Cover page with the title', 'Insert', 'Insert a cover page using the document title.', () => ed.insertCover('', '', new Date().toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric' })));
+
+  ed.root.addEventListener('dblclick', (e) => {
+    const part = (e.target as HTMLElement).closest<HTMLElement>('.ft-sheet-header, .ft-sheet-footer');
+    if (part) headerFooterDialog(ed, part.dataset.part === 'footers' ? 'footers' : 'headers');
+  });
+  document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape' && (ed.viewMode === 'focus' || ed.viewMode === 'read') && !document.querySelector('.ft-scrim:not([hidden])')) ed.setView('print');
+  });
+
   add('tools.pageCount', 'Page count', 'Tools', 'Return the number of pages laid out for the current tab.', () => ed.pageCount());
 
   add('styles.list', 'List styles', 'Format', 'List the paragraph styles in this document.', () => Object.entries(ed.styles()).map(([id, s]) => ({ id, name: s.name, basedOn: s.basedOn, next: s.next })));

@@ -28,7 +28,7 @@
 .ft-outline-item[data-level="3"] { padding-left: 32px; }
 .ft-outline-none { padding: 0 var(--space-2); color: var(--text-muted); font-size: var(--ft-12); line-height: 1.5; }
 .ft-outline-none[hidden] { display: none; }
-.ft-scroll { min-height: 0; overflow: auto; padding: var(--space-6) var(--space-4) 30vh; background: var(--canvas-bg); }
+.ft-scroll { min-height: 0; overflow: auto; overflow-anchor: none; padding: var(--space-6) var(--space-4) 30vh; background: var(--canvas-bg); }
 
 .ft-pm-root { display: flow-root; outline: none; white-space: pre-wrap; overflow-wrap: anywhere; caret-color: var(--accent-color); }
 .ft-pm p { position: relative; }
@@ -98,6 +98,33 @@
 .ft-pages[data-mode="paged"] .ft-pm hr.ft-page-break { margin: 0; border-top-color: transparent; }
 .ft-pages[data-mode="paged"] .ft-pm hr.ft-page-break.ProseMirror-selectednode { border-top-color: var(--accent-color); }
 .ft-tb-zoom { width: 74px; font-variant-numeric: tabular-nums; }
+.ft-sheet-header, .ft-sheet-footer { z-index: var(--z-raised); min-height: 16px; pointer-events: auto; cursor: default; }
+.ft-sheet-header:hover, .ft-sheet-footer:hover { outline: 1px dashed rgba(0, 0, 0, 0.25); outline-offset: 4px; }
+.ft-sheet-lines { position: absolute; inset: 0; }
+.ft-sheet-lines span { position: absolute; left: calc(var(--page-pad-x, 96px) - 36px); width: 24px; display: flex; align-items: center; justify-content: flex-end; color: #8a867c; font-family: 'Inter', system-ui, sans-serif; font-size: 10px; font-variant-numeric: tabular-nums; }
+.ft-ruler { position: sticky; top: calc(var(--space-6) * -1); z-index: var(--z-raised); height: 26px; margin: calc(var(--space-6) * -1) calc(var(--space-4) * -1) var(--space-4); padding-top: 4px; background: var(--canvas-bg); border-bottom: 1px solid var(--border-color); }
+.ft-ruler[hidden] { display: none; }
+.ft-ruler-track { position: relative; height: 18px; margin: 0 auto; background: var(--page-color, #ffffff); color: #6f6b62; }
+.ft-ruler-scale { position: absolute; inset: 0; overflow: hidden; }
+.ft-ruler-scale i { position: absolute; bottom: 0; width: 1px; background: #9a968c; }
+.ft-ruler-scale i.t-in { height: 8px; }
+.ft-ruler-scale i.t-half { height: 6px; }
+.ft-ruler-scale i.t-qtr { height: 4px; }
+.ft-ruler-scale i.t-eighth { height: 2px; }
+.ft-ruler-scale b { position: absolute; top: 1px; transform: translateX(-50%); font: 600 9px/1 'Inter', system-ui, sans-serif; }
+.ft-ruler-margin { position: absolute; top: 0; bottom: 0; background: rgba(0, 0, 0, 0.12); }
+.ft-ruler-mark { position: absolute; width: 0; height: 0; margin-left: -5px; border-left: 5px solid transparent; border-right: 5px solid transparent; cursor: ew-resize; }
+.ft-ruler-first { top: 0; border-top: 6px solid var(--accent-color); }
+.ft-ruler-left, .ft-ruler-right { bottom: 0; border-bottom: 6px solid var(--accent-color); }
+.ft-ruler-tab { position: absolute; bottom: 1px; width: 6px; height: 6px; margin-left: -1px; border-left: 2px solid #2b2925; border-bottom: 2px solid #2b2925; }
+.ft-ruler-tab.t-right { border-left: 0; border-right: 2px solid #2b2925; margin-left: -5px; }
+.ft-ruler-tab.t-center { border-left: 0; border-bottom: 2px solid #2b2925; width: 8px; margin-left: -4px; }
+.ft-editor[data-view="read"] > .ft-toolbar, .ft-editor[data-view="focus"] > .ft-toolbar { display: none; }
+.ft-editor[data-view="read"], .ft-editor[data-view="focus"] { grid-template-rows: 0 minmax(0, 1fr); }
+.ft-editor[data-view="focus"] .ft-outline { display: none; }
+.ft-editor[data-view="focus"] .ft-editor-body { grid-template-columns: minmax(0, 1fr); }
+body.ft-focus #app { grid-template-rows: 0 1fr 0; }
+body.ft-focus .ft-titlebar, body.ft-focus .ft-status { visibility: hidden; overflow: hidden; }
 .ft-pm .ft-folded { display: none; }
 .ft-pm p[data-style^="Heading"]::after { content: ''; position: absolute; left: -22px; top: 50%; width: 7px; height: 7px; margin-top: -5px; border-right: 1.5px solid #9a968c; border-bottom: 1.5px solid #9a968c; transform: rotate(45deg); opacity: 0; cursor: pointer; }
 .ft-pm p[data-style^="Heading"]:hover::after { opacity: 1; }

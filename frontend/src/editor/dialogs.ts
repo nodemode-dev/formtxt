@@ -150,8 +150,9 @@ export function pageSetupDialog(ed: DocEditor): void {
   const border = select([['', 'None'], ['thin', 'Thin line'], ['double', 'Double line'], ['accent', 'Accent colour']], s.pageBorder ?? '');
   const watermark = input('text', String(settings.watermark ?? ''), 'placeholder="For example DRAFT" spellcheck="false"');
   const pageless = input('checkbox', String(!!settings.pageless));
+  const lines = select([['', 'None'], ['continuous', 'Continuous'], ['page', 'Restart each page']], String(settings.lineNumbers ?? ''));
   grid(d, [['Paper size', size], ['Orientation', orient], ['Top margin (in)', top], ['Bottom margin (in)', bottom], ['Left margin (in)', left], ['Right margin (in)', right],
-    ['Header from edge (in)', header], ['Footer from edge (in)', footer], ['Page colour', color], ['Page border', border], ['Watermark text', watermark], ['Pageless', pageless]]);
+    ['Header from edge (in)', header], ['Footer from edge (in)', footer], ['Page colour', color], ['Page border', border], ['Watermark text', watermark], ['Line numbers', lines], ['Pageless', pageless]]);
   d.button('Cancel', 'ghost', () => d.close());
   d.button('Apply', 'primary', () => {
     const pt = (i: HTMLInputElement, fallback: number): number => (i.value.trim() === '' ? fallback : Math.max(0, Number(i.value) * 72));
@@ -159,13 +160,13 @@ export function pageSetupDialog(ed: DocEditor): void {
       page: pageGeometry(size.value, orient.value),
       margins: { ...m, top: pt(top, m.top), bottom: pt(bottom, m.bottom), left: pt(left, m.left), right: pt(right, m.right), header: pt(header, m.header), footer: pt(footer, m.footer) },
       pageColor: color.value.toLowerCase() === '#ffffff' ? '' : color.value, pageBorder: border.value,
-    }, { watermark: watermark.value.trim(), pageless: pageless.checked });
+    }, { watermark: watermark.value.trim(), pageless: pageless.checked, lineNumbers: lines.value });
     d.close();
   });
   d.open(size);
 }
 
-export function headerFooterDialog(ed: DocEditor): void {
+export function headerFooterDialog(ed: DocEditor, focus: 'headers' | 'footers' = 'headers'): void {
   const s = ed.section();
   if (!s) throw new Error('Open a document first.');
   const settings = (ed.doc?.settings ?? {}) as unknown as Record<string, unknown>;
@@ -201,7 +202,7 @@ export function headerFooterDialog(ed: DocEditor): void {
     ed.updatePage({ headers: collect('headers'), footers: collect('footers'), titlePage: titlePage.checked, pageNumberFormat: fmt.value, pageNumberStart: Math.max(0, Math.round(Number(start.value) || 1)) }, { evenOdd: evenOdd.checked });
     d.close();
   });
-  d.open(fields['headers.default'].text);
+  d.open(fields[`${focus}.default`].text);
 }
 
 export function wordCountDialog(ed: DocEditor): void {
