@@ -152,9 +152,24 @@ export async function startApp(): Promise<void> {
     const d = new Dialog('Preferences', 460);
     const author = el<HTMLInputElement>('<input class="ft-input" type="text" spellcheck="false" placeholder="Your name">');
     d.field('Author name for new documents', author);
-    void api.get<Record<string, unknown>>('/settings').then((s) => { if (!author.value) author.value = String(s.author ?? ''); });
+    const stock = el<HTMLInputElement>('<input type="checkbox" checked aria-label="Allow stock picture search">');
+    const stockRow = el('<label class="ft-pref-check"></label>');
+    stockRow.append(stock, document.createTextNode(' Search stock pictures online (Insert > Stock images contacts Openverse and, with a key, Pexels through the engine; nothing else leaves this computer)'));
+    d.body.appendChild(stockRow);
+    const pexels = el<HTMLInputElement>('<input class="ft-input" type="password" autocomplete="off" spellcheck="false" placeholder="Paste a key to add or replace it">');
+    d.field('Pexels API key (free at pexels.com/api)', pexels);
+    void api.get<Record<string, unknown>>('/settings').then((s) => {
+      if (!author.value) author.value = String(s.author ?? '');
+      stock.checked = s.stockImages !== false;
+      if (s.pexelsKeySet) pexels.placeholder = 'A key is saved; paste a new one to replace it';
+    });
     d.button('Cancel', 'ghost', () => d.close());
-    d.button('Save', 'primary', () => { d.close(); void api.post('/settings', { author: author.value.trim() }).then(() => toast('Preferences saved.')); });
+    d.button('Save', 'primary', () => {
+      d.close();
+      const patch: Record<string, unknown> = { author: author.value.trim(), stockImages: stock.checked };
+      if (pexels.value.trim()) patch.pexelsKey = pexels.value.trim();
+      void api.post('/settings', patch).then(() => toast('Preferences saved.'));
+    });
     d.open(author);
   };
   const home = new Home({

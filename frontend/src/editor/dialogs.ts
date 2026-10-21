@@ -13,6 +13,8 @@ import { CHIP_COLORS, DROPDOWN_PRESETS, chipNode, fillPlaceholders, knownDocs, l
 import { insertVariable } from './fields';
 import { type BuildingBlock, allBlocks, deleteBlock, insertBlock, saveBlock, selectionBlocks } from './blocks';
 import type { Node as PMNode } from 'prosemirror-model';
+import { type EditorState, NodeSelection } from 'prosemirror-state';
+import { MERMAID_SAMPLES, placeBlock, renderMermaid, sanitizeSvg } from './mermaid';
 import { setListFormat } from './commands';
 import { STYLE_SETS, currentSetId, setFonts } from './stylesets';
 import { SHAPES, SHAPE_LABELS, WORDART, insertShape, selectedShape, setShape, shapeDefaults, shapePath } from './shape';
@@ -771,6 +773,72 @@ export function shapePropertiesDialog(ed: DocEditor): void {
     d.close();
   });
   d.open(text);
+}
+
+export function selectedMermaid(state: EditorState): { node: PMNode; pos: number } | null {
+  const sel = state.selection;
+  return sel instanceof NodeSelection && sel.node.type === schema.nodes.mermaid ? { node: sel.node, pos: sel.from } : null;
+}
+
+export function mermaidDialog(ed: DocEditor): void {
+  if (!ed.view) throw new Error('Open a document first.');
+  const cur = selectedMermaid(ed.view.state);
+  const d = new Dialog(cur ? 'Edit Mermaid diagram' : 'Mermaid diagram', 760);
+  const sample = select([['', 'Start from...'], ...MERMAID_SAMPLES.map((s) => [s.id, s.label] as [string, string])], '');
+  const code = el<HTMLTextAreaElement>('<textarea class="ft-input ft-mermaid-code" rows="12" spellcheck="false" aria-label="Mermaid code"></textarea>');
+  code.value = String(cur?.node.attrs.code ?? MERMAID_SAMPLES[0].code);
+  const width = input('number', cur && Number(cur.node.attrs.width) > 0 ? String(cur.node.attrs.width) : '', `min="72" max="${Math.round(ed.bodyWidth())}" step="1" placeholder="Natural size"`);
+  const align = select([['left', 'Left'], ['center', 'Centre'], ['right', 'Right']], String(cur?.node.attrs.align ?? 'center'));
+  const alt = input('text', String(cur?.node.attrs.alt ?? ''), 'maxlength="300" placeholder="Describe the diagram for screen readers"');
+  const preview = el('<div class="ft-mermaid-preview" aria-live="polite"><div class="ft-mermaid-preview-box"></div><p class="ft-mermaid-preview-msg"></p></div>');
+  const box = preview.firstElementChild as HTMLElement, msg = preview.lastElementChild as HTMLElement;
+  let last: { svg: string; w: number; h: number } | null = cur && cur.node.attrs.svg ? { svg: String(cur.node.attrs.svg), w: Number(cur.node.attrs.w), h: Number(cur.node.attrs.h) } : null;
+  let timer = 0, ticket = 0;
+  const show = (svg: string): void => {
+    const node = sanitizeSvg(svg);
+    if (!node) return;
+    node.removeAttribute('style'); node.setAttribute('width', '100%'); node.setAttribute('height', '100%');
+    box.replaceChildren(node);
+  };
+  if (last) show(last.svg);
+  const refresh = (): void => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => {
+      const t = ++ticket;
+      setText(msg, 'Drawing...');
+      void renderMermaid(code.value).then((r) => {
+        if (t !== ticket) return;
+        if (r.ok) { last = { svg: r.svg, w: r.w, h: r.h }; show(r.svg); setText(msg, ''); msg.classList.remove('is-error'); }
+        else { last = null; setText(msg, r.error); msg.classList.add('is-error'); }
+      });
+    }, 350);
+  };
+  code.addEventListener('input', refresh);
+  sample.addEventListener('change', () => { const s = MERMAID_SAMPLES.find((x) => x.id === sample.value); if (s) { code.value = s.code; refresh(); } sample.value = ''; });
+  const layout = el('<div class="ft-mermaid-layout"></div>');
+  const left = el('<div class="ft-mermaid-left"></div>');
+  left.append(sample, code);
+  layout.append(left, preview);
+  d.body.append(layout);
+  grid(d, [['Width (pt)', width], ['Alignment', align], ['Alt text', alt]]);
+  d.body.appendChild(el('<p class="ft-note">Mermaid draws flowcharts, sequence, Gantt, class, state, entity relationship, pie, mind map, timeline and other diagrams from text. See mermaid.js.org for the syntax.</p>'));
+  d.button('Cancel', 'ghost', () => d.close());
+  d.button(cur ? 'Apply' : 'Insert', 'primary', () => {
+    void renderMermaid(code.value).then((r) => {
+      if (!r.ok) { toast(r.error, 'error'); return; }
+      const attrs = { code: code.value, svg: r.svg, w: r.w, h: r.h, width: Number(width.value) > 0 ? Math.min(ed.bodyWidth(), Number(width.value)) : 0, align: align.value, alt: alt.value.trim(), error: '' };
+      ed.run((state, dispatch) => {
+        if (!dispatch) return true;
+        const at = cur && state.doc.nodeAt(cur.pos)?.type === schema.nodes.mermaid ? cur.pos : -1;
+        if (at >= 0) dispatch(state.tr.setNodeMarkup(at, undefined, { ...state.doc.nodeAt(at)!.attrs, ...attrs }));
+        else dispatch(placeBlock(state.tr, schema.nodes.mermaid.create({ id: null, ...attrs })).scrollIntoView());
+        return true;
+      });
+      d.close();
+    });
+  });
+  d.open(code);
+  if (!last) refresh();
 }
 
 export function equationDialog(ed: DocEditor): void {

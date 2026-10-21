@@ -24,6 +24,8 @@ textarea.ft-input { resize: vertical; font-family: var(--font-mono); font-size: 
 .ft-field-label { color: var(--text-secondary); font-size: var(--ft-12); }
 .ft-note { color: var(--text-secondary); font-size: var(--ft-13); line-height: 1.5; }
 .ft-note[hidden] { display: none; }
+.ft-pref-check { display: flex; align-items: flex-start; gap: 8px; margin-top: var(--space-3); color: var(--text-secondary); font-size: var(--ft-13); line-height: 1.45; }
+.ft-pref-check input { margin-top: 3px; flex: none; }
 
 .ft-scrim { position: fixed; inset: 0; z-index: var(--z-modal); display: grid; place-items: center; padding: var(--space-4); background: var(--bg-scrim); }
 .ft-scrim[hidden] { display: none; }

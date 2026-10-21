@@ -196,7 +196,7 @@ const bordersAttr = {
 
 const tables = tableNodes({
   tableGroup: 'block',
-  cellContent: '(paragraph | code_block | table | chart | diagram)+',
+  cellContent: '(paragraph | code_block | table | chart | diagram | mermaid)+',
   cellAttributes: { shading: cellAttr('shading', 'background'), valign: cellAttr('valign', 'vertical-align'), borders: bordersAttr },
 });
 
@@ -375,6 +375,15 @@ const nodes: Record<string, NodeSpec> = {
     attrs: { id: { default: null }, layout: { default: 'list-block' }, items: { default: [] }, style: { default: 'flat' }, colors: { default: 'colorful' }, width: { default: 468 }, height: { default: 216 }, align: { default: 'center' } },
     parseDOM: [{ tag: 'figure.ft-diagram', getAttrs: (dom: HTMLElement) => { try { return JSON.parse(dom.dataset.diagram ?? '{}') as Record<string, unknown>; } catch { return {}; } } }],
     toDOM: (n) => ['figure', { class: 'ft-diagram', 'data-diagram': JSON.stringify({ ...n.attrs, id: null }) }],
+  },
+  mermaid: {
+    group: 'block',
+    atom: true,
+    selectable: true,
+    draggable: true,
+    attrs: { id: { default: null }, code: { default: '' }, svg: { default: '' }, w: { default: 0 }, h: { default: 0 }, width: { default: 0 }, align: { default: 'center' }, alt: { default: '' }, error: { default: '' } },
+    parseDOM: [{ tag: 'figure.ft-mermaid', getAttrs: (dom: HTMLElement) => { const v = safeJson(dom.dataset.mermaid ?? '{}') as Record<string, unknown> | null; return { code: String(v?.code ?? ''), width: Number(v?.width) || 0, align: String(v?.align ?? 'center'), alt: String(v?.alt ?? '') }; } }],
+    toDOM: (n) => ['figure', { class: 'ft-mermaid', 'data-mermaid': JSON.stringify({ code: n.attrs.code, width: n.attrs.width, align: n.attrs.align, alt: n.attrs.alt }) }],
   },
   table: {
     ...tables.table,

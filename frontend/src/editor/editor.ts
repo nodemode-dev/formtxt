@@ -4,7 +4,7 @@ import { gapCursor } from 'prosemirror-gapcursor';
 import { history, redo, undo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import type { Mark } from 'prosemirror-model';
-import { type Command, EditorState, TextSelection } from 'prosemirror-state';
+import { type Command, EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import type { FtxtDocument, ParaProps, RunProps } from '../engine/model';
 import { Dialog } from '../ui/dialog';
@@ -25,6 +25,7 @@ import { MathView, loadMathFonts } from './math';
 import { ShapeView, placeConnectors, shapeEditing } from './shape';
 import { InkTool } from './ink';
 import { DiagramView } from './diagram';
+import { MermaidView } from './mermaid';
 import { syncVariables, updateFields } from './fields';
 import { chipPlugin } from './chips';
 import { STYLE_SETS, applyStyleSet, setFonts } from './stylesets';
@@ -136,7 +137,7 @@ ${TB('list.bullet', 'listBullet', 'Bulleted list', 'Ctrl+Shift+8')}${TB('list.nu
 <select class="ft-tb-select ft-tb-spacing" data-cmd="paragraph.lineSpacing" aria-label="Line spacing">${SPACINGS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>${SEP}
 ${TB('format.painter', 'painter', 'Format Painter', 'Ctrl+Shift+C')}${TB('format.paragraph', 'paragraph', 'Paragraph settings')}${TB('format.styles', 'styles', 'Styles')}${TB('format.styleSet', 'styleSet', 'Style sets')}${SEP}
 ${TB('insert.link', 'link', 'Link', 'Ctrl+K')}${TB('insert.codeBlock', 'code', 'Code block')}${TB('insert.pageBreak', 'pageBreak', 'Page break', 'Ctrl+Enter')}${TB('insert.sectionBreak', 'sectionBreak', 'Section break (next page)')}${TB('format.clear', 'clearFormat', 'Clear formatting', 'Ctrl+\\')}${SEP}
-${TB('insert.picture', 'image', 'Insert picture (or paste or drop one)')}${TB('insert.table', 'table', 'Insert table')}${TB('insert.chart', 'chart', 'Insert chart')}${TB('insert.diagram', 'diagram', 'Diagram (SmartArt)')}${TB('insert.shape', 'shapes', 'Shapes, text box and WordArt')}${TB('insert.icon', 'iconLibrary', 'Icons')}${TB('view.draw', 'pen', 'Draw with ink (Esc stops)')}${TB('insert.equation', 'equation', 'Equation', 'Alt+=')}${TB('insert.symbol', 'omega', 'Symbol')}${TB('insert.chip', 'chip', 'Smart chip: date, person, dropdown or document (or type @)')}${TB('insert.block', 'blocks', 'Building blocks: meeting notes, email draft and your own')}<span class="ft-tb-group" data-group="table">${TB('table.properties', 'tableProps', 'Table properties (right-click a cell for rows, columns and merging)')}${TB('insert.formula', 'sigma', 'Formula (F9 updates)')}</span>${SEP}
+${TB('insert.picture', 'image', 'Insert picture (or paste or drop one)')}${TB('insert.stockImage', 'stock', 'Stock images (Openverse, Pexels)')}${TB('insert.table', 'table', 'Insert table')}${TB('insert.chart', 'chart', 'Insert chart')}${TB('insert.diagram', 'diagram', 'Diagram (SmartArt)')}${TB('insert.mermaid', 'mermaid', 'Mermaid diagram from text')}${TB('insert.shape', 'shapes', 'Shapes, text box and WordArt')}${TB('insert.icon', 'iconLibrary', 'Icons')}${TB('view.draw', 'pen', 'Draw with ink (Esc stops)')}${TB('insert.equation', 'equation', 'Equation', 'Alt+=')}${TB('insert.symbol', 'omega', 'Symbol')}${TB('insert.emoji', 'smile', 'Emoji')}${TB('insert.chip', 'chip', 'Smart chip: date, person, dropdown or document (or type @)')}${TB('insert.block', 'blocks', 'Building blocks: meeting notes, email draft and your own')}<span class="ft-tb-group" data-group="table">${TB('table.properties', 'tableProps', 'Table properties (right-click a cell for rows, columns and merging)')}${TB('insert.formula', 'sigma', 'Formula (F9 updates)')}</span>${SEP}
 ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', 'outline', 'Outline')}${SEP}
 ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 'pageSetup', 'Page setup')}${TB('insert.headerFooter', 'headerFooter', 'Header and footer')}${TB('view.pageless', 'pageless', 'Pageless')}
 <select class="ft-tb-select ft-tb-zoom" data-cmd="view.zoom" aria-label="Zoom">${[50, 75, 90, 100, 110, 125, 150, 200].map((z) => `<option value="${z}"${z === 100 ? ' selected' : ''}>${z}%</option>`).join('')}<option value="" disabled hidden></option></select>
@@ -262,7 +263,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
       this.view = new EditorView(this.mount, {
         state,
         attributes: { class: 'ft-pm-root', spellcheck: 'true', 'aria-label': 'Document' },
-        nodeViews: { image: (node, view, getPos) => new PictureView(node, view, getPos), chart: (node) => new ChartView(node), shape: (node, view, getPos) => new ShapeView(node, view, getPos), math: (node) => new MathView(node), diagram: (node) => new DiagramView(node, () => this.accent()) },
+        nodeViews: { image: (node, view, getPos) => new PictureView(node, view, getPos), chart: (node) => new ChartView(node), shape: (node, view, getPos) => new ShapeView(node, view, getPos), math: (node) => new MathView(node), mermaid: (node, view, getPos) => new MermaidView(node, view, getPos, () => this.bodyWidth()), diagram: (node) => new DiagramView(node, () => this.accent()) },
         handlePaste: (_view, e) => {
           const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/'));
           if (!files.length) return false;
@@ -403,6 +404,34 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
       names.push(m.name);
     }
     return names;
+  }
+
+  async insertStockPicture(source: string, itemId: string, withCredit = true): Promise<{ media: string; credit: string }> {
+    if (!this.doc || !this.view) throw new Error('Open a document first.');
+    const id = this.doc.id;
+    const out = await api.post<{ media: { name: string; type: string; bytes: number; source: string }; credit: Record<string, string> & { text: string } }>(`/documents/${encodeURIComponent(id)}/media/stock`, { source, id: itemId });
+    if (!this.doc || this.doc.id !== id || !this.view) throw new Error('The document closed before the picture arrived.');
+    const m = out.media;
+    const { w, h } = await naturalSize(mediaUrl(m.name));
+    const { text, ...credit } = out.credit;
+    this.doc = { ...this.doc, media: { ...(this.doc.media ?? {}), [m.name]: { type: m.type, bytes: m.bytes, source: m.source, width: w, height: h, credit: { ...credit, text } } } };
+    const size = fitSize(w, h, this.bodyWidth(), this.bodyHeight() - 24);
+    const sel = this.view.state.selection;
+    if (sel instanceof NodeSelection) this.view.dispatch(this.view.state.tr.setSelection(TextSelection.near(this.view.state.doc.resolve(sel.to))));
+    this.run(insertPicture({ media: m.name, alt: credit.title || text, ...size }));
+    if (withCredit) {
+      this.run((state, dispatch) => {
+        if (!dispatch) return true;
+        const $p = state.selection.$from;
+        let depth = $p.depth;
+        while (depth > 0 && $p.node(depth).type !== schema.nodes.paragraph) depth--;
+        const at = depth > 0 ? $p.after(depth) : state.selection.to;
+        const marks = [schema.marks.italic.create(), schema.marks.size.create({ pt: 9 }), schema.marks.color.create({ value: '#6b6b6b' })];
+        dispatch(state.tr.insert(at, schema.nodes.paragraph.create({ style: 'Normal' }, schema.text(text, marks))).scrollIntoView());
+        return true;
+      });
+    }
+    return { media: m.name, credit: text };
   }
 
   sectionById(id: string): Section {

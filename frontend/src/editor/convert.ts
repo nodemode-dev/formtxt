@@ -109,6 +109,12 @@ function blocksToPM(body: Block[], top: boolean): PMNode[] {
     const blk = b as Block & { type: string; text?: string; props?: Record<string, unknown>; list?: { kind: string; level: number; checked?: boolean } };
     if (blk.type === 'code') blocks.push(schema.nodes.code_block.create({ id: blk.id }, blk.text ? schema.text(blk.text) : null));
     else if (blk.type === 'table') { const t = tableToPM(blk as unknown as FtxtTable); if (t) blocks.push(t); }
+    else if (blk.type === 'mermaid') {
+      const c = blk as unknown as Record<string, unknown>;
+      const attrs: Record<string, unknown> = { id: c.id || newId('m_'), code: String(c.code ?? '') };
+      for (const k of ['svg', 'w', 'h', 'width', 'align', 'alt', 'error']) if (c[k] !== undefined && c[k] !== null) attrs[k] = c[k];
+      blocks.push(schema.nodes.mermaid.create(attrs));
+    }
     else if (blk.type === 'diagram') {
       const c = blk as unknown as Record<string, unknown>;
       const attrs: Record<string, unknown> = { id: c.id || newId('g_') };
@@ -236,6 +242,16 @@ export function fromPM(pm: PMNode, section: string): Block[] {
   const out: Block[] = [];
   pm.forEach((node) => {
     if (node.type.name === 'table') { out.push(tableFromPM(node, section) as unknown as Block); return; }
+    if (node.type.name === 'mermaid') {
+      const a = node.attrs;
+      const m: Record<string, unknown> = { type: 'mermaid', id: a.id || newId('m_'), code: a.code, svg: a.svg, w: a.w, h: a.h };
+      if (a.width) m.width = a.width;
+      if (a.align && a.align !== 'center') m.align = a.align;
+      if (a.alt) m.alt = a.alt;
+      if (a.error) m.error = a.error;
+      out.push(m as unknown as Block);
+      return;
+    }
     if (node.type.name === 'diagram') {
       const a = node.attrs;
       const g: Record<string, unknown> = { type: 'diagram', id: a.id || newId('g_'), layout: a.layout, items: a.items, width: a.width, height: a.height };

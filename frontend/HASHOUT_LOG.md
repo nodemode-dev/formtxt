@@ -470,6 +470,30 @@ frontend/
 - logged: v0.20.0 · 2026-10-21
 - The sticky header cells only stick once the table's `.tableWrapper` stops being a scroll container: its `overflow-x: auto` made it the sticky ancestor, so the header never moved. In pageless view a wrapper holding a repeating-header table gets `overflow: visible` (selected with `:has`), and plain and rows-only looks get the page colour behind the pinned cells so text does not show through.
 
+### mermaid · stored drawing
+- refers-to: src/editor/mermaid.ts :: MermaidView, renderMermaid(), sanitizeSvg()
+- kind: rationale
+- logged: v0.21.0 · 2026-10-21
+- The Mermaid library (several MB with d3 and its layout engines) loads only when a diagram is drawn or edited; each block stores its sanitised SVG and natural size, so opening a document shows every diagram at its final size with no library download and no layout shift (checked under 50 kB/s: the module was never fetched). Renders run one at a time through a queue because Mermaid measures text in a shared off-screen node. HTML labels are off (top level and per diagram type) so labels are SVG text: the sanitiser strips foreignObject, scripts, event attributes and outside links, which also makes a stored SVG from someone else's file safe to inline. Inline SVG (not an img) keeps the document's fonts, so text measured by Mermaid fits. Inserting while a block is selected goes after it (`placeBlock`) instead of replacing it.
+
+### mermaid · KaTeX override
+- refers-to: package.json :: overrides
+- kind: gotcha
+- logged: v0.21.0 · 2026-10-21
+- Mermaid 12.1.0 bundles KaTeX older than 0.18.2 (a low advisory about prototype pollution bypassing trust); `overrides` pins Mermaid's KaTeX to the 0.19.0 the editor already ships, which clears `npm audit` without taking Mermaid 12.2.0 (eight days old at the time). Mermaid is also in `optimizeDeps.include` so the dev server never re-optimises and reloads the page the first time a diagram is drawn.
+
+### emoji · picker
+- refers-to: src/editor/emoji.ts :: emojiDialog(), searchEmoji()
+- kind: explainer
+- logged: v0.21.0 · 2026-10-21
+- Emoji data comes from emojibase-data's compact English set, loaded on first use (about 0.6 MB), so no emoji characters live in FormTxt's own source. Search scores whole-label matches first, then label words, then tags. Skin tone and recently used live in localStorage behind try/catch; a tone only applies to emoji that have all five variants. Under 50 kB/s the first load can outlast the CLI bridge's 60 s wait (the emoji still lands).
+
+### stock · picker
+- refers-to: src/editor/stock.ts :: stockDialog(); src/editor/editor.ts :: insertStockPicture()
+- kind: rationale
+- logged: v0.21.0 · 2026-10-21
+- Every request goes to the engine: thumbnails load from `/api/stock/thumb/...`, so the window itself only ever talks to localhost and no third party sees the user's browser. A picked picture is downloaded by the engine into the document's media with its credit, then inserted like an uploaded one; the credit line is a small grey italic paragraph after the picture's paragraph. The key row takes the search row's place on the Pexels tab until a key works, and a refused key brings it back, so the dialog height never changes; More results keeps its space with visibility instead of display.
+
 ## index.html {#index}
 
 ### index · theme before first paint

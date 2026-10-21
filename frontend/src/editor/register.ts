@@ -8,7 +8,10 @@ import { CHART_KINDS } from './chart/types';
 import { CellSelection, addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow, deleteTable, isInTable, mergeCells, setCellAttr, splitCell, toggleHeaderColumn, toggleHeaderRow } from 'prosemirror-tables';
 import { el, setHidden, setText } from '../ui/dom';
 import { toast } from '../ui/toast';
-import { buildingBlocksDialog, placeholderFillDialog, saveBlockDialog, variablesDialog } from './dialogs';
+import { buildingBlocksDialog, mermaidDialog, placeholderFillDialog, saveBlockDialog, selectedMermaid, variablesDialog } from './dialogs';
+import { MERMAID_SAMPLES, placeBlock, renderMermaid } from './mermaid';
+import { emojiDialog, findEmoji, withTone } from './emoji';
+import { stockDialog, stockSearch } from './stock';
 import { allBlocks, deleteBlock, insertBlock, saveBlock } from './blocks';
 import { cellBordersDialog, chipDialog, listFormatDialog, styleSetDialog, chartDialog, diagramDialog, equationDialog, formulaDialog, shapeGalleryDialog, shapePropertiesDialog, symbolDialog } from './dialogs';
 import { formulaSites, insertVariable, selectedField, updateFields } from './fields';
@@ -680,6 +683,66 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
     const at = ed.view.state.doc.resolve(pos).nodeAfter?.type === schema.nodes.diagram ? pos : pos - 1;
     ed.view.dispatch(ed.view.state.tr.setSelection(NodeSelection.create(ed.view.state.doc, at)));
     diagramDialog(ed, false);
+  });
+  const putText = (text: string): boolean => ed.run((state, dispatch) => { if (dispatch) dispatch(state.tr.insertText(text).scrollIntoView()); return true; });
+  add('insert.emoji', 'Emoji', 'Insert', 'Insert an emoji by name, tag or character, such as rocket, thumbs up or party; with no name, opens the emoji picker (search, categories, skin tones, recently used).', async (p) => {
+    if (p.name === undefined) { await emojiDialog((t) => { putText(t); ed.view?.focus(); }); return true; }
+    const e = await findEmoji(String(p.name));
+    if (!e) throw new Error(`No emoji matches ${String(p.name)}.`);
+    const tone = p.tone === undefined ? -1 : Math.max(-1, Math.min(4, Number(p.tone)));
+    putText(withTone(e, tone));
+    return { inserted: e.label };
+  }, [{ name: 'name', type: 'string', description: 'Emoji name, tag or the character' }, { name: 'tone', type: 'number', description: 'Skin tone 0 (light) to 4 (dark); default none' }]);
+  add('insert.stockImage', 'Stock images', 'Insert', 'Search openly licensed pictures on Openverse or free photos on Pexels (needs a free API key in Preferences) and insert one with a credit line; with no query, opens the picker. With a query and pick, inserts that result (1 is the first).', async (p) => {
+    if (p.query === undefined) { await stockDialog(ed); return true; }
+    const source = p.source === 'pexels' ? 'pexels' : 'openverse';
+    const r = await stockSearch(source, String(p.query));
+    if (p.pick === undefined) return { total: r.total, items: r.items.slice(0, 10).map((x, i) => ({ pick: i + 1, title: x.title, creator: x.creator, license: x.license, provider: x.provider })) };
+    const it = r.items[Math.max(0, Number(p.pick) - 1)];
+    if (!it) throw new Error('pick is past the end of the results.');
+    return ed.insertStockPicture(it.source, it.id, p.credit !== false);
+  }, [{ name: 'query', type: 'string', description: 'What the picture should show' }, { name: 'source', type: 'string', description: 'openverse (default) or pexels' }, { name: 'pick', type: 'number', description: 'Insert this result (1 is the first); without it, lists the results' }, { name: 'credit', type: 'boolean', description: 'Add a credit line (default true)' }]);
+  add('insert.mermaid', 'Mermaid diagram', 'Insert', `Insert a diagram written in Mermaid (flowchart, sequence, Gantt, class, state, ER, pie, mind map, timeline and more); with no code, opens the editor. Samples: ${MERMAID_SAMPLES.map((s) => s.id).join(', ')}.`, async (p) => {
+    if (p.code === undefined && p.sample === undefined) { mermaidDialog(ed); return true; }
+    const src = p.sample !== undefined ? MERMAID_SAMPLES.find((s) => s.id === String(p.sample))?.code : String(p.code).replace(/\\n/g, '\n');
+    if (!src) throw new Error(`sample must be one of ${MERMAID_SAMPLES.map((s) => s.id).join(', ')}.`);
+    const r = await renderMermaid(src);
+    if (!r.ok) throw new Error(r.error);
+    const width = Number(p.width) > 0 ? Math.min(ed.bodyWidth(), Number(p.width)) : 0;
+    return ed.run((state, dispatch) => { if (dispatch) dispatch(placeBlock(state.tr, schema.nodes.mermaid.create({ code: src, svg: r.svg, w: r.w, h: r.h, width, align: ['left', 'right'].includes(String(p.align)) ? String(p.align) : 'center', alt: String(p.alt ?? '') })).scrollIntoView()); return true; });
+  }, [{ name: 'code', type: 'string', description: 'Mermaid source; \\n between lines' }, { name: 'sample', type: 'string', description: 'Start from a sample instead' }, { name: 'width', type: 'number', description: 'Points; natural size when absent' }, { name: 'align', type: 'string', description: 'left, center or right' }, { name: 'alt', type: 'string', description: 'Alt text' }]);
+  const needMermaid = (): { node: PMNode; pos: number } => {
+    const m = ed.view ? selectedMermaid(ed.view.state) : null;
+    if (!m) throw new Error('Select a Mermaid diagram first (click it, or run mermaid.select).');
+    return m;
+  };
+  add('mermaid.edit', 'Edit Mermaid diagram', 'Mermaid', 'Open the editor for the selected Mermaid diagram (or double-click it).', () => { needMermaid(); mermaidDialog(ed); return true; });
+  add('mermaid.code', 'Set Mermaid code', 'Mermaid', 'Replace the code of the selected Mermaid diagram and redraw it.', async (p) => {
+    const m = needMermaid();
+    const src = String(p.code ?? '').replace(/\\n/g, '\n');
+    const r = await renderMermaid(src);
+    if (!r.ok) throw new Error(r.error);
+    return ed.run((state, dispatch) => { if (dispatch) dispatch(state.tr.setNodeMarkup(m.pos, undefined, { ...m.node.attrs, code: src, svg: r.svg, w: r.w, h: r.h, error: '' })); return true; });
+  }, [{ name: 'code', type: 'string', description: 'Mermaid source; \\n between lines' }]);
+  add('mermaid.info', 'Mermaid diagram at cursor', 'Mermaid', 'Code, size and alignment of the selected Mermaid diagram.', () => { const m = ed.view ? selectedMermaid(ed.view.state) : null; return m ? { code: m.node.attrs.code, width: m.node.attrs.width, naturalWidth: m.node.attrs.w, naturalHeight: m.node.attrs.h, align: m.node.attrs.align, alt: m.node.attrs.alt, error: m.node.attrs.error, pos: m.pos } : null; });
+  add('mermaid.select', 'Select Mermaid diagram', 'Mermaid', 'Select the first Mermaid diagram, or the next one after the selection.', () => {
+    if (!ed.view) throw new Error('Open a document first.');
+    const { state } = ed.view;
+    const all: number[] = [];
+    state.doc.descendants((n, pos) => { if (n.type === schema.nodes.mermaid) all.push(pos); return true; });
+    if (!all.length) throw new Error('The document has no Mermaid diagrams.');
+    const at = all.find((pos) => pos > state.selection.from) ?? all[0];
+    ed.view.dispatch(state.tr.setSelection(NodeSelection.create(state.doc, at)).scrollIntoView());
+    return at;
+  });
+  ed.root.addEventListener('dblclick', (e) => {
+    const fig = (e.target as HTMLElement).closest<HTMLElement>('.ft-pm-root figure.ft-mermaid');
+    if (!fig || !ed.view || !ed.view.editable) return;
+    e.preventDefault();
+    const pos = ed.view.posAtDOM(fig, 0);
+    const at = ed.view.state.doc.resolve(pos).nodeAfter?.type === schema.nodes.mermaid ? pos : pos - 1;
+    ed.view.dispatch(ed.view.state.tr.setSelection(NodeSelection.create(ed.view.state.doc, at)));
+    mermaidDialog(ed);
   });
   add('insert.icon', 'Icon', 'Insert', 'Insert an icon from the Tabler library (4,808 outline and 1,009 filled); with no name, opens the icon picker.', async (p) => {
     if (p.name === undefined) { iconsDialog(ed); return true; }
