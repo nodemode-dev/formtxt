@@ -247,6 +247,24 @@ frontend/
 - logged: v0.8.0 · 2026-10-21
 - Only Insert table and Table properties sit on the toolbar (properties is disabled outside a table, by attribute, so the toolbar never changes width). Row, column, merge and header actions live in a right-click menu on cells, rendered in `#overlay-root`, and every action is also a `table.*` command for the palette and CLI.
 
+### pictures · one inline node, six wraps
+- refers-to: src/editor/schema.ts :: image; src/editor/picture.ts :: PictureView; styles/editor.css .ft-pic
+- kind: rationale
+- logged: v0.9.0 · 2026-10-21
+- Every picture is an inline atom anchored where it sits in the text, like Word's anchor. Wrapping is CSS on the same node: inline-block for inline, float for square and tight (tight adds `shape-outside` from the picture's alpha), a shrink-wrapped block for top and bottom, and absolute positioning from the paragraph (paragraphs are `position: relative`) for behind and in front. `.ft-pm-root` is `isolation: isolate`, so `--z-behind` puts a picture under the text but still above the page sheet; a selected behind-text picture is raised so it can be dragged. Floats and inline pictures take part in line measuring, so the paginator never splits a page through one.
+
+### pictures · edits without re-rendering
+- refers-to: src/editor/picture.ts :: down(), move(), commit()
+- kind: rationale
+- logged: v0.9.0 · 2026-10-21
+- Resize handles and moving a free picture change only inline styles while the pointer is down, then commit one `setNodeMarkup` on release; `update()` patches styles in place, so the image element is never replaced and never reloads. Pointer distances are divided by the ratio of the picture box's on-screen width to its layout width, which covers zoom; the ratio comes from the outer box because a rotated frame's bounding box is wider than its layout box (a throttled run caught a rotated picture moving 18 percent short). Crop shows the picture inside a clipped frame sized to the cropped area. Corner handles keep proportions unless Shift is held.
+
+### pictures · media
+- refers-to: src/editor/editor.ts :: insertPictures(); src/editor/schema.ts :: mediaUrl()
+- kind: warning-context
+- logged: v0.9.0 · 2026-10-21
+- Files go to `POST /api/documents/{id}/media` first and come back named by content hash; the editor reads the natural size, records metadata in `doc.media` and inserts the picture fitted to the page body. Paste and drop of image files use the same path. Pictures copied between two documents keep their media name, which the other document does not have yet, so they show empty until a later phase copies media with the clipboard. Media is never pruned when a picture is deleted, so Undo always works; compacting the package is later work.
+
 ### pages · cost
 - refers-to: src/editor/pages.ts :: layout()
 - kind: todo
@@ -299,4 +317,4 @@ frontend/
 - refers-to: src/styles/tokens.css :: --z-*
 - kind: rationale
 - logged: v0.1.0 · 2026-10-21
-- The one declared scale, a subset of FormDeck's: base, raised, chrome, menu, modal, context, toast, home, home-modal, overlay. Anything that must escape its container renders into `#overlay-root`, a direct child of `body`.
+- The one declared scale, a subset of FormDeck's: behind (-1, added in v0.9.0 for pictures behind text, only meaningful inside the isolated `.ft-pm-root`), base, raised, chrome, menu, modal, context, toast, home, home-modal, overlay. Anything that must escape its container renders into `#overlay-root`, a direct child of `body`.
