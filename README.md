@@ -6,7 +6,7 @@ Version 0.1.0 · Apache-2.0 · macOS, Windows, Linux (browser or Tauri desktop, 
 
 ## Status
 
-Phase 0 of the plan: the scaffold and the engine contract. The engine creates, lists, saves, downloads and trashes `.ftxt` documents in your library, and the window is a themed shell with the first commands. The editor arrives in Phase 2. The roadmap is `DEV_PLAN.md` in the planning sidecar, and the research baseline (199 Word and Google Docs capabilities, each with its vendor source) is the FormTxt page of the FormAI Parity Tracker.
+Phase 1 of the plan: the home screen. Home has Start (open a file, a blank document, a dropzone for Markdown and text files, Paste text), Recent documents (pin, duplicate, save as template, delete with Undo), 39 original templates in 11 categories with search and a preview, and a Trash with restore and permanent delete. Documents open in a read-only page view; the editor arrives in Phase 2. The roadmap is `DEV_PLAN.md` in the planning sidecar, and the research baseline (199 Word and Google Docs capabilities, each with its vendor source) is the FormTxt page of the FormAI Parity Tracker.
 
 ## Quick start
 
