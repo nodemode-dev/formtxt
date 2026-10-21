@@ -170,7 +170,13 @@ export class Paginator {
       const height = rect.height / ratio;
       if (k.classList.contains('ft-page-break')) { force = true; continue; }
       if (k.classList.contains('ft-section-break')) { force = true; if (k.dataset.section) this.sectionStarts.push({ page: page + 1, id: k.dataset.section }); continue; }
-      const posOf = (n: HTMLElement): number => { try { return view.posAtDOM(n, 0) - 1; } catch { return -1; } };
+      const posOf = (n: HTMLElement): number => {
+        try {
+          const p = view.posAtDOM(n, 0);
+          if (view.nodeDOM(p) === n) return p;
+          return p - 1;
+        } catch { return -1; }
+      };
       if (force) {
         force = false;
         const next = (page + 1) * stride;
