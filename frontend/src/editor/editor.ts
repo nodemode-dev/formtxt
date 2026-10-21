@@ -3,6 +3,7 @@ import { dropCursor } from 'prosemirror-dropcursor';
 import { gapCursor } from 'prosemirror-gapcursor';
 import { history, redo, undo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
+import { EXT_LOADED, EXT_NODE_VIEWS, EXT_PLUGINS } from './ext/plugins';
 import type { Mark } from 'prosemirror-model';
 import { type Command, EditorState, NodeSelection, TextSelection, type Transaction } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
@@ -312,6 +313,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     this.syncToolbar();
     this.renderOutline();
     this.hooks.status(this.words());
+    for (const fn of EXT_LOADED) fn();
     this.scheduleFields(0);
     (this.root.querySelector('.ft-scroll') as HTMLElement).scrollTop = 0;
   }
@@ -565,7 +567,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
   }
 
   private makeState(index: number): EditorState {
-    return EditorState.create({ doc: toPM(this.doc!, index), plugins: [chipPlugin, rules, ...this.keys(), history(), dropCursor(), gapCursor(), uniqueIds, findPlugin, collapsePlugin, pagesPlugin, sectionsPlugin, ...tablePlugins()] });
+    return EditorState.create({ doc: toPM(this.doc!, index), plugins: [chipPlugin, rules, ...this.keys(), history(), dropCursor(), gapCursor(), uniqueIds, findPlugin, collapsePlugin, pagesPlugin, sectionsPlugin, ...tablePlugins(), ...EXT_PLUGINS] });
   }
 
   tabs(): DocTab[] { return this.doc?.tabs ?? []; }
@@ -928,7 +930,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
   private split: EditorView | null = null;
 
   private nodeViews(): NonNullable<ConstructorParameters<typeof EditorView>[1]>['nodeViews'] {
-    return { image: (node, view, getPos) => new PictureView(node, view, getPos), chart: (node) => new ChartView(node), shape: (node, view, getPos) => new ShapeView(node, view, getPos), math: (node) => new MathView(node), mermaid: (node, view, getPos) => new MermaidView(node, view, getPos, () => this.bodyWidth()), diagram: (node) => new DiagramView(node, () => this.accent()) };
+    return { image: (node, view, getPos) => new PictureView(node, view, getPos), chart: (node) => new ChartView(node), shape: (node, view, getPos) => new ShapeView(node, view, getPos), math: (node) => new MathView(node), mermaid: (node, view, getPos) => new MermaidView(node, view, getPos, () => this.bodyWidth()), diagram: (node) => new DiagramView(node, () => this.accent()), ...EXT_NODE_VIEWS };
   }
 
   private splitState(): EditorState {
