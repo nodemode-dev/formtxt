@@ -24,7 +24,28 @@ export const pagesPlugin = new Plugin<DecorationSet>({
 export interface HeaderPart { text: string; align: string }
 export interface PageInfo { index: number; number: number }
 
-interface Break { pos: number; fill: number; inline: boolean; target?: number }
+interface Break { pos: number; fill: number; inline: boolean; target?: number; row?: { cols: number; heads: HTMLTableRowElement[] } }
+
+function rowSpacer(fill: number, target: number, cols: number): HTMLElement {
+  const tr = document.createElement('tr');
+  tr.className = 'ft-pg-spacer ft-pg-row';
+  tr.dataset.target = target.toFixed(2);
+  tr.setAttribute('contenteditable', 'false');
+  tr.style.height = `${fill.toFixed(2)}px`;
+  const td = tr.appendChild(document.createElement('td'));
+  td.colSpan = cols;
+  return tr;
+}
+
+function repeatRow(src: HTMLTableRowElement): HTMLElement {
+  const tr = src.cloneNode(true) as HTMLTableRowElement;
+  tr.className = 'ft-pg-repeat';
+  tr.setAttribute('contenteditable', 'false');
+  tr.setAttribute('aria-hidden', 'true');
+  for (const n of Array.from(tr.querySelectorAll('.column-resize-handle, .ProseMirror-trailingBreak'))) n.remove();
+  for (const n of Array.from(tr.querySelectorAll('.selectedCell'))) n.classList.remove('selectedCell');
+  return tr;
+}
 
 function spacer(fill: number, inline: boolean, target: number): HTMLElement {
   const n = document.createElement(inline ? 'span' : 'div');
@@ -201,6 +222,38 @@ export class Paginator {
         }
         if (split) { off = cur; continue; }
       }
+      const table = k.querySelector<HTMLTableElement>(':scope > table.ft-table');
+      if (table) {
+        const rows = Array.from(table.rows);
+        let heads = 0;
+        if (table.dataset.repeat === 'true') while (heads < rows.length - 1 && rows[heads].cells.length && Array.from(rows[heads].cells).every((c) => c.nodeName === 'TH')) heads++;
+        const headH = heads ? (rows[heads - 1].getBoundingClientRect().bottom - rows[0].getBoundingClientRect().top) / ratio : 0;
+        const cols = Math.max(1, ...rows.map((r) => Array.from(r.cells).reduce((n, c) => n + c.colSpan, 0)));
+        let cur = off;
+        let firstOnPage = 0;
+        let split = false;
+        let moveWhole = false;
+        for (let r = 0; r < rows.length; r++) {
+          const box = rows[r].getBoundingClientRect();
+          const rb = (box.bottom - rootRect.top) / ratio + cur;
+          if (rb <= bottomOf(page) + 0.5) continue;
+          if (r <= Math.max(firstOnPage, heads) && !split) { if (!atTop) moveWhole = true; break; }
+          if (r === firstOnPage) continue;
+          let pos = -1;
+          try { pos = view.posAtDOM(rows[r], 0) - 1; } catch { pos = -1; }
+          const rt = (box.top - rootRect.top) / ratio + cur;
+          const fill = (page + 1) * stride - rt;
+          if (pos < 0 || fill <= 0) break;
+          breaks.push({ pos, fill, inline: false, target: (page + 1) * stride, row: { cols, heads: rows.slice(0, heads) } });
+          cur += fill + headH;
+          page++;
+          firstOnPage = r;
+          split = true;
+          r--;
+        }
+        if (split) { off = cur; continue; }
+        if (!moveWhole && atTop) { page += Math.max(0, Math.floor((top + height - page * stride) / stride)); continue; }
+      }
       if (atTop) { page += Math.max(0, Math.floor((top + height - page * stride) / stride)); continue; }
       let j = i;
       while (j > 0 && (kids[j - 1].dataset.keepNext === 'true') && i - j < 5 && tops[j - 1] + off > page * stride + 1) j--;
@@ -220,7 +273,17 @@ export class Paginator {
     const contentBottom = rootRect.height / ratio + off;
     this.pages = Math.max(page + 1, Math.ceil((contentBottom + 1) / stride));
     if (breaks.length) {
-      const decos = breaks.map((b, n) => Decoration.widget(b.pos, () => spacer(b.fill, b.inline, b.target ?? 0), { side: -1, key: `pg${n}-${b.fill.toFixed(1)}-${b.inline ? 'i' : 'b'}`, ignoreSelection: true }));
+      const decos: Decoration[] = [];
+      breaks.forEach((b, n) => {
+        if (!b.row) { decos.push(Decoration.widget(b.pos, () => spacer(b.fill, b.inline, b.target ?? 0), { side: -1, key: `pg${n}-${b.fill.toFixed(1)}-${b.inline ? 'i' : 'b'}`, ignoreSelection: true })); return; }
+        const { cols, heads } = b.row;
+        decos.push(Decoration.widget(b.pos, () => rowSpacer(b.fill, b.target ?? 0, cols), { side: -2, key: `pg${n}-${b.fill.toFixed(1)}-r${cols}`, ignoreSelection: true }));
+        heads.forEach((h, j) => {
+          let hash = 0;
+          for (const ch of h.innerHTML) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
+          decos.push(Decoration.widget(b.pos, () => repeatRow(h), { side: -1, key: `pg${n}-h${j}-${hash}`, ignoreSelection: true }));
+        });
+      });
       view.dispatch(view.state.tr.setMeta(pagesKey, DecorationSet.create(view.state.doc, decos)).setMeta('addToHistory', false));
       const spacers = Array.from(root.querySelectorAll<HTMLElement>('.ft-pg-spacer'));
       for (const sp of spacers) {

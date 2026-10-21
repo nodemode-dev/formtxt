@@ -1,4 +1,5 @@
 import { type MarkSpec, type Node as PMNode, type NodeSpec, Schema } from 'prosemirror-model';
+import { tableNodes } from 'prosemirror-tables';
 
 export const LIST_KINDS = ['bullet', 'number', 'check'] as const;
 export type ListKind = (typeof LIST_KINDS)[number] | '';
@@ -35,6 +36,32 @@ function paraAttrs(n: PMNode): Attrs {
   if (a.spaceAfter !== null) css.push(`margin-bottom:${(Number(a.spaceAfter) * 96) / 72}px`);
   if (a.lineSpacing !== null) css.push(`line-height:${Number(a.lineSpacing) * 1.2}`);
   if (css.length) out.style = css.join(';');
+  return out;
+}
+
+export const TABLE_LOOKS = ['grid', 'plain', 'rows', 'banded', 'accent'] as const;
+
+const cellAttr = (name: string, css: string) => ({
+  default: '',
+  getFromDOM: (dom: HTMLElement) => dom.dataset[name] || '',
+  setDOMAttr: (value: unknown, attrs: Record<string, unknown>) => {
+    if (!value) return;
+    attrs[`data-${name}`] = String(value);
+    attrs.style = `${String(attrs.style ?? '')}${css}:${String(value)};`;
+  },
+});
+
+const tables = tableNodes({
+  tableGroup: 'block',
+  cellContent: '(paragraph | code_block | table)+',
+  cellAttributes: { shading: cellAttr('shading', 'background'), valign: cellAttr('valign', 'vertical-align') },
+});
+
+export function tableAttrs(n: PMNode): Record<string, string> {
+  const out: Record<string, string> = { class: 'ft-table', 'data-look': String(n.attrs.look || 'grid') };
+  if (n.attrs.id) out['data-id'] = String(n.attrs.id);
+  if (n.attrs.repeatHeader) out['data-repeat'] = 'true';
+  if (n.attrs.align) out['data-align'] = String(n.attrs.align);
   return out;
 }
 
@@ -111,6 +138,15 @@ const nodes: Record<string, NodeSpec> = {
     parseDOM: [{ tag: 'hr.ft-page-break' }],
     toDOM: () => ['hr', { class: 'ft-page-break', contenteditable: 'false' }],
   },
+  table: {
+    ...tables.table,
+    attrs: { id: { default: null }, look: { default: 'grid' }, repeatHeader: { default: false }, align: { default: '' } },
+    parseDOM: [{ tag: 'table', getAttrs: (dom: HTMLElement) => ({ look: (TABLE_LOOKS as readonly string[]).includes(dom.dataset.look ?? '') ? dom.dataset.look : 'grid', repeatHeader: dom.dataset.repeat === 'true', align: dom.dataset.align || '' }) }],
+    toDOM: (n) => ['table', tableAttrs(n), ['tbody', 0]],
+  },
+  table_row: tables.table_row,
+  table_cell: tables.table_cell,
+  table_header: tables.table_header,
   text: { group: 'inline' },
 };
 

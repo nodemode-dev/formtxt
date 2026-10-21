@@ -1,8 +1,13 @@
 import type { CommandRegistry } from '../engine/registry';
 import type { Section } from '../engine/model';
-import { headerFooterDialog, pageGeometry, pageSetupDialog, paragraphDialog, parseTabs, stylesDialog, wordCountDialog } from './dialogs';
+import { type Command, TextSelection } from 'prosemirror-state';
+import { CellSelection, addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow, deleteTable, isInTable, mergeCells, setCellAttr, splitCell, toggleHeaderColumn, toggleHeaderRow } from 'prosemirror-tables';
+import { el, setHidden, setText } from '../ui/dom';
+import { toast } from '../ui/toast';
+import { headerFooterDialog, insertTableDialog, pageGeometry, pageSetupDialog, paragraphDialog, parseTabs, stylesDialog, tablePropertiesDialog, wordCountDialog } from './dialogs';
 import { type DocEditor, FONTS } from './editor';
-import { schema } from './schema';
+import { TABLE_LOOKS, schema } from './schema';
+import { distributeColumns, insertTable, setCellShading, setTableAttr, sortTable, tableInfo, tableToText, textToTable } from './table';
 
 const schemaTab = () => schema.nodes.tab.create();
 
@@ -125,6 +130,83 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
     const start = p.start === undefined || p.start === null || p.start === '' ? undefined : Math.max(0, Math.round(Number(p.start)));
     return ed.updateSectionById(id, { pageNumberStart: start } as Partial<Section>);
   }, [{ name: 'section', type: 'string', description: 'Section id; defaults to the section at the cursor' }, { name: 'start', type: 'number', description: 'First page number; empty continues' }]);
+
+  const inTable = (cmd: Command) => () => {
+    if (!ed.view || !isInTable(ed.view.state)) throw new Error('Put the cursor in a table first.');
+    return ed.run(cmd);
+  };
+  add('insert.table', 'Table', 'Insert', 'Insert a table as wide as the page body; with no size, asks for one.', (p) => {
+    if (p.rows === undefined && p.cols === undefined) { insertTableDialog(ed); return true; }
+    return ed.run(insertTable(Number(p.rows) || 3, Number(p.cols) || 3, ed.bodyWidth(), p.header === undefined ? true : !!p.header));
+  }, [{ name: 'rows', type: 'number', description: 'Rows, 1 to 200' }, { name: 'cols', type: 'number', description: 'Columns, 1 to 40' }, { name: 'header', type: 'boolean', description: 'First row is a repeating header row (default true)' }]);
+  add('table.rowAbove', 'Insert row above', 'Table', 'Insert a row above the cursor.', inTable(addRowBefore));
+  add('table.rowBelow', 'Insert row below', 'Table', 'Insert a row below the cursor (Tab in the last cell does the same).', inTable(addRowAfter));
+  add('table.colLeft', 'Insert column left', 'Table', 'Insert a column to the left of the cursor.', inTable(addColumnBefore));
+  add('table.colRight', 'Insert column right', 'Table', 'Insert a column to the right of the cursor.', inTable(addColumnAfter));
+  add('table.deleteRow', 'Delete row', 'Table', 'Delete the selected rows.', inTable(deleteRow));
+  add('table.deleteColumn', 'Delete column', 'Table', 'Delete the selected columns.', inTable(deleteColumn));
+  add('table.delete', 'Delete table', 'Table', 'Delete the table at the cursor.', inTable(deleteTable));
+  add('table.merge', 'Merge cells', 'Table', 'Merge the selected cells into one (drag across cells to select them).', inTable(mergeCells));
+  add('table.split', 'Split cell', 'Table', 'Split a merged cell back into single cells.', inTable(splitCell));
+  add('table.headerRow', 'Header row', 'Table', 'Turn the first row into header cells, or back.', inTable(toggleHeaderRow));
+  add('table.headerColumn', 'Header column', 'Table', 'Turn the first column into header cells, or back.', inTable(toggleHeaderColumn));
+  add('table.properties', 'Table properties', 'Table', 'Look, alignment, repeating header rows, cell shading and alignment, column widths and sorting.', () => { tablePropertiesDialog(ed); return true; });
+  add('table.look', 'Table look', 'Table', `Set the table look: ${TABLE_LOOKS.join(', ')}.`, (p) => {
+    const v = String(p.look ?? 'grid');
+    if (!(TABLE_LOOKS as readonly string[]).includes(v)) throw new Error(`Look must be one of ${TABLE_LOOKS.join(', ')}.`);
+    return inTable(setTableAttr('look', v))();
+  }, [{ name: 'look', type: 'string', description: TABLE_LOOKS.join(', ') }]);
+  add('table.repeatHeader', 'Repeat header rows', 'Table', 'Repeat the header rows at the top of each page the table continues on.', (p) => inTable(setTableAttr('repeatHeader', p.on === undefined ? true : !!p.on))(), [{ name: 'on', type: 'boolean', description: 'Default true' }]);
+  add('table.align', 'Table alignment', 'Table', 'Place the table at the left or centre of the page body.', (p) => inTable(setTableAttr('align', p.align === 'center' ? 'center' : ''))(), [{ name: 'align', type: 'string', description: 'left or center' }]);
+  add('table.shading', 'Cell shading', 'Table', 'Shade the selected cells; empty removes shading.', (p) => inTable(setCellShading(String(p.value ?? '')))(), [{ name: 'value', type: 'string', description: '#rrggbb or empty' }]);
+  add('table.valign', 'Cell vertical alignment', 'Table', 'Align cell content to the top, middle or bottom.', (p) => inTable(setCellAttr('valign', ['middle', 'bottom'].includes(String(p.value)) ? String(p.value) : ''))(), [{ name: 'value', type: 'string', description: 'top, middle or bottom' }]);
+  add('table.distribute', 'Distribute columns', 'Table', 'Make every column the same width; the table keeps its width unless one is given.', (p) => inTable(distributeColumns(Number(p.width) || undefined))(), [{ name: 'width', type: 'number', description: 'Table width in points (optional)' }]);
+  add('table.sort', 'Sort table', 'Table', 'Sort the rows below the header rows by a column; numbers sort as numbers.', (p) => inTable(sortTable((Number(p.column) || 1) - 1, !!p.descending))(), [{ name: 'column', type: 'number', description: 'Column number, from 1' }, { name: 'descending', type: 'boolean', description: 'Largest or Z first' }]);
+  add('table.fromText', 'Convert text to table', 'Table', 'Turn the selected paragraphs into a table, splitting each on tabs, commas, semicolons or pipes.', (p) => {
+    const ok = ed.run(textToTable(String(p.separator ?? 'tab'), ed.bodyWidth()));
+    if (!ok) throw new Error('Select whole paragraphs outside a table first.');
+    return ok;
+  }, [{ name: 'separator', type: 'string', description: 'tab, comma, semicolon or pipe' }]);
+  add('table.toText', 'Convert table to text', 'Table', 'Turn the table into paragraphs with cells separated by tabs.', inTable(tableToText()));
+  add('table.info', 'Table at cursor', 'Table', 'Rows, columns, look and the cell at the cursor.', () => (ed.view ? tableInfo(ed.view.state) : null));
+
+  const menu = el<HTMLElement>('<div class="ft-menu" role="menu" aria-label="Table" hidden></div>');
+  document.getElementById('overlay-root')?.appendChild(menu);
+  const closeMenu = (): void => { if (!menu.hidden) setHidden(menu, true); };
+  const TABLE_MENU: Array<[string, string] | null> = [['table.rowAbove', 'Insert row above'], ['table.rowBelow', 'Insert row below'], ['table.colLeft', 'Insert column left'], ['table.colRight', 'Insert column right'], null,
+    ['table.deleteRow', 'Delete row'], ['table.deleteColumn', 'Delete column'], ['table.delete', 'Delete table'], null,
+    ['table.merge', 'Merge cells'], ['table.split', 'Split cell'], ['table.headerRow', 'Header row on or off'], null, ['table.properties', 'Table properties']];
+  for (const row of TABLE_MENU) {
+    if (!row) { menu.appendChild(el('<div class="ft-menu-sep" role="separator"></div>')); continue; }
+    const b = el<HTMLButtonElement>(`<button class="ft-menu-item" role="menuitem" type="button" data-cmd-menu="${row[0]}"></button>`);
+    setText(b, row[1]);
+    menu.appendChild(b);
+  }
+  menu.addEventListener('mousedown', (e) => e.preventDefault());
+  menu.addEventListener('click', (e) => {
+    const id = (e.target as HTMLElement).closest<HTMLElement>('[data-cmd-menu]')?.dataset.cmdMenu;
+    if (!id) return;
+    closeMenu();
+    void reg.run(id).catch((err: Error) => toast(err.message, 'error'));
+  });
+  ed.root.addEventListener('contextmenu', (e) => {
+    const cell = (e.target as HTMLElement).closest('.ft-pm-root td, .ft-pm-root th');
+    if (!cell || !ed.view) return;
+    e.preventDefault();
+    const sel = ed.view.state.selection;
+    const pos = ed.view.posAtCoords({ left: e.clientX, top: e.clientY });
+    if (pos && !(sel instanceof CellSelection && sel.ranges.length > 1)) ed.view.dispatch(ed.view.state.tr.setSelection(TextSelection.near(ed.view.state.doc.resolve(pos.pos))));
+    ed.view.focus();
+    menu.style.visibility = 'hidden';
+    setHidden(menu, false);
+    const w = menu.offsetWidth, h = menu.offsetHeight;
+    menu.style.left = `${Math.round(Math.max(4, Math.min(e.clientX, window.innerWidth - w - 4)))}px`;
+    menu.style.top = `${Math.round(Math.max(4, Math.min(e.clientY, window.innerHeight - h - 4)))}px`;
+    menu.style.visibility = '';
+  });
+  document.addEventListener('mousedown', (e) => { if (!menu.contains(e.target as Node)) closeMenu(); });
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeMenu(); });
+  ed.root.querySelector('.ft-scroll')?.addEventListener('scroll', closeMenu, { passive: true });
 
   ed.root.addEventListener('dblclick', (e) => {
     const part = (e.target as HTMLElement).closest<HTMLElement>('.ft-sheet-header, .ft-sheet-footer');

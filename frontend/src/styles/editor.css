@@ -72,6 +72,25 @@
 .ft-pm code { font-family: var(--font-mono); font-size: 0.92em; background: rgba(0, 0, 0, 0.05); border-radius: 3px; padding: 0 2px; }
 .ft-pm pre.ft-code { margin: 0 0 10px; padding: 12px 14px; border-radius: 6px; background: #f4f3ef; color: #1a1a1a; font-family: var(--font-mono); font-size: 13px; line-height: 1.5; white-space: pre-wrap; }
 .ft-pm pre.ft-code code { background: none; padding: 0; }
+.ft-pm .tableWrapper { margin: 4px 0 12px; overflow-x: auto; overflow-y: hidden; }
+.ft-pm .tableWrapper[data-align="center"] > table { margin-left: auto; margin-right: auto; }
+.ft-pm table.ft-table { border-collapse: collapse; table-layout: fixed; color: inherit; }
+.ft-pm table.ft-table td, .ft-pm table.ft-table th { position: relative; box-sizing: border-box; min-width: 1em; padding: 4px 7px; border: 1px solid #8c8c8c; vertical-align: top; text-align: left; font-weight: inherit; }
+.ft-pm table.ft-table th { font-weight: 600; background: #f1f2f4; }
+.ft-pm table.ft-table td > :first-child, .ft-pm table.ft-table th > :first-child { margin-top: 0; }
+.ft-pm table.ft-table td > :last-child, .ft-pm table.ft-table th > :last-child { margin-bottom: 0; }
+.ft-pm table.ft-table[data-look="plain"] td, .ft-pm table.ft-table[data-look="plain"] th { border-color: transparent; background: none; }
+.ft-pm table.ft-table[data-look="rows"] td, .ft-pm table.ft-table[data-look="rows"] th { border-left-color: transparent; border-right-color: transparent; border-top-color: #c4c4c4; border-bottom-color: #c4c4c4; background: none; }
+.ft-pm table.ft-table[data-look="rows"] th { border-bottom: 2px solid #4a4a4a; }
+.ft-pm table.ft-table[data-look="banded"] td, .ft-pm table.ft-table[data-look="banded"] th { border-color: #d6d6d6; }
+.ft-pm table.ft-table[data-look="banded"] tr:nth-child(even of :not(.ft-pg-row, .ft-pg-repeat)) > td { background: #f3f5f8; }
+.ft-pm table.ft-table[data-look="accent"] th { background: var(--doc-accent, #f97316); color: #ffffff; border-color: var(--doc-accent, #f97316); }
+.ft-pm table.ft-table[data-look="accent"] td { border-color: #d6d6d6; }
+.ft-pm table.ft-table .selectedCell::after { content: ''; position: absolute; inset: 0; background: rgba(249, 115, 22, 0.16); pointer-events: none; }
+.ft-pm table.ft-table .column-resize-handle { position: absolute; top: 0; bottom: -1px; right: -2px; width: 4px; background: var(--accent-color); pointer-events: none; }
+.ft-pm .resize-cursor { cursor: col-resize; }
+.ft-pm table.ft-table tr.ft-pg-row > td { padding: 0; border-color: transparent; background: none; }
+.ft-pm table.ft-table tr.ft-pg-repeat { pointer-events: none; user-select: none; }
 .ft-pm a { color: var(--doc-accent, #1d4ed8); text-decoration: underline; }
 .ft-pm hr.ft-page-break { height: 0; margin: 18px -96px; border: 0; border-top: 1px dashed #b8b4aa; }
 .ft-pm hr.ft-page-break.ProseMirror-selectednode { border-top-color: var(--accent-color); }

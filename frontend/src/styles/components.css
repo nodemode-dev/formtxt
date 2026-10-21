@@ -41,3 +41,4 @@ textarea.ft-input { resize: vertical; font-family: var(--font-mono); font-size: 
 .ft-menu[hidden] { display: none; }
 .ft-menu-item { height: 30px; padding: 0 var(--space-3); border: 0; border-radius: var(--radius-sm); background: transparent; color: var(--text-primary); font-size: var(--ft-13); text-align: left; cursor: pointer; }
 .ft-menu-item:hover, .ft-menu-item:focus-visible { background: var(--bg-hover); outline: none; }
+.ft-menu-sep { height: 1px; margin: var(--space-1) 0; background: var(--border-color); }

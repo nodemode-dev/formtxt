@@ -49,7 +49,9 @@ export function layoutTabs(root: HTMLElement, ratio: number): void {
   for (const tab of tabs) {
     const p = tab.closest('p') as HTMLElement | null;
     if (!p) continue;
-    const x = (tab.getBoundingClientRect().left - left) / ratio;
+    const cell = tab.closest<HTMLElement>('td, th');
+    const origin = cell ? cell.getBoundingClientRect().left + (parseFloat(getComputedStyle(cell).paddingLeft) || 0) * ratio : left;
+    const x = (tab.getBoundingClientRect().left - origin) / ratio;
     const stops = stopsOf(p);
     let chosen: Stop | null = stops.find((s) => s.pos * PX > x + 1) ?? null;
     let width = 0;

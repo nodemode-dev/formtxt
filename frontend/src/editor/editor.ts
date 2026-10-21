@@ -17,6 +17,8 @@ import type { DocTab, Section, Style } from '../engine/model';
 import { Paginator, pagesKey, pagesPlugin } from './pages';
 import { Ruler } from './ruler';
 import { layoutTabs } from './tabs';
+import { addRowAfter, goToNextCell, isInTable } from 'prosemirror-tables';
+import { tablePlugins } from './table';
 
 export type ViewMode = 'print' | 'draft' | 'read' | 'focus';
 import { schema } from './schema';
@@ -123,6 +125,7 @@ ${TB('list.bullet', 'listBullet', 'Bulleted list', 'Ctrl+Shift+8')}${TB('list.nu
 <select class="ft-tb-select ft-tb-spacing" data-cmd="paragraph.lineSpacing" aria-label="Line spacing">${SPACINGS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>${SEP}
 ${TB('format.painter', 'painter', 'Format Painter', 'Ctrl+Shift+C')}${TB('format.paragraph', 'paragraph', 'Paragraph settings')}${TB('format.styles', 'styles', 'Styles')}${SEP}
 ${TB('insert.link', 'link', 'Link', 'Ctrl+K')}${TB('insert.codeBlock', 'code', 'Code block')}${TB('insert.pageBreak', 'pageBreak', 'Page break', 'Ctrl+Enter')}${TB('insert.sectionBreak', 'sectionBreak', 'Section break (next page)')}${TB('format.clear', 'clearFormat', 'Clear formatting', 'Ctrl+\\')}${SEP}
+${TB('insert.table', 'table', 'Insert table')}<span class="ft-tb-group" data-group="table">${TB('table.properties', 'tableProps', 'Table properties (right-click a cell for rows, columns and merging)')}</span>${SEP}
 ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', 'outline', 'Outline')}${SEP}
 ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 'pageSetup', 'Page setup')}${TB('insert.headerFooter', 'headerFooter', 'Header and footer')}${TB('view.pageless', 'pageless', 'Pageless')}
 <select class="ft-tb-select ft-tb-zoom" data-cmd="view.zoom" aria-label="Zoom">${[50, 75, 90, 100, 110, 125, 150, 200].map((z) => `<option value="${z}"${z === 100 ? ' selected' : ''}>${z}%</option>`).join('')}<option value="" disabled hidden></option></select>
@@ -205,13 +208,19 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
         'Shift-Mod-l': setAlign('left'), 'Shift-Mod-e': setAlign('center'), 'Shift-Mod-r': setAlign('right'), 'Shift-Mod-j': setAlign('justify'),
         'Mod-\\': clearFormatting, 'Mod-Enter': insertPageBreak,
         Tab: (state, dispatch, view) => {
+          if (isInTable(state)) {
+            if (goToNextCell(1)(state, dispatch, view)) return true;
+            if (!dispatch || !view) return true;
+            addRowAfter(state, view.dispatch);
+            return goToNextCell(1)(view.state, view.dispatch, view);
+          }
           const p = state.selection.$from.parent;
           if (p.type === schema.nodes.paragraph && p.attrs.list) return shiftIndent(1)(state, dispatch, view);
           if (p.type !== schema.nodes.paragraph) return false;
           dispatch?.(state.tr.replaceSelectionWith(schema.nodes.tab.create()).scrollIntoView());
           return true;
         },
-        'Shift-Tab': shiftIndent(-1),
+        'Shift-Tab': chainCommands((state, dispatch, view) => isInTable(state) && (goToNextCell(-1)(state, dispatch, view) || true), shiftIndent(-1)),
         Enter: splitWithNextStyle(nextOf), 'Shift-Enter': chainCommands(exitCode, (state, dispatch) => { dispatch?.(state.tr.replaceSelectionWith(schema.nodes.hard_break.create()).scrollIntoView()); return true; }),
         'Mod-f': () => { this.openFind(); return true; }, 'Mod-h': () => { this.openFind(true); return true; },
         'Mod-k': () => { this.promptLink(); return true; },
@@ -289,6 +298,11 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
   }
 
   section(): Section | null { return this.doc?.sections[0] ?? null; }
+
+  bodyWidth(): number {
+    const s = this.doc?.sections[0];
+    return s ? s.page.width - s.margins.left - s.margins.right : 468;
+  }
 
   sectionById(id: string): Section {
     const s = this.doc?.sections.find((x) => x.id === id) ?? this.doc?.sections[0];
@@ -382,7 +396,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
   }
 
   private makeState(index: number): EditorState {
-    return EditorState.create({ doc: toPM(this.doc!, index), plugins: [rules, ...this.keys(), history(), dropCursor(), gapCursor(), uniqueIds, findPlugin, collapsePlugin, pagesPlugin] });
+    return EditorState.create({ doc: toPM(this.doc!, index), plugins: [rules, ...this.keys(), history(), dropCursor(), gapCursor(), uniqueIds, findPlugin, collapsePlugin, pagesPlugin, ...tablePlugins()] });
   }
 
   tabs(): DocTab[] { return this.doc?.tabs ?? []; }
@@ -616,6 +630,8 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     for (const k of ['bullet', 'number', 'check']) setClass(this.root.querySelector(`[data-cmd="list.${k}"]`), 'is-on', para.attrs.list === k);
     setValue(this.spacingSelect, para.attrs.lineSpacing === null || para.attrs.lineSpacing === undefined ? '' : String(para.attrs.lineSpacing));
     setClass(this.root.querySelector('[data-cmd="insert.codeBlock"]'), 'is-on', para.type === schema.nodes.code_block);
+    const inTable = isInTable(state);
+    for (const b of Array.from(this.root.querySelectorAll<HTMLButtonElement>('[data-group="table"] button'))) if (b.disabled === inTable) b.disabled = !inTable;
     const sec = this.doc.sections[0];
     const a = para.attrs;
     this.ruler.update({

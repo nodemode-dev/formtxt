@@ -1,7 +1,9 @@
 import type { Style } from '../engine/model';
 import { Dialog } from '../ui/dialog';
 import { el, escapeHtml, setText } from '../ui/dom';
+import { setCellAttr } from 'prosemirror-tables';
 import { type DocEditor, FONTS } from './editor';
+import { distributeColumns, insertTable, setCellShading, setTableAttr, sortTable, tableInfo } from './table';
 
 function num(v: unknown, fallback = ''): string {
   return typeof v === 'number' && Number.isFinite(v) ? String(v) : fallback;
@@ -59,7 +61,7 @@ export function paragraphDialog(ed: DocEditor): void {
     ['Space before (pt)', before], ['Space after (pt)', after], ['Line spacing (multiple)', line], ['Border', border],
     ['Shading', shading], ['No shading', noShade], ['Keep with next', keepNext], ['Keep lines together', keepLines], ['Widow and orphan control', widow]]);
   d.field('Tab stops (points, alignment, optional dot, dash or underline leader)', tabs);
-  d.body.appendChild(el('<p class="ft-note">Keep with next, keep lines together, widow and orphan control and tab stop positions take effect when pages are laid out (Phase 3); they are saved now and exported to Word later.</p>'));
+  d.body.appendChild(el('<p class="ft-note">Keep with next, keep lines together, widow and orphan control and tab stops take effect on the page and are exported to Word with the exchange phase.</p>'));
   d.button('Cancel', 'ghost', () => d.close());
   d.button('Apply', 'primary', () => {
     const n = (i: HTMLInputElement): number | null => (i.value.trim() === '' ? null : Number(i.value));
@@ -204,6 +206,51 @@ export function headerFooterDialog(ed: DocEditor, focus: 'headers' | 'footers' =
     d.close();
   });
   d.open(fields[`${focus}.default`].text);
+}
+
+export function insertTableDialog(ed: DocEditor): void {
+  const d = new Dialog('Insert table', 420);
+  const rows = input('number', '3', 'min="1" max="200" step="1"');
+  const cols = input('number', '3', 'min="1" max="40" step="1"');
+  const header = input('checkbox', 'true');
+  grid(d, [['Rows', rows], ['Columns', cols], ['Header row', header]]);
+  const go = (): void => { ed.run(insertTable(Number(rows.value) || 3, Number(cols.value) || 3, ed.bodyWidth(), header.checked)); d.close(); };
+  d.button('Cancel', 'ghost', () => d.close());
+  d.button('Insert', 'primary', go);
+  d.body.addEventListener('keydown', (e) => { if (e.key === 'Enter') { e.preventDefault(); go(); } });
+  d.open(rows);
+}
+
+export function tablePropertiesDialog(ed: DocEditor): void {
+  const info = ed.view ? tableInfo(ed.view.state) : null;
+  if (!info) throw new Error('Put the cursor in a table first.');
+  const d = new Dialog('Table properties', 520);
+  const look = select([['grid', 'Grid'], ['plain', 'Plain'], ['rows', 'Rows only'], ['banded', 'Banded rows'], ['accent', 'Accent header']], info.look);
+  const align = select([['', 'Left'], ['center', 'Centre']], info.align);
+  const repeat = input('checkbox', String(info.repeatHeader));
+  const width = input('number', String(Math.round(ed.bodyWidth())), 'min="36" step="1"');
+  const shade = input('color', info.shading || '#f3f4f6');
+  const noShade = input('checkbox', String(!info.shading));
+  const valign = select([['', 'Top'], ['middle', 'Middle'], ['bottom', 'Bottom']], info.valign);
+  const sortCol = input('number', String(info.col + 1), `min="1" max="${info.cols}" step="1"`);
+  const sortDir = select([['asc', 'A to Z, smallest first'], ['desc', 'Z to A, largest first']], 'asc');
+  grid(d, [['Look', look], ['Alignment on the page', align], ['Repeat header rows on each page', repeat], ['Table width when distributing (pt)', width],
+    ['Cell shading', shade], ['Clear cell shading', noShade], ['Cell vertical alignment', valign], ['Sort by column', sortCol], ['Sort order', sortDir]]);
+  d.body.appendChild(el(`<p class="ft-note">${info.rows} rows, ${info.cols} columns. Shading and vertical alignment apply to the selected cells.</p>`));
+  d.button('Distribute columns', '', () => { ed.run(distributeColumns(Number(width.value) || ed.bodyWidth())); });
+  d.button('Sort', '', () => { ed.run(sortTable(Number(sortCol.value) - 1, sortDir.value === 'desc')); });
+  d.button('Cancel', 'ghost', () => d.close());
+  shade.addEventListener('input', () => { noShade.checked = false; });
+  d.button('Apply', 'primary', () => {
+    if (look.value !== info.look) ed.run(setTableAttr('look', look.value));
+    if (repeat.checked !== info.repeatHeader) ed.run(setTableAttr('repeatHeader', repeat.checked));
+    if (align.value !== info.align) ed.run(setTableAttr('align', align.value));
+    const shading = noShade.checked ? '' : shade.value;
+    if (shading !== info.shading) ed.run(setCellShading(shading));
+    if (valign.value !== info.valign) ed.run(setCellAttr('valign', valign.value));
+    d.close();
+  });
+  d.open(look);
 }
 
 export function wordCountDialog(ed: DocEditor): void {

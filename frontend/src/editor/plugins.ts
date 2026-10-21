@@ -3,10 +3,10 @@ import { Plugin, PluginKey, type EditorState } from 'prosemirror-state';
 import { Decoration, DecorationSet } from 'prosemirror-view';
 import { schema } from './schema';
 
-function newId(): string {
+function newId(prefix = 'p_'): string {
   const a = new Uint8Array(6);
   crypto.getRandomValues(a);
-  return 'p_' + Array.from(a, (b) => (b % 36).toString(36)).join('');
+  return prefix + Array.from(a, (b) => (b % 36).toString(36)).join('');
 }
 
 export const uniqueIds = new Plugin({
@@ -15,11 +15,12 @@ export const uniqueIds = new Plugin({
     const seen = new Set<string>();
     const tr = state.tr;
     let changed = false;
-    state.doc.forEach((node, pos) => {
-      if (node.type !== schema.nodes.paragraph && node.type !== schema.nodes.code_block) return;
+    state.doc.descendants((node, pos) => {
+      if (node.type !== schema.nodes.paragraph && node.type !== schema.nodes.code_block && node.type !== schema.nodes.table) return node.type.spec.tableRole !== undefined;
       const id = node.attrs.id as string | null;
-      if (!id || seen.has(id)) { tr.setNodeMarkup(pos, undefined, { ...node.attrs, id: newId() }); changed = true; }
+      if (!id || seen.has(id)) { tr.setNodeMarkup(pos, undefined, { ...node.attrs, id: newId(node.type === schema.nodes.table ? 't_' : 'p_') }); changed = true; }
       else seen.add(id);
+      return node.type === schema.nodes.table;
     });
     return changed ? tr.setMeta('addToHistory', false) : null;
   },
