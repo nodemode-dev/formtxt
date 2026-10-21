@@ -128,6 +128,7 @@ function blocksToPM(body: Block[], top: boolean): PMNode[] {
       blocks.push(schema.nodes.chart.create(attrs));
     }
     else if (blk.type === 'pageBreak') { if (top) blocks.push(schema.nodes.page_break.create()); }
+    else if (blk.type === 'columnBreak') { if (top) blocks.push(schema.nodes.column_break.create()); }
     else if (blk.type === 'sectionBreak') { if (top) blocks.push(schema.nodes.section_break.create({ section: (blk as unknown as { next?: string }).next ?? null })); }
     else {
       const p = blk.props ?? {};
@@ -272,6 +273,7 @@ export function fromPM(pm: PMNode, section: string): Block[] {
     }
     if (node.type.name === 'code_block') { out.push({ type: 'code', id: node.attrs.id || newId(), text: node.textContent } as unknown as Block); return; }
     if (node.type.name === 'page_break') { out.push({ type: 'pageBreak', id: newId() } as unknown as Block); return; }
+    if (node.type.name === 'column_break') { out.push({ type: 'columnBreak', id: newId() } as unknown as Block); return; }
     if (node.type.name === 'section_break') { out.push({ type: 'sectionBreak', id: newId(), next: node.attrs.section } as unknown as Block); return; }
     const a = node.attrs;
     const block: Record<string, unknown> = { type: 'paragraph', id: a.id || newId(), style: a.style, section, content: [] as unknown[] };

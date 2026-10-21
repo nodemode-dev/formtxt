@@ -365,6 +365,9 @@ figure.ft-diagram.is-selected { outline: 2px solid var(--accent-color); outline-
 .ft-pm a { color: var(--doc-accent, #1d4ed8); text-decoration: underline; }
 .ft-pm hr.ft-page-break { height: 0; margin: 18px -96px; border: 0; border-top: 1px dashed #b8b4aa; }
 .ft-pm hr.ft-page-break.ProseMirror-selectednode { border-top-color: var(--accent-color); }
+.ft-pm hr.ft-column-break { height: 0; margin: 12px 0; border: 0; border-top: 1px dotted #b8b4aa; }
+.ft-pages[data-mode="paged"] .ft-pm hr.ft-column-break { margin: 0; border-top-color: transparent; }
+.ft-pm hr.ft-column-break.ProseMirror-selectednode, .ft-pages[data-mode="paged"] .ft-pm hr.ft-column-break.ProseMirror-selectednode { border-top-color: var(--accent-color); }
 .ft-pm mark { color: inherit; }
 .ft-find-hit { background: rgba(250, 204, 21, 0.45); border-radius: 2px; }
 .ft-find-hit.is-current { background: rgba(249, 115, 22, 0.55); }

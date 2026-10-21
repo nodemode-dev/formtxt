@@ -17,7 +17,7 @@ function build(doc: PMNode, geo: Record<string, SecGeo>, first: string): Decorat
   let cur = first;
   doc.forEach((node, pos) => {
     if (node.type === schema.nodes.section_break) { cur = String(node.attrs.section || cur); return; }
-    if (node.type === schema.nodes.page_break) return;
+    if (node.type === schema.nodes.page_break || node.type === schema.nodes.column_break) return;
     const g = geo[cur];
     if (!g) return;
     const right = (node.type === schema.nodes.paragraph ? Number(node.attrs.indentRight) || 0 : 0) * PX + g.shrink;

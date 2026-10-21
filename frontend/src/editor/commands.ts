@@ -126,15 +126,18 @@ export function splitWithNextStyle(nextOf: (style: string) => string): Command {
   };
 }
 
-export const insertPageBreak: Command = (state, dispatch) => {
+export const insertColumnBreak: Command = (state, dispatch) => insertBreakNode(state, dispatch, 'column_break');
+export const insertPageBreak: Command = (state, dispatch) => insertBreakNode(state, dispatch, 'page_break');
+
+function insertBreakNode(state: Parameters<Command>[0], dispatch: Parameters<Command>[1], type: 'page_break' | 'column_break'): boolean {
   if (dispatch) {
-    const tr = state.tr.replaceSelectionWith(schema.nodes.page_break.create());
+    const tr = state.tr.replaceSelectionWith(schema.nodes[type].create());
     const after = tr.selection.$to.after();
     if (after >= tr.doc.content.size || tr.doc.resolve(after).nodeAfter === null) tr.insert(tr.doc.content.size, schema.nodes.paragraph.create());
     dispatch(tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(tr.doc.content.size, tr.selection.to + 1)))).scrollIntoView());
   }
   return true;
-};
+}
 
 export const toggleCodeBlock: Command = (state, dispatch) => {
   const inCode = state.selection.$from.parent.type === schema.nodes.code_block;

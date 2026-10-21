@@ -10,7 +10,7 @@ import type { FtxtDocument, ParaProps, RunProps } from '../engine/model';
 import { Dialog } from '../ui/dialog';
 import { el, escapeHtml, patchList, setClass, setHidden, setText, setValue } from '../ui/dom';
 import { icon } from '../ui/icons';
-import { type CaseMode, changeCase, clearFormatting, insertPageBreak, mark, setAlign, setLineSpacing, setLink, setMarkValue, setParaProps, setStyle, shiftIndent, splitWithNextStyle, toggleChecked, toggleCodeBlock, toggleCollapsed, toggleList } from './commands';
+import { type CaseMode, changeCase, clearFormatting, insertColumnBreak, insertPageBreak, mark, setAlign, setLineSpacing, setLink, setMarkValue, setParaProps, setStyle, shiftIndent, splitWithNextStyle, toggleChecked, toggleCodeBlock, toggleCollapsed, toggleList } from './commands';
 import { fromPM, toPM } from './convert';
 import { collapsePlugin, findKey, findPlugin, rules, uniqueIds } from './plugins';
 import type { DocTab, Section, Style } from '../engine/model';
@@ -222,7 +222,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
         'Mod-Alt-4': setStyle('Heading4'), 'Mod-Alt-5': setStyle('Heading5'), 'Mod-Alt-6': setStyle('Heading6'),
         'Shift-Mod-7': toggleList('number'), 'Shift-Mod-8': toggleList('bullet'), 'Shift-Mod-9': toggleList('check'),
         'Shift-Mod-l': setAlign('left'), 'Shift-Mod-e': setAlign('center'), 'Shift-Mod-r': setAlign('right'), 'Shift-Mod-j': setAlign('justify'),
-        'Mod-\\': clearFormatting, 'Mod-Enter': insertPageBreak,
+        'Mod-\\': clearFormatting, 'Mod-Enter': insertPageBreak, 'Shift-Mod-Enter': insertColumnBreak,
         Tab: (state, dispatch, view) => {
           if (isInTable(state)) {
             if (goToNextCell(1)(state, dispatch, view)) return true;
@@ -778,6 +778,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
   spacing(v: number | null): boolean { return this.run(setLineSpacing(v)); }
   clear(): boolean { return this.run(clearFormatting); }
   pageBreak(): boolean { return this.run(insertPageBreak); }
+  columnBreak(): boolean { return this.run(insertColumnBreak); }
   insertText(text: string): boolean {
     return this.run((state, dispatch) => {
       if (!text) return false;

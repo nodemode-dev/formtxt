@@ -77,6 +77,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   add('insert.link', 'Link', 'Insert', 'Link the selection to an address; with no address, asks for one.', (p) => (p.href !== undefined ? ed.link(String(p.href) || null) : (ed.promptLink(), true)), [{ name: 'href', type: 'string', description: 'Address; empty removes the link' }], ['Ctrl+K']);
   add('insert.codeBlock', 'Code block', 'Insert', 'Turn the paragraph into a code block, or back.', () => ed.codeBlock());
   add('insert.pageBreak', 'Page break', 'Insert', 'Insert a page break.', () => ed.pageBreak(), [], ['Ctrl+Enter']);
+  add('insert.columnBreak', 'Column break', 'Insert', 'Insert a column break: the text after it starts at the top of the next column (or the next page in the last column or a one-column section).', () => ed.columnBreak(), [], ['Ctrl+Shift+Enter']);
   add('view.outline', 'Outline', 'View', 'Show or hide the outline of headings.', () => ed.toggleOutline());
   add('view.split', 'Split window', 'View', 'Split the window to see and edit two parts of the document at once; the lower pane shows the same text in draft view.', () => ed.toggleSplit(), [], ['Ctrl+Alt+S']);
   add('view.collapseHeading', 'Collapse or expand heading', 'View', 'Fold or unfold the content under the heading at the cursor (or click left of a heading).', () => ed.collapse());

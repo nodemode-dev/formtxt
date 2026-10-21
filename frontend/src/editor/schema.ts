@@ -358,6 +358,13 @@ const nodes: Record<string, NodeSpec> = {
     parseDOM: [{ tag: 'hr.ft-page-break' }],
     toDOM: () => ['hr', { class: 'ft-page-break', contenteditable: 'false' }],
   },
+  column_break: {
+    group: 'block',
+    atom: true,
+    selectable: true,
+    parseDOM: [{ tag: 'hr.ft-column-break' }],
+    toDOM: () => ['hr', { class: 'ft-column-break', contenteditable: 'false' }],
+  },
   chart: {
     group: 'block',
     atom: true,
