@@ -301,6 +301,19 @@ frontend/
 - logged: v0.11.0 · 2026-10-21
 - Equations store LaTeX and render with KaTeX (`throwOnError: false`, so bad input shows its source in red instead of throwing). The view re-renders only when the source or display flag changes. KaTeX's fonts load before a document containing equations is shown, and the equation dialog loads them while the preview is open, so an inserted equation never reflows when its font arrives. Inserting while an equation, shape or picture is selected replaces it, as in Word; the dialog edits the selected equation in place.
 
+### shapes · icons and ink are paths, not new node types
+- refers-to: src/editor/shape.ts :: ShapeView.apply(); src/editor/icons-dialog.ts; src/editor/ink.ts :: InkTool
+- kind: rationale
+- logged: v0.12.0 · 2026-10-21
+- Icons and ink strokes are shape runs with a stored `path`, so they get wrapping, handles, rotation, dragging and the properties dialog for free. Icons keep Tabler's 24 by 24 box with `preserveAspectRatio` meet and its stroke of 2 box units, so the line weight scales with the icon as in the library; ink keeps the drawn box stretched (`none`) with `vector-effect: non-scaling-stroke`, so a resized stroke keeps its pen width. The icon library (1.6 MB) is fetched only when the picker or `insert.icon` first needs it, and the picker draws at most 240 matches.
+- Ink: Draw mode lays a transparent layer over the pages (stacked at `--z-chrome` inside `.ft-pages`), draws the live stroke in that layer, and on release anchors a shape to the paragraph under the stroke's top left with `x` and `y` measured from that paragraph, so the stroke lands where it was drawn (a throttled run matched to the pixel). Points closer than 1.5 screen pixels are skipped.
+
+### pictures and shapes · rotation handle and effects
+- refers-to: src/editor/picture.ts, src/editor/shape.ts :: angleOf()
+- kind: explainer
+- logged: v0.12.0 · 2026-10-21
+- The round handle above a selected picture or shape rotates it by the angle swept around the box centre from where the drag started, added to the current rotation (so grabbing a rotated object never makes it jump); Shift snaps to 15 degrees. Picture borders are an inset box shadow on a `::after` layer so they sit over the image without changing its size; rounded corners clip through the frame's `overflow: hidden`. Shape gradients are a per-view `linearGradient` with a random id.
+
 ### app · word count on open
 - refers-to: src/app.ts :: openDocument()
 - kind: warning-context
