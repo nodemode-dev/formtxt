@@ -147,6 +147,32 @@ def _fetch_image(url: str, base: str) -> bytes:
     return data
 
 
+AUDIO_KINDS = ((b"ID3", "mp3", "audio/mpeg"), (b"\xff\xfb", "mp3", "audio/mpeg"), (b"\xff\xf3", "mp3", "audio/mpeg"), (b"RIFF", "wav", "audio/wav"), (b"OggS", "ogg", "audio/ogg"), (b"fLaC", "flac", "audio/flac"))
+
+
+def speech(base: str, key: str, model: str, voice: str, text: str) -> tuple[bytes, str, str]:
+    body = {"model": model or "tts-1", "input": text[:4096], "voice": voice or "alloy", "response_format": "mp3"}
+    req = urllib.request.Request(f"{base}/audio/speech", data=json.dumps(body).encode("utf-8"), method="POST", headers={"User-Agent": UA, "Content-Type": "application/json", **({"Authorization": f"Bearer {key}"} if key else {})})
+    host = urllib.parse.urlparse(base).netloc
+    try:
+        with urllib.request.urlopen(req, timeout=180) as r:
+            data = r.read(config.MAX_MEDIA_BYTES + 1)
+    except urllib.error.HTTPError as e:
+        if e.code in (401, 403):
+            raise AIError(401, f"{host} refused the request; check the API key in AI settings.")
+        if e.code == 404:
+            raise AIError(501, f"{host} has no speech endpoint; the overview can still be read aloud with the system voices.")
+        raise AIError(502, f"{host} answered {e.code}.")
+    except (urllib.error.URLError, OSError) as e:
+        raise AIError(502, f"Could not reach {host} ({getattr(e, 'reason', e)}).")
+    if len(data) > config.MAX_MEDIA_BYTES:
+        raise AIError(413, "The generated audio is too large.")
+    for sig, ext, mime in AUDIO_KINDS:
+        if data.startswith(sig):
+            return data, ext, mime
+    raise AIError(502, f"{host} sent something that is not MP3, WAV, Ogg or FLAC audio.")
+
+
 def image(base: str, key: str, model: str, prompt: str, size: str) -> tuple[bytes, str]:
     body: dict = {"prompt": prompt, "n": 1, "size": size}
     if model:

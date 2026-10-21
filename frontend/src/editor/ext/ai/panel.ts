@@ -14,6 +14,7 @@ import { LANGUAGES, PANEL_HTML } from './panel-html';
 import { attachPicker } from './picker';
 import { openSettings } from './settings-dialog';
 import { suggestAs } from '../review/track';
+import { insertObject } from '../objects/media';
 import { ask, cached, loadStatus, onStatus, requireOn, saveSettings, type AIStatus, type SourceRef } from './state';
 
 interface ChatMsg { id: string; role: 'user' | 'assistant'; text: string; src?: string; pending?: boolean; error?: boolean }
@@ -199,6 +200,7 @@ export class AIPanel {
       case 'matchFormat': void this.guard(async () => { this.say(await matchFormat(this.ed, v('fmtDoc'), { styles: (this.q<HTMLInputElement>('fmtStyles')).checked, page: (this.q<HTMLInputElement>('fmtPage')).checked })); }); break;
       case 'summarize': void this.guard(() => this.summarize(v('sumScope') === 'selection')); break;
       case 'play': void this.guard(() => this.play(v('listenSrc'))); break;
+      case 'audioOverview': void this.guard(() => this.audioOverview()); break;
       case 'search': void this.guard(() => this.search(v('rsInput'))); break;
       case 'rsAskGo': void this.guard(() => this.askResults(v('rsAsk'))); break;
       case 'image': void this.guard(() => this.image(v('imgPrompt'), v('imgSize'))); break;
@@ -659,6 +661,24 @@ export class AIPanel {
     } else text = stripMarkdown(docMarkdown(view.state.doc));
     this.listener.play(text, (this.q<HTMLSelectElement>('voice')).value, Number((this.q<HTMLSelectElement>('rate')).value) || 1);
     return text;
+  }
+
+  async audioOverview(voice = 'alloy'): Promise<string> {
+    await requireOn();
+    const view = this.view();
+    const id = this.ed.docId();
+    this.say('Writing the overview...');
+    const r = await ask({ task: 'overview', text: docMarkdown(view.state.doc), ...this.opts() });
+    const script = stripMarkdown(r.text).slice(0, 4096);
+    this.say('Recording the audio...');
+    const out = await api.post<{ media: { name: string; type: string; bytes: number; source: string } }>('/ai/speech', { text: script, documentId: id, voice });
+    if (this.ed.docId() !== id || !this.ed.doc) throw new Error('The document closed before the audio arrived.');
+    const m = out.media;
+    this.ed.doc = { ...this.ed.doc, media: { ...(this.ed.doc.media ?? {}), [m.name]: { type: m.type, bytes: m.bytes, source: m.source } } };
+    this.ed.run(insertObject({ media: m.name, name: m.source, source: m.source, bytes: m.bytes, mime: m.type, from: '', kind: 'audio', width: Math.min(Math.max(160, this.ed.bodyWidth()), 300), height: 54 }));
+    setText(this.q('listenNote'), 'The audio overview is in the document at the caret; it plays with the document and goes with it.');
+    this.say('Audio overview saved in the document.');
+    return m.name;
   }
 
   pause(): void { this.listener.pause(); }

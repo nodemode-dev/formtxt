@@ -133,6 +133,32 @@ async def image(body: ImageBody) -> dict:
     return await _run(_generate, body)
 
 
+class SpeechBody(BaseModel):
+    text: str = Field(min_length=1, max_length=4096)
+    documentId: str = Field(max_length=60)
+    voice: str = Field(default="alloy", max_length=40)
+    model: str = Field(default="", max_length=120)
+
+
+def _speak(body: SpeechBody) -> dict:
+    s = settings.require_enabled()
+    target = settings.image_target(s)
+    if target is None:
+        raise AIError(501, "This provider has no speech endpoint. Point the image and speech address in AI settings at an OpenAI-compatible provider, or listen with the system voices.")
+    data, ext, mime = providers.speech(target[0], target[1], body.model, body.voice, body.text.strip())
+    name = f"{hashlib.sha256(data).hexdigest()[:20]}.{ext}"
+    try:
+        store.add_media(body.documentId, name, data)
+    except store.NotFound:
+        raise AIError(404, "That document is not in the library.")
+    return {"media": {"name": name, "type": mime, "bytes": len(data), "source": "Audio overview." + ext}}
+
+
+@router.post("/ai/speech")
+async def speech(body: SpeechBody) -> dict:
+    return await _run(_speak, body)
+
+
 @router.get("/ai/library")
 async def library(q: str = "", limit: int = 20, skip: str = "") -> dict:
     rows = await asyncio.to_thread(text.search, q[:200], max(1, min(50, limit)), skip)

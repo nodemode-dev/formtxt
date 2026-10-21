@@ -78,7 +78,7 @@ export const PANEL_HTML = `<div class="ft-ai">
   <div class="ft-ai-sub">Listen</div>
   <div class="ft-ai-row"><select class="ft-input ft-ai-select" data-q="listenSrc" aria-label="What to read"><option value="document">Read the document</option><option value="selection">Read the selection</option><option value="overview">AI audio overview</option></select></div>
   <div class="ft-ai-row"><select class="ft-input ft-ai-select" data-q="voice" aria-label="Voice"></select><select class="ft-input ft-ai-rate" data-q="rate" aria-label="Speed"><option value="0.8">0.8x</option><option value="1" selected>1x</option><option value="1.25">1.25x</option><option value="1.5">1.5x</option></select></div>
-  <div class="ft-ai-row"><button type="button" class="ft-btn sm primary" data-act="play">Play</button><button type="button" class="ft-btn sm" data-q="pause" disabled>Pause</button><button type="button" class="ft-btn sm ghost" data-q="stop" disabled>Stop</button></div>
+  <div class="ft-ai-row"><button type="button" class="ft-btn sm primary" data-act="play">Play</button><button type="button" class="ft-btn sm" data-q="pause" disabled>Pause</button><button type="button" class="ft-btn sm ghost" data-q="stop" disabled>Stop</button><button type="button" class="ft-btn sm" data-ai data-act="audioOverview" title="Write an overview and save it as an audio file in the document">Save audio overview</button></div>
   <p class="ft-ai-note" data-q="listenNote" aria-live="polite"></p>
 </section>
 

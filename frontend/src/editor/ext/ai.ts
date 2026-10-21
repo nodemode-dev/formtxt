@@ -120,6 +120,7 @@ export function register(reg: CommandRegistry, ed: DocEditor): void {
     return matchFormat(ed, String(p.from), { styles: p.styles !== false, page: p.page !== false });
   }, [S('from', 'Document id to copy from'), B('styles', 'Copy styles (default true)'), B('page', 'Copy page setup (default true)')]);
 
+  add('ai.audioOverview', 'Save an audio overview', 'Write a spoken overview of the document with AI and record it as an audio file in the document at the caret, through the provider\'s speech endpoint (OpenAI-compatible /audio/speech).', async (p) => { get().show('summary'); return get().audioOverview(String(p.voice ?? 'alloy')); }, [S('voice', 'Voice name the provider offers (default alloy)')]);
   add('ai.listen', 'Listen to the document', 'Read the document, the selection or an AI audio overview aloud with the system voices.', async (p) => {
     get().show('summary');
     await get().play(String(p.source ?? 'document'));
@@ -185,6 +186,7 @@ export function register(reg: CommandRegistry, ed: DocEditor): void {
     { cmd: 'ai.banner', label: 'Insert banner...' },
     { cmd: 'ai.search', label: 'Research the library...' },
     { cmd: 'ai.listen', label: 'Listen to the document' },
+    { cmd: 'ai.audioOverview', label: 'Save an audio overview' },
     { cmd: 'ai.listenStop', label: 'Stop listening' },
   ]);
 
