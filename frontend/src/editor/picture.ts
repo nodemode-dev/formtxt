@@ -2,6 +2,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { type Command, NodeSelection, type EditorState } from 'prosemirror-state';
 import type { EditorView, NodeView } from 'prosemirror-view';
 import { mediaUrl, schema } from './schema';
+import { angleOf } from './shape';
 
 export const WRAPS = ['inline', 'square', 'tight', 'topBottom', 'behind', 'front'] as const;
 const PX = 96 / 72;
@@ -33,7 +34,7 @@ export class PictureView implements NodeView {
   private readonly frame: HTMLElement;
   private readonly img: HTMLImageElement;
   private node: PMNode;
-  private drag: { kind: string; x: number; y: number; w: number; h: number; ox: number; oy: number; ratio: number } | null = null;
+  private drag: { kind: string; x: number; y: number; w: number; h: number; ox: number; oy: number; ratio: number; cx: number; cy: number; r0: number } | null = null;
 
   constructor(node: PMNode, private readonly view: EditorView, private readonly getPos: () => number | undefined) {
     this.node = node;
@@ -44,10 +45,11 @@ export class PictureView implements NodeView {
     this.img = this.frame.appendChild(document.createElement('img'));
     this.img.draggable = false;
     this.img.decoding = 'async';
-    for (const h of HANDLES) {
+    for (const h of [...HANDLES, 'rot']) {
       const n = this.dom.appendChild(document.createElement('span'));
-      n.className = 'ft-pic-handle';
+      n.className = h === 'rot' ? 'ft-pic-handle ft-rot-handle' : 'ft-pic-handle';
       n.dataset.h = h;
+      if (h === 'rot') n.title = 'Drag to rotate (Shift snaps to 15 degrees)';
     }
     this.dom.addEventListener('pointerdown', (e) => this.down(e));
     this.apply();
@@ -75,6 +77,10 @@ export class PictureView implements NodeView {
     set(this.img, 'top', `${(-crop.t * ih).toFixed(2)}px`);
     set(this.img, 'filter', filterOf(a));
     set(this.img, 'opacity', Number(a.transparency) ? String(1 - Number(a.transparency) / 100) : '');
+    const bw = a.border ? Math.max(0, Number(a.borderWidth) || 0) * PX : 0;
+    set(this.frame, '--pic-border', bw ? `inset 0 0 0 ${bw.toFixed(2)}px ${String(a.border)}` : '');
+    set(this.frame, 'border-radius', Number(a.radius) ? `${(Number(a.radius) * PX).toFixed(2)}px` : '');
+    set(this.frame, 'filter', a.shadow ? 'drop-shadow(0 3px 5px rgba(0, 0, 0, 0.3))' : '');
     const free = wrap === 'behind' || wrap === 'front';
     set(this.dom, 'left', free ? `${(Number(a.x) * PX).toFixed(2)}px` : '');
     set(this.dom, 'top', free ? `${(Number(a.y) * PX).toFixed(2)}px` : '');
@@ -104,7 +110,7 @@ export class PictureView implements NodeView {
     e.stopPropagation();
     const rect = this.dom.getBoundingClientRect();
     const ratio = rect.width && this.dom.offsetWidth ? rect.width / this.dom.offsetWidth : 1;
-    this.drag = { kind: handle ?? 'move', x: e.clientX, y: e.clientY, w: this.frame.offsetWidth, h: this.frame.offsetHeight, ox: parseFloat(this.dom.style.left) || 0, oy: parseFloat(this.dom.style.top) || 0, ratio };
+    this.drag = { kind: handle ?? 'move', x: e.clientX, y: e.clientY, w: this.frame.offsetWidth, h: this.frame.offsetHeight, ox: parseFloat(this.dom.style.left) || 0, oy: parseFloat(this.dom.style.top) || 0, ratio, cx: rect.left + rect.width / 2, cy: rect.top + rect.height / 2, r0: Number(this.node.attrs.rotate) || 0 };
     this.dom.setPointerCapture(e.pointerId);
     const move = (ev: PointerEvent): void => this.move(ev);
     const up = (ev: PointerEvent): void => {
@@ -141,6 +147,7 @@ export class PictureView implements NodeView {
       set(this.dom, 'top', `${(d.oy + (ev.clientY - d.y) / d.ratio).toFixed(2)}px`);
       return;
     }
+    if (d.kind === 'rot') { set(this.frame, 'transform', `rotate(${angleOf(d, ev)}deg)`); return; }
     const { w, h } = this.size(ev);
     const crop = cropOf(this.node.attrs.crop);
     set(this.frame, 'width', `${w.toFixed(2)}px`);
@@ -159,6 +166,7 @@ export class PictureView implements NodeView {
     if (Math.abs(ev.clientX - d.x) < 1 && Math.abs(ev.clientY - d.y) < 1) { this.drag = null; this.apply(); return; }
     let patch: Record<string, unknown>;
     if (d.kind === 'move') patch = { x: round((d.ox + (ev.clientX - d.x) / d.ratio) / PX), y: round((d.oy + (ev.clientY - d.y) / d.ratio) / PX) };
+    else if (d.kind === 'rot') patch = { rotate: angleOf(d, ev) };
     else { const { w, h } = this.size(ev); patch = { width: round(w / PX), height: round(h / PX) }; }
     this.drag = null;
     if (pos === undefined) { this.apply(); return; }

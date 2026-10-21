@@ -282,6 +282,10 @@ export function picturePropertiesDialog(ed: DocEditor): void {
   const sat = input('range', String(a.saturation), 'min="0" max="200" step="1"');
   const transp = input('range', String(a.transparency), 'min="0" max="100" step="1"');
   const x = input('number', String(a.x), 'step="1"'), y = input('number', String(a.y), 'step="1"');
+  const border = input('color', a.border ? String(a.border) : '#1a1a1a');
+  const borderWidth = input('number', String(a.borderWidth ?? 0), 'min="0" max="24" step="0.25"');
+  const radius = input('number', String(a.radius ?? 0), 'min="0" max="200" step="1"');
+  const shadow = input('checkbox', String(!!a.shadow));
   const ratio = Number(a.height) / Math.max(1, Number(a.width));
   width.addEventListener('input', () => { if (lock.checked) height.value = String(Math.round(Number(width.value) * ratio * 100) / 100); });
   height.addEventListener('input', () => { if (lock.checked) width.value = String(Math.round((Number(height.value) / ratio) * 100) / 100); });
@@ -289,6 +293,7 @@ export function picturePropertiesDialog(ed: DocEditor): void {
   grid(d, [['Wrapping', wrap], ['Side', side], ['Width (pt)', width], ['Height (pt)', height], ['Keep proportions', lock], ['Rotation (degrees)', rotate],
     ['Crop top (%)', ct], ['Crop bottom (%)', cb], ['Crop left (%)', cl], ['Crop right (%)', cr],
     ['Brightness', bright], ['Contrast', contrast], ['Saturation (0 is greyscale)', sat], ['Transparency', transp],
+    ['Border colour', border], ['Border width (pt, 0 for none)', borderWidth], ['Rounded corners (pt)', radius], ['Shadow', shadow],
     ['Offset from paragraph, left (pt, behind or in front)', x], ['Offset from paragraph, top (pt)', y]]);
   d.button('Reset picture', '', () => { ed.run(setPicture({ crop: null, rotate: 0, brightness: 100, contrast: 100, saturation: 100, transparency: 0 })); d.close(); });
   d.button('Cancel', 'ghost', () => d.close());
@@ -302,6 +307,7 @@ export function picturePropertiesDialog(ed: DocEditor): void {
       rotate: Number(rotate.value) || 0, crop: c.t || c.r || c.b || c.l ? c : null,
       brightness: Number(bright.value), contrast: Number(contrast.value), saturation: Number(sat.value), transparency: Number(transp.value),
       x: Number(x.value) || 0, y: Number(y.value) || 0,
+      border: Number(borderWidth.value) > 0 ? border.value : '', borderWidth: Math.max(0, Number(borderWidth.value) || 0), radius: Math.max(0, Number(radius.value) || 0), shadow: shadow.checked,
     }));
     d.close();
   });
@@ -422,7 +428,13 @@ export function shapePropertiesDialog(ed: DocEditor): void {
   if (!cur) throw new Error('Click a shape first.');
   const a = cur.node.attrs;
   const d = new Dialog('Shape', 600);
-  const kind = select(SHAPES.map((k) => [k, SHAPE_LABELS[k] ?? k] as [string, string]), String(a.kind));
+  const fixed = !(SHAPES as readonly string[]).includes(String(a.kind));
+  const kind = select(fixed ? [[String(a.kind), String(a.kind) === 'icon' ? 'Icon' : 'Ink drawing']] : SHAPES.map((k) => [k, SHAPE_LABELS[k] ?? k] as [string, string]), String(a.kind));
+  kind.disabled = fixed;
+  const shadow = input('checkbox', String(!!a.shadow));
+  const gradient = input('color', a.gradient ? String(a.gradient) : '#7c3aed');
+  const useGradient = input('checkbox', String(!!a.gradient));
+  gradient.addEventListener('input', () => { useGradient.checked = true; });
   const fill = input('color', a.fill && a.fill !== 'none' ? String(a.fill) : '#ffffff');
   const noFill = input('checkbox', String(!a.fill || a.fill === 'none'));
   const stroke = input('color', a.stroke ? String(a.stroke) : '#1a1a1a');
@@ -446,13 +458,13 @@ export function shapePropertiesDialog(ed: DocEditor): void {
   fill.addEventListener('input', () => { noFill.checked = false; });
   stroke.addEventListener('input', () => { noStroke.checked = false; });
   d.field('Text', text);
-  grid(d, [['Shape', kind], ['Fill', fill], ['No fill', noFill], ['Outline', stroke], ['No outline', noStroke], ['Outline width (pt)', strokeWidth],
+  grid(d, [['Shape', kind], ['Fill', fill], ['No fill', noFill], ['Gradient to', gradient], ['Gradient fill', useGradient], ['Shadow', shadow], ['Outline', stroke], ['No outline', noStroke], ['Outline width (pt)', strokeWidth],
     ['Text colour', color], ['Text size (pt)', size], ['Bold', bold], ['Font', font], ['Text alignment', align], ['Vertical alignment', valign], ['WordArt style', wordart],
     ['Wrapping', wrap], ['Side', side], ['Width (pt)', width], ['Height (pt)', height], ['Rotation (degrees)', rotate], ['Offset left (pt, behind or in front)', x], ['Offset top (pt)', y]]);
   d.button('Cancel', 'ghost', () => d.close());
   d.button('Apply', 'primary', () => {
     ed.run(setShape({
-      kind: kind.value, fill: noFill.checked ? '' : fill.value, stroke: noStroke.checked ? '' : stroke.value, strokeWidth: Math.max(0, Number(strokeWidth.value) || 0),
+      kind: kind.value, fill: noFill.checked ? '' : fill.value, stroke: noStroke.checked ? '' : stroke.value, shadow: shadow.checked, gradient: useGradient.checked && !noFill.checked ? gradient.value : '', strokeWidth: Math.max(0, Number(strokeWidth.value) || 0),
       text: text.value, color: color.value, size: Math.max(4, Number(size.value) || 11), bold: bold.checked, font: font.value, align: align.value, valign: valign.value,
       wordart: kind.value === 'wordArt' ? wordart.value : String(a.wordart ?? ''), wrap: wrap.value, side: side.value,
       width: Math.max(6, Number(width.value) || Number(a.width)), height: Math.max(3, Number(height.value) || Number(a.height)), rotate: Number(rotate.value) || 0, x: Number(x.value) || 0, y: Number(y.value) || 0,

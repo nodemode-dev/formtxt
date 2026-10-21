@@ -23,6 +23,7 @@ import { PictureView, fitSize, insertPicture, naturalSize } from './picture';
 import { ChartView } from './chart/chart';
 import { MathView, loadMathFonts } from './math';
 import { ShapeView } from './shape';
+import { InkTool } from './ink';
 import { api } from '../io/api';
 import { toast } from '../ui/toast';
 
@@ -131,7 +132,7 @@ ${TB('list.bullet', 'listBullet', 'Bulleted list', 'Ctrl+Shift+8')}${TB('list.nu
 <select class="ft-tb-select ft-tb-spacing" data-cmd="paragraph.lineSpacing" aria-label="Line spacing">${SPACINGS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>${SEP}
 ${TB('format.painter', 'painter', 'Format Painter', 'Ctrl+Shift+C')}${TB('format.paragraph', 'paragraph', 'Paragraph settings')}${TB('format.styles', 'styles', 'Styles')}${SEP}
 ${TB('insert.link', 'link', 'Link', 'Ctrl+K')}${TB('insert.codeBlock', 'code', 'Code block')}${TB('insert.pageBreak', 'pageBreak', 'Page break', 'Ctrl+Enter')}${TB('insert.sectionBreak', 'sectionBreak', 'Section break (next page)')}${TB('format.clear', 'clearFormat', 'Clear formatting', 'Ctrl+\\')}${SEP}
-${TB('insert.picture', 'image', 'Insert picture (or paste or drop one)')}${TB('insert.table', 'table', 'Insert table')}${TB('insert.chart', 'chart', 'Insert chart')}${TB('insert.shape', 'shapes', 'Shapes, text box and WordArt')}${TB('insert.equation', 'equation', 'Equation', 'Alt+=')}${TB('insert.symbol', 'omega', 'Symbol')}<span class="ft-tb-group" data-group="table">${TB('table.properties', 'tableProps', 'Table properties (right-click a cell for rows, columns and merging)')}</span>${SEP}
+${TB('insert.picture', 'image', 'Insert picture (or paste or drop one)')}${TB('insert.table', 'table', 'Insert table')}${TB('insert.chart', 'chart', 'Insert chart')}${TB('insert.shape', 'shapes', 'Shapes, text box and WordArt')}${TB('insert.icon', 'iconLibrary', 'Icons')}${TB('view.draw', 'pen', 'Draw with ink (Esc stops)')}${TB('insert.equation', 'equation', 'Equation', 'Alt+=')}${TB('insert.symbol', 'omega', 'Symbol')}<span class="ft-tb-group" data-group="table">${TB('table.properties', 'tableProps', 'Table properties (right-click a cell for rows, columns and merging)')}</span>${SEP}
 ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', 'outline', 'Outline')}${SEP}
 ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 'pageSetup', 'Page setup')}${TB('insert.headerFooter', 'headerFooter', 'Header and footer')}${TB('view.pageless', 'pageless', 'Pageless')}
 <select class="ft-tb-select ft-tb-zoom" data-cmd="view.zoom" aria-label="Zoom">${[50, 75, 90, 100, 110, 125, 150, 200].map((z) => `<option value="${z}"${z === 100 ? ' selected' : ''}>${z}%</option>`).join('')}<option value="" disabled hidden></option></select>
@@ -152,6 +153,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     this.paginator.onLayout = () => this.hooks.status(this.words());
     this.paginator.beforeMeasure = layoutTabs;
     this.paginator.sectionsOf = () => this.doc?.sections ?? [];
+    this.ink = new InkTool(this, () => this.pagesEl, (on) => setClass(this.root.querySelector('[data-cmd="view.draw"]'), 'is-on', on));
     this.ruler = new Ruler(this.root.querySelector('.ft-scroll') as HTMLElement, (props) => this.paraProps(props));
     this.mount = this.root.querySelector('.ft-pm') as HTMLElement;
     this.outline = this.root.querySelector('.ft-outline-list') as HTMLElement;
@@ -328,6 +330,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
   }
 
   onEquationKey: (() => void) | null = null;
+  readonly ink: InkTool;
 
   bodyHeight(): number {
     const s = this.doc?.sections[0];

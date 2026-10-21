@@ -60,8 +60,9 @@ export class ShapeView implements NodeView {
   private readonly path: SVGPathElement;
   private readonly text: HTMLElement;
   private node: PMNode;
-  private drag: { kind: string; x: number; y: number; w: number; h: number; ox: number; oy: number; ratio: number } | null = null;
+  private drag: { kind: string; x: number; y: number; w: number; h: number; ox: number; oy: number; ratio: number; cx: number; cy: number; r0: number } | null = null;
   private editing = false;
+  private readonly gid = `ftg${Math.random().toString(36).slice(2, 10)}`;
 
   constructor(node: PMNode, private readonly view: EditorView, private readonly getPos: () => number | undefined) {
     this.node = node;
@@ -74,13 +75,14 @@ export class ShapeView implements NodeView {
     this.path = this.svg.appendChild(document.createElementNS(NS, 'path'));
     this.text = this.frame.appendChild(document.createElement('span'));
     this.text.className = 'ft-shape-text';
-    for (const h of HANDLES) {
+    for (const h of [...HANDLES, 'rot']) {
       const n = this.dom.appendChild(document.createElement('span'));
-      n.className = 'ft-pic-handle';
+      n.className = h === 'rot' ? 'ft-pic-handle ft-rot-handle' : 'ft-pic-handle';
       n.dataset.h = h;
+      if (h === 'rot') n.title = 'Drag to rotate (Shift snaps to 15 degrees)';
     }
     this.dom.addEventListener('pointerdown', (e) => this.down(e));
-    this.dom.addEventListener('dblclick', (e) => { if (this.view.editable && this.node.attrs.kind !== 'line') { e.preventDefault(); e.stopPropagation(); this.edit(); } });
+    this.dom.addEventListener('dblclick', (e) => { if (this.view.editable && !['line', 'icon', 'ink'].includes(String(this.node.attrs.kind))) { e.preventDefault(); e.stopPropagation(); this.edit(); } });
     this.text.addEventListener('keydown', (e) => {
       if (!this.editing) return;
       e.stopPropagation();
@@ -101,16 +103,36 @@ export class ShapeView implements NodeView {
     set(this.frame, 'height', `${h.toFixed(2)}px`);
     set(this.frame, 'transform', Number(a.rotate) ? `rotate(${Number(a.rotate)}deg)` : '');
     const sw = a.stroke ? Math.max(0, Number(a.strokeWidth) || 0) * PX : 0;
-    const vb = `0 0 ${w.toFixed(2)} ${h.toFixed(2)}`;
-    if (this.svg.getAttribute('viewBox') !== vb) this.svg.setAttribute('viewBox', vb);
-    const d = shapePath(kind, w, h, kind === 'line' ? 0 : sw);
-    if (this.path.getAttribute('d') !== d) this.path.setAttribute('d', d);
-    const fill = kind === 'line' ? 'none' : String(a.fill || 'none');
-    if (this.path.getAttribute('fill') !== fill) this.path.setAttribute('fill', fill);
+    const custom = kind === 'icon' || kind === 'ink';
+    const box = Array.isArray(a.box) ? (a.box as number[]) : [24, 24];
+    const vb = custom ? `0 0 ${box[0]} ${box[1]}` : `0 0 ${w.toFixed(2)} ${h.toFixed(2)}`;
+    const attr = (n: Element, k: string, v: string | null): void => { if (v === null) { if (n.hasAttribute(k)) n.removeAttribute(k); } else if (n.getAttribute(k) !== v) n.setAttribute(k, v); };
+    attr(this.svg, 'viewBox', vb);
+    attr(this.svg, 'preserveAspectRatio', kind === 'ink' ? 'none' : kind === 'icon' ? 'xMidYMid meet' : null);
+    const d = custom ? String(a.path || '') : shapePath(kind, w, h, kind === 'line' ? 0 : sw);
+    attr(this.path, 'd', d);
+    const grad = !custom && kind !== 'line' && a.gradient && a.fill ? String(a.gradient) : '';
+    if (grad) {
+      let defs = this.svg.querySelector('defs');
+      if (!defs) { defs = document.createElementNS(NS, 'defs'); defs.innerHTML = `<linearGradient id="${this.gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0"/><stop offset="1"/></linearGradient>`; this.svg.prepend(defs); }
+      const stops = defs.querySelectorAll('stop');
+      attr(stops[0], 'stop-color', String(a.fill));
+      attr(stops[1], 'stop-color', grad);
+    } else this.svg.querySelector('defs')?.remove();
+    const fill = kind === 'line' || kind === 'ink' ? 'none' : grad ? `url(#${this.gid})` : String(a.fill || 'none');
+    attr(this.path, 'fill', fill);
+    attr(this.path, 'fill-rule', kind === 'icon' && a.fill ? 'evenodd' : null);
     const stroke = a.stroke ? String(a.stroke) : 'none';
-    if (this.path.getAttribute('stroke') !== stroke) this.path.setAttribute('stroke', stroke);
-    const swt = String(round(sw || (kind === 'line' ? PX : 0)));
-    if (this.path.getAttribute('stroke-width') !== swt) this.path.setAttribute('stroke-width', swt);
+    attr(this.path, 'stroke', stroke);
+    const swt = kind === 'icon' ? '2' : String(round(kind === 'ink' ? Math.max(0.5, Number(a.strokeWidth) || 2) * PX : sw || (kind === 'line' ? PX : 0)));
+    attr(this.path, 'stroke-width', swt);
+    attr(this.path, 'stroke-linecap', custom ? 'round' : null);
+    attr(this.path, 'stroke-linejoin', custom ? 'round' : null);
+    attr(this.path, 'vector-effect', kind === 'ink' ? 'non-scaling-stroke' : null);
+    set(this.svg, 'filter', a.shadow ? 'drop-shadow(0 3px 4px rgba(0, 0, 0, 0.3))' : '');
+    attr(this.svg, 'role', kind === 'icon' && a.alt ? 'img' : null);
+    attr(this.svg, 'aria-label', kind === 'icon' && a.alt ? String(a.alt) : null);
+    attr(this.svg, 'aria-hidden', kind === 'icon' && a.alt ? null : 'true');
     const free = wrap === 'behind' || wrap === 'front';
     set(this.dom, 'left', free ? `${(Number(a.x) * PX).toFixed(2)}px` : '');
     set(this.dom, 'top', free ? `${(Number(a.y) * PX).toFixed(2)}px` : '');
@@ -171,7 +193,7 @@ export class ShapeView implements NodeView {
     e.stopPropagation();
     const rect = this.dom.getBoundingClientRect();
     const ratio = rect.width && this.dom.offsetWidth ? rect.width / this.dom.offsetWidth : 1;
-    this.drag = { kind: handle ?? 'move', x: e.clientX, y: e.clientY, w: this.frame.offsetWidth, h: this.frame.offsetHeight, ox: parseFloat(this.dom.style.left) || 0, oy: parseFloat(this.dom.style.top) || 0, ratio };
+    this.drag = { kind: handle ?? 'move', x: e.clientX, y: e.clientY, w: this.frame.offsetWidth, h: this.frame.offsetHeight, ox: parseFloat(this.dom.style.left) || 0, oy: parseFloat(this.dom.style.top) || 0, ratio, cx: rect.left + rect.width / 2, cy: rect.top + rect.height / 2, r0: Number(this.node.attrs.rotate) || 0 };
     this.dom.setPointerCapture(e.pointerId);
     const move = (ev: PointerEvent): void => this.move(ev);
     const up = (ev: PointerEvent): void => {
@@ -205,9 +227,11 @@ export class ShapeView implements NodeView {
       set(this.dom, 'top', `${(d.oy + (ev.clientY - d.y) / d.ratio).toFixed(2)}px`);
       return;
     }
+    if (d.kind === 'rot') { set(this.frame, 'transform', `rotate(${angleOf(d, ev)}deg)`); return; }
     const { w, h } = this.size(ev);
     set(this.frame, 'width', `${w.toFixed(2)}px`);
     set(this.frame, 'height', `${h.toFixed(2)}px`);
+    if (['icon', 'ink'].includes(String(this.node.attrs.kind))) return;
     this.svg.setAttribute('viewBox', `0 0 ${w.toFixed(2)} ${h.toFixed(2)}`);
     const sw = this.node.attrs.stroke ? Math.max(0, Number(this.node.attrs.strokeWidth) || 0) * PX : 0;
     this.path.setAttribute('d', shapePath(String(this.node.attrs.kind), w, h, String(this.node.attrs.kind) === 'line' ? 0 : sw));
@@ -220,6 +244,7 @@ export class ShapeView implements NodeView {
     if (Math.abs(ev.clientX - d.x) < 1 && Math.abs(ev.clientY - d.y) < 1) { this.drag = null; this.apply(); return; }
     let patch: Record<string, unknown>;
     if (d.kind === 'move') patch = { x: round((d.ox + (ev.clientX - d.x) / d.ratio) / PX), y: round((d.oy + (ev.clientY - d.y) / d.ratio) / PX) };
+    else if (d.kind === 'rot') patch = { rotate: angleOf(d, ev) };
     else { const { w, h } = this.size(ev); patch = { width: round(w / PX), height: round(h / PX) }; }
     this.drag = null;
     if (pos === undefined) { this.apply(); return; }
@@ -227,6 +252,14 @@ export class ShapeView implements NodeView {
     tr.setSelection(NodeSelection.create(tr.doc, pos));
     this.view.dispatch(tr);
   }
+}
+
+export function angleOf(d: { cx: number; cy: number; x: number; y: number; r0?: number }, ev: PointerEvent): number {
+  const raw = (x: number, y: number): number => (Math.atan2(y - d.cy, x - d.cx) * 180) / Math.PI;
+  let a = (d.r0 ?? 0) + raw(ev.clientX, ev.clientY) - raw(d.x, d.y);
+  if (ev.shiftKey) a = Math.round(a / 15) * 15;
+  a = ((Math.round(a) % 360) + 360) % 360;
+  return a > 180 ? a - 360 : a;
 }
 
 export function selectedShape(state: EditorState): { node: PMNode; pos: number } | null {
@@ -256,12 +289,12 @@ export function shapeDefaults(kind: string): Record<string, unknown> {
   return { kind, width: wide ? 120 : 96, height: wide ? 60 : 96, fill: '#f97316', stroke: '#c2410c', strokeWidth: 1, text: '', wrap: 'front', color: '#ffffff' };
 }
 
-export function insertShape(attrs: Record<string, unknown>): Command {
+export function insertShape(attrs: Record<string, unknown>, at?: number): Command {
   return (state, dispatch) => {
     if (!dispatch) return true;
     const node = schema.nodes.shape.create(attrs);
-    const tr = state.tr.replaceSelectionWith(node);
-    const pos = tr.mapping.map(state.selection.from, -1);
+    const tr = at === undefined ? state.tr.replaceSelectionWith(node) : state.tr.insert(at, node);
+    const pos = at === undefined ? tr.mapping.map(state.selection.from, -1) : at;
     try { tr.setSelection(NodeSelection.create(tr.doc, pos)); } catch { void 0; }
     dispatch(tr.scrollIntoView());
     return true;

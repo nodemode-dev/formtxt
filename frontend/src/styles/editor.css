@@ -78,6 +78,17 @@
 .ft-pic-handle { display: none; position: absolute; width: 9px; height: 9px; box-sizing: border-box; border: 1.5px solid var(--accent-color); border-radius: 2px; background: #ffffff; }
 .ft-pic.is-selected .ft-pic-handle { display: block; }
 .ft-pm-root:not([contenteditable="true"]) .ft-pic-handle { display: none; }
+.ft-ink-layer { position: absolute; inset: 0; z-index: var(--z-chrome); cursor: crosshair; touch-action: none; }
+.ft-ink-layer > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; pointer-events: none; }
+.ft-ink-layer polyline { fill: none; stroke-linecap: round; stroke-linejoin: round; }
+.ft-icon-bar { display: grid; grid-template-columns: minmax(0, 1fr) 150px 110px 44px 70px; gap: var(--space-2); margin-bottom: var(--space-3); }
+.ft-icon-grid { display: grid; grid-template-columns: repeat(12, minmax(0, 1fr)); gap: 4px; height: 330px; overflow-y: auto; align-content: start; }
+.ft-icon-pick { display: grid; place-items: center; height: 44px; padding: 8px; border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: #ffffff; color: #1a1a1a; cursor: pointer; }
+.ft-icon-pick svg { width: 24px; height: 24px; }
+.ft-icon-pick:hover, .ft-icon-pick:focus-visible { border-color: var(--accent-color); outline: none; }
+.ft-pic-handle.ft-rot-handle { top: -26px; left: calc(50% - 5.5px); width: 11px; height: 11px; border-radius: 50%; cursor: grab; }
+.ft-pic-handle.ft-rot-handle::after { content: ''; position: absolute; top: 9px; left: 3.75px; width: 1.5px; height: 14px; background: var(--accent-color); }
+.ft-pic-frame::after { content: ''; position: absolute; inset: 0; border-radius: inherit; box-shadow: var(--pic-border, none); pointer-events: none; }
 .ft-pic-handle[data-h="nw"] { top: -5px; left: -5px; cursor: nwse-resize; }
 .ft-pic-handle[data-h="n"] { top: -5px; left: calc(50% - 4.5px); cursor: ns-resize; }
 .ft-pic-handle[data-h="ne"] { top: -5px; right: -5px; cursor: nesw-resize; }
