@@ -1,0 +1,51 @@
+.ft-refblock { position: relative; margin: var(--space-3) 0; padding: var(--space-2) 0; border-radius: var(--radius); cursor: default; user-select: none; }
+.ft-refblock.ProseMirror-selectednode { outline: 1.5px solid var(--accent-color); outline-offset: 2px; }
+.ft-refblock-head { display: flex; align-items: baseline; justify-content: space-between; gap: var(--space-3); margin-bottom: var(--space-2); }
+.ft-refblock-title { font-weight: 600; font-size: 1.15em; }
+.ft-refblock-update { visibility: hidden; font: inherit; font-size: var(--ft-12); padding: 1px var(--space-2); color: var(--text-secondary); background: transparent; border: 1px solid var(--border-color, currentColor); border-radius: var(--radius); cursor: pointer; }
+.ft-refblock:hover .ft-refblock-update, .ft-refblock.ProseMirror-selectednode .ft-refblock-update { visibility: visible; }
+.ft-ref-entry { display: flex; align-items: baseline; gap: var(--space-1); line-height: 1.5; }
+.ft-ref-entry[data-target]:not([data-target=""]) { cursor: pointer; }
+.ft-ref-entry[data-target]:not([data-target=""]):hover .ft-ref-text { color: var(--accent-color); text-decoration: underline; }
+.ft-ref-entry.lv1 { padding-left: 1.5em; }
+.ft-ref-entry.lv2 { padding-left: 3em; }
+.ft-ref-entry.lv3 { padding-left: 4.5em; }
+.ft-ref-entry.lv4 { padding-left: 6em; }
+.ft-ref-entry.lv5, .ft-ref-entry.lv6, .ft-ref-entry.lv7, .ft-ref-entry.lv8 { padding-left: 7.5em; }
+.ft-ref-dots { flex: 1 1 auto; min-width: 1em; align-self: end; margin-bottom: 0.3em; border-bottom: 1px dotted currentColor; opacity: 0.45; }
+.ft-ref-page { flex: none; font-variant-numeric: tabular-nums; }
+.ft-ref-n { flex: none; min-width: 1.6em; color: var(--text-secondary); font-variant-numeric: tabular-nums; }
+.ft-ref-letter { margin-top: var(--space-2); font-weight: 600; }
+.ft-refblock[data-kind="index"] .ft-ref-dots { display: none; }
+.ft-refblock[data-kind="index"] .ft-ref-text { margin-right: var(--space-2); }
+.ft-refblock[data-kind="index"] .ft-ref-page { margin-left: 0; }
+.ft-refblock[data-kind="bibliography"] .ft-ref-entry { display: block; padding-left: 2em; text-indent: -2em; margin-bottom: var(--space-2); }
+.ft-refblock[data-kind="bibliography"][data-style="ieee"] .ft-ref-entry { display: flex; padding-left: 0; text-indent: 0; }
+.ft-refblock[data-kind="notes"] { margin-top: var(--space-4); padding-top: var(--space-3); border-top: 1px solid var(--border-color, currentColor); font-size: 0.9em; }
+.ft-refblock[data-kind="notes"] .ft-refblock-title { font-size: 1em; }
+.ft-refblock[data-kind="notes"] .ft-ref-n { min-width: 2em; text-align: right; padding-right: var(--space-1); }
+.ft-noteref { cursor: default; color: var(--accent-color); font-weight: 600; padding: 0 1px; }
+.ft-noteref.ProseMirror-selectednode { outline: 1px solid var(--accent-color); border-radius: 2px; }
+.ft-bookmark { display: inline-block; width: 0; height: 1em; vertical-align: text-bottom; border-left: 2px solid var(--accent-color); opacity: 0.55; margin: 0 1px; }
+.ft-bookmark.ProseMirror-selectednode { opacity: 1; }
+.ft-seq { font-weight: 600; font-variant-numeric: tabular-nums; }
+.ft-xref { padding: 0 1px; border-radius: 2px; color: var(--accent-color); cursor: default; background: color-mix(in srgb, var(--accent-color) 8%, transparent); }
+.ft-xref[data-missing] { color: var(--danger); }
+.ft-xref.ProseMirror-selectednode, .ft-cite.ProseMirror-selectednode, .ft-idx.ProseMirror-selectednode { outline: 1px solid var(--accent-color); }
+.ft-cite { cursor: default; border-radius: 2px; background: color-mix(in srgb, currentColor 7%, transparent); }
+.ft-idx { font-size: var(--ft-11); padding: 0 var(--space-1); border-radius: var(--radius); border: 1px dashed var(--border-color, currentColor); color: var(--text-secondary); cursor: default; }
+.ft-linkchip { display: inline-flex; align-items: baseline; gap: var(--space-1); max-width: 28em; padding: 0 var(--space-2); border: 1px solid var(--border-color, currentColor); border-radius: 999px; font-size: 0.92em; color: inherit; text-decoration: none; background: color-mix(in srgb, currentColor 5%, transparent); vertical-align: baseline; }
+.ft-linkchip-site { flex: none; color: var(--text-secondary); font-size: 0.85em; }
+.ft-linkchip-title { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ft-linkchip.ProseMirror-selectednode { outline: 1.5px solid var(--accent-color); outline-offset: 1px; }
+.ft-field[hidden], .ft-refs-sources[hidden], .ft-refs-error[hidden] { display: none; }
+.ft-refs-sources { display: grid; gap: var(--space-1); max-height: 9em; overflow: auto; margin-bottom: var(--space-2); }
+.ft-refs-source { justify-content: flex-start; text-align: left; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ft-refs-source.is-selected { border-color: var(--accent-color); }
+.ft-refs-bookmarks { display: grid; gap: var(--space-1); margin-top: var(--space-3); max-height: 14em; overflow: auto; }
+.ft-refs-bm { display: flex; align-items: center; gap: var(--space-2); }
+.ft-refs-bm-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
+.ft-refs-error { color: var(--danger); }
+@media print {
+  .ft-refblock-update, .ft-idx, .ft-bookmark { display: none; }
+}
