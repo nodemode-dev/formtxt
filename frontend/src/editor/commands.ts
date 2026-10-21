@@ -1,7 +1,7 @@
 import { setBlockType, splitBlockAs, toggleMark } from 'prosemirror-commands';
 import type { MarkType, Node as PMNode } from 'prosemirror-model';
 import { type Command, type EditorState, TextSelection, type Transaction } from 'prosemirror-state';
-import { schema } from './schema';
+import { type ListFmt, cleanListFmt, schema } from './schema';
 
 type ParaAttrs = Record<string, unknown>;
 
@@ -59,6 +59,29 @@ export function toggleList(kind: string): Command {
   };
 }
 
+function withoutStart(f: ListFmt | null): ListFmt | null {
+  if (!f || f.start === undefined) return f;
+  const { start: _drop, ...rest } = f;
+  return Object.keys(rest).length ? rest : null;
+}
+
+export function setListFormat(fmt: ListFmt, restartAt?: number): Command {
+  return (state, dispatch) => {
+    const paras: Array<{ node: PMNode; pos: number }> = [];
+    state.doc.nodesBetween(state.selection.from, state.selection.to, (n, pos) => { if (n.type === schema.nodes.paragraph && n.attrs.list && n.attrs.list !== 'check') paras.push({ node: n, pos }); return n.type !== schema.nodes.paragraph; });
+    if (!paras.length) return false;
+    if (!dispatch) return true;
+    const tr = state.tr;
+    paras.forEach(({ node, pos }, i) => {
+      const base = { ...fmt };
+      if (i === 0 && restartAt !== undefined) base.start = restartAt;
+      tr.setNodeMarkup(pos, undefined, { ...node.attrs, listFmt: cleanListFmt(base) });
+    });
+    dispatch(tr.scrollIntoView());
+    return true;
+  };
+}
+
 export function shiftIndent(delta: 1 | -1): Command {
   return paraCommand((n) => {
     if (n.attrs.list) {
@@ -98,7 +121,7 @@ export function splitWithNextStyle(nextOf: (style: string) => string): Command {
     const atEnd = $from.parentOffset === para.content.size;
     return splitBlockAs((node) => ({
       type: schema.nodes.paragraph,
-      attrs: { ...node.attrs, id: null, checked: false, collapsed: false, style: atEnd && !node.attrs.list ? nextOf(String(node.attrs.style)) : node.attrs.style },
+      attrs: { ...node.attrs, id: null, checked: false, collapsed: false, listFmt: withoutStart(node.attrs.listFmt as ListFmt | null), style: atEnd && !node.attrs.list ? nextOf(String(node.attrs.style)) : node.attrs.style },
     }))(state, dispatch, view);
   };
 }

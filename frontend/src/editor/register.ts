@@ -8,7 +8,7 @@ import { CHART_KINDS } from './chart/types';
 import { CellSelection, addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow, deleteTable, isInTable, mergeCells, setCellAttr, splitCell, toggleHeaderColumn, toggleHeaderRow } from 'prosemirror-tables';
 import { el, setHidden, setText } from '../ui/dom';
 import { toast } from '../ui/toast';
-import { chartDialog, diagramDialog, equationDialog, formulaDialog, shapeGalleryDialog, shapePropertiesDialog, symbolDialog } from './dialogs';
+import { cellBordersDialog, listFormatDialog, styleSetDialog, chartDialog, diagramDialog, equationDialog, formulaDialog, shapeGalleryDialog, shapePropertiesDialog, symbolDialog } from './dialogs';
 import { formulaSites, selectedField, updateFields } from './fields';
 import { SHAPES, SHAPE_WRAPS, WORDART, insertShape, newShapeId, selectedShape, setShape, shapeDefaults } from './shape';
 import { putMath, selectedMath } from './math';
@@ -16,8 +16,10 @@ import { findIcon, iconAttrs, iconsDialog } from './icons-dialog';
 import { DIAGRAM_COLORS, DIAGRAM_LAYOUTS, DIAGRAM_STYLES, type DiagramItem, insertDiagram, itemsToText, sampleItems, selectedDiagram, setDiagram, textToItems } from './diagram';
 import { headerFooterDialog, insertTableDialog, pageGeometry, pageSetupDialog, paragraphDialog, parseTabs, picturePropertiesDialog, stylesDialog, tablePropertiesDialog, wordCountDialog } from './dialogs';
 import { type DocEditor, FONTS } from './editor';
-import { TABLE_LOOKS, schema } from './schema';
-import { distributeColumns, insertTable, setCellShading, setTableAttr, sortTable, tableInfo, tableToText, textToTable } from './table';
+import { NUMBER_FORMATS, TABLE_LOOKS, schema } from './schema';
+import { setListFormat } from './commands';
+import { STYLE_SETS } from './stylesets';
+import { BORDER_TARGETS, distributeColumns, insertTable, setCellBorders, setCellShading, setTableAttr, sortTable, tableInfo, tableToText, textToTable } from './table';
 
 const schemaTab = () => schema.nodes.tab.create();
 
@@ -52,6 +54,14 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   add('paragraph.lineSpacing', 'Line spacing', 'Paragraph', 'Set line spacing as a multiple; 0 returns to the style.', (p) => ed.spacing(Number(p.value) > 0 ? Number(p.value) : null), [{ name: 'value', type: 'number', description: 'Multiple such as 1, 1.15, 1.5 or 2' }]);
   add('list.bullet', 'Bulleted list', 'Paragraph', 'Turn the selected paragraphs into a bulleted list, or back.', () => ed.list('bullet'), [], ['Ctrl+Shift+8']);
   add('list.number', 'Numbered list', 'Paragraph', 'Turn the selected paragraphs into a numbered list, or back.', () => ed.list('number'), [], ['Ctrl+Shift+7']);
+  add('list.format', 'List format', 'Paragraph', `Number style, text before and after, restart value or bullet character of the selected list paragraphs; with no options, opens the dialog. Number styles: ${NUMBER_FORMATS.join(', ')}.`, (p) => {
+    if ([p.format, p.prefix, p.suffix, p.start, p.bullet, p.reset].every((v) => v === undefined)) { listFormatDialog(ed); return true; }
+    if (p.format !== undefined && !(NUMBER_FORMATS as readonly string[]).includes(String(p.format))) throw new Error(`format must be one of ${NUMBER_FORMATS.join(', ')}.`);
+    const fmt = p.reset ? {} : { format: p.format === undefined ? undefined : String(p.format), prefix: p.prefix === undefined ? undefined : String(p.prefix), suffix: p.suffix === undefined ? undefined : String(p.suffix), bullet: p.bullet === undefined ? undefined : String(p.bullet) };
+    const start = p.start === undefined || p.start === '' ? undefined : Math.max(0, Math.round(Number(p.start) || 0));
+    if (!ed.run(setListFormat(fmt, start))) throw new Error('Select paragraphs in a bulleted or numbered list first.');
+    return true;
+  }, [{ name: 'format', type: 'string', description: NUMBER_FORMATS.join(', ') }, { name: 'prefix', type: 'string', description: 'Text before the number' }, { name: 'suffix', type: 'string', description: 'Text after the number (default .)' }, { name: 'start', type: 'number', description: 'Restart the first selected item at this number' }, { name: 'bullet', type: 'string', description: 'One bullet character' }, { name: 'reset', type: 'boolean', description: 'Back to the default look' }]);
   add('list.check', 'Checklist', 'Paragraph', 'Turn the selected paragraphs into a checklist, or back.', () => ed.list('check'), [], ['Ctrl+Shift+9']);
 
   add('insert.link', 'Link', 'Insert', 'Link the selection to an address; with no address, asks for one.', (p) => (p.href !== undefined ? ed.link(String(p.href) || null) : (ed.promptLink(), true)), [{ name: 'href', type: 'string', description: 'Address; empty removes the link' }], ['Ctrl+K']);
@@ -62,6 +72,10 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
 
   add('format.painter', 'Format Painter', 'Format', 'Copy the formatting at the cursor; the next selection receives it.', () => ed.togglePainter(), [], ['Ctrl+Shift+C']);
   add('format.paragraph', 'Paragraph settings', 'Format', 'Indents, spacing, line spacing, borders, shading, tab stops and pagination options for the selected paragraphs.', () => { paragraphDialog(ed); return true; });
+  add('format.styleSet', 'Style set', 'Format', `Change the fonts, colours and spacing of the document's styles at once; with no set, opens the gallery. Sets: ${STYLE_SETS.map((s) => s.id).join(', ')}.`, async (p) => {
+    if (p.set === undefined) { await styleSetDialog(ed); return true; }
+    return { applied: await ed.applyStyleSet(String(p.set)) };
+  }, [{ name: 'set', type: 'string', description: STYLE_SETS.map((s) => s.id).join(', ') }]);
   add('format.styles', 'Modify style', 'Format', 'Edit the current paragraph style, create a new style from it, or update it to match the selection.', () => { stylesDialog(ed); return true; });
   for (const [mode, label] of [['upper', 'UPPERCASE'], ['lower', 'lowercase'], ['title', 'Capitalize Each Word'], ['sentence', 'Sentence case'], ['toggle', 'tOGGLE cASE']] as const) {
     add(`format.case.${mode}`, `Change case: ${label}`, 'Format', `Change the selected text to ${label}.`, () => ed.recase(mode));
@@ -169,6 +183,14 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   add('table.repeatHeader', 'Repeat header rows', 'Table', 'Repeat the header rows at the top of each page the table continues on.', (p) => inTable(setTableAttr('repeatHeader', p.on === undefined ? true : !!p.on))(), [{ name: 'on', type: 'boolean', description: 'Default true' }]);
   add('table.align', 'Table alignment', 'Table', 'Place the table at the left or centre of the page body.', (p) => inTable(setTableAttr('align', p.align === 'center' ? 'center' : ''))(), [{ name: 'align', type: 'string', description: 'left or center' }]);
   add('table.shading', 'Cell shading', 'Table', 'Shade the selected cells; empty removes shading.', (p) => inTable(setCellShading(String(p.value ?? '')))(), [{ name: 'value', type: 'string', description: '#rrggbb or empty' }]);
+  add('table.borders', 'Cell borders', 'Table', `Borders on the selected cells; with no target, opens the borders dialog. Targets: ${BORDER_TARGETS.join(', ')} (clear goes back to the table look).`, (p) => {
+    if (p.target === undefined) { cellBordersDialog(ed); return true; }
+    const target = String(p.target);
+    if (!(BORDER_TARGETS as readonly string[]).includes(target)) throw new Error(`target must be one of ${BORDER_TARGETS.join(', ')}.`);
+    const style = p.style === undefined ? 'solid' : String(p.style);
+    if (!['solid', 'dashed', 'dotted', 'double'].includes(style)) throw new Error('style must be solid, dashed, dotted or double.');
+    return inTable(setCellBorders(target, { style, width: Math.max(0.25, Math.min(6, Number(p.width) || 0.75)), color: color(p.color) || '#000000' }))();
+  }, [{ name: 'target', type: 'string', description: BORDER_TARGETS.join(', ') }, { name: 'style', type: 'string', description: 'solid, dashed, dotted or double' }, { name: 'width', type: 'number', description: 'Points, 0.25 to 6' }, { name: 'color', type: 'string', description: '#rrggbb' }]);
   add('table.valign', 'Cell vertical alignment', 'Table', 'Align cell content to the top, middle or bottom.', (p) => inTable(setCellAttr('valign', ['middle', 'bottom'].includes(String(p.value)) ? String(p.value) : ''))(), [{ name: 'value', type: 'string', description: 'top, middle or bottom' }]);
   add('table.distribute', 'Distribute columns', 'Table', 'Make every column the same width; the table keeps its width unless one is given.', (p) => inTable(distributeColumns(Number(p.width) || undefined))(), [{ name: 'width', type: 'number', description: 'Table width in points (optional)' }]);
   add('table.sort', 'Sort table', 'Table', 'Sort the rows below the header rows by a column; numbers sort as numbers.', (p) => inTable(sortTable((Number(p.column) || 1) - 1, !!p.descending))(), [{ name: 'column', type: 'number', description: 'Column number, from 1' }, { name: 'descending', type: 'boolean', description: 'Largest or Z first' }]);
@@ -553,7 +575,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   const closeMenu = (): void => { if (!menu.hidden) setHidden(menu, true); };
   const TABLE_MENU: Array<[string, string] | null> = [['table.rowAbove', 'Insert row above'], ['table.rowBelow', 'Insert row below'], ['table.colLeft', 'Insert column left'], ['table.colRight', 'Insert column right'], null,
     ['table.deleteRow', 'Delete row'], ['table.deleteColumn', 'Delete column'], ['table.delete', 'Delete table'], null,
-    ['table.merge', 'Merge cells'], ['table.split', 'Split cell'], ['table.headerRow', 'Header row on or off'], null, ['insert.formula', 'Formula...'], ['fields.update', 'Update fields'], null, ['table.properties', 'Table properties']];
+    ['table.merge', 'Merge cells'], ['table.split', 'Split cell'], ['table.headerRow', 'Header row on or off'], null, ['table.borders', 'Borders...'], ['insert.formula', 'Formula...'], ['fields.update', 'Update fields'], null, ['table.properties', 'Table properties']];
   for (const row of TABLE_MENU) {
     if (!row) { menu.appendChild(el('<div class="ft-menu-sep" role="separator"></div>')); continue; }
     const b = el<HTMLButtonElement>(`<button class="ft-menu-item" role="menuitem" type="button" data-cmd-menu="${row[0]}"></button>`);

@@ -7,6 +7,25 @@ export const ALIGNS = ['left', 'center', 'right', 'justify'] as const;
 
 type Attrs = Record<string, string>;
 
+export const NUMBER_FORMATS = ['decimal', 'decimal-leading-zero', 'lower-alpha', 'upper-alpha', 'lower-roman', 'upper-roman'] as const;
+export interface ListFmt { format?: string; prefix?: string; suffix?: string; start?: number; bullet?: string }
+
+function safeJson(s: string): unknown { try { return JSON.parse(s); } catch { return null; } }
+
+const cssString = (s: string): string => `"${s.replace(/[\u0000-\u001f\u007f]/g, '').replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+
+export function cleanListFmt(v: unknown): ListFmt | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  const out: ListFmt = {};
+  if ((NUMBER_FORMATS as readonly string[]).includes(String(o.format))) out.format = String(o.format);
+  if (typeof o.prefix === 'string' && o.prefix) out.prefix = o.prefix.slice(0, 24);
+  if (typeof o.suffix === 'string') out.suffix = o.suffix.slice(0, 8);
+  if (typeof o.start === 'number' && Number.isFinite(o.start) && o.start >= 0) out.start = Math.min(99999, Math.round(o.start));
+  if (typeof o.bullet === 'string' && o.bullet) out.bullet = [...o.bullet][0];
+  return Object.keys(out).length ? out : null;
+}
+
 function paraAttrs(n: PMNode): Attrs {
   const a = n.attrs;
   const out: Attrs = { 'data-style': String(a.style || 'Normal') };
@@ -15,6 +34,25 @@ function paraAttrs(n: PMNode): Attrs {
     out['data-list'] = String(a.list);
     out['data-level'] = String(a.level);
     if (a.list === 'check') out['data-checked'] = a.checked ? 'true' : 'false';
+  }
+  const fmt = a.list && a.list !== 'check' ? (a.listFmt as ListFmt | null) : null;
+  const vars: string[] = [];
+  if (fmt) {
+    out['data-list-fmt'] = JSON.stringify(fmt);
+    if (a.list === 'number') {
+      if (fmt.format) out['data-fmt'] = fmt.format;
+      if (fmt.prefix) vars.push(`--ft-num-pre:${cssString(fmt.prefix)}`);
+      if (fmt.suffix !== undefined) vars.push(`--ft-num-suf:${cssString(fmt.suffix)}`);
+      const chars = (fmt.prefix ?? '').length + (fmt.suffix ?? '.').length + (fmt.format?.endsWith('roman') ? 4 : fmt.format === 'decimal-leading-zero' ? 3 : 2);
+      if (chars > 4) vars.push(`--ft-num-w:calc(${chars * 0.6}em + 4px)`);
+      if (fmt.start !== undefined) {
+        const lv = Number(a.level) || 0;
+        vars.push(`counter-reset:l${lv} ${Math.round(fmt.start) - 1}${Array.from({ length: 8 - lv }, (_, i) => ` l${lv + 1 + i}`).join('')}`);
+      }
+    } else if (fmt.bullet) {
+      out['data-bullet'] = 'true';
+      vars.push(`--ft-bullet:${cssString(fmt.bullet)}`);
+    }
   }
   if (a.collapsed) out['data-collapsed'] = 'true';
   if (a.keepNext) out['data-keep-next'] = 'true';
@@ -35,6 +73,7 @@ function paraAttrs(n: PMNode): Attrs {
   if (a.spaceBefore !== null) css.push(`margin-top:${(Number(a.spaceBefore) * 96) / 72}px`);
   if (a.spaceAfter !== null) css.push(`margin-bottom:${(Number(a.spaceAfter) * 96) / 72}px`);
   if (a.lineSpacing !== null) css.push(`line-height:${Number(a.lineSpacing) * 1.2}`);
+  css.push(...vars);
   if (css.length) out.style = css.join(';');
   return out;
 }
@@ -62,10 +101,32 @@ const cellAttr = (name: string, css: string) => ({
   },
 });
 
+export const BORDER_SIDES = ['top', 'right', 'bottom', 'left'] as const;
+export const BORDER_STYLES = ['solid', 'dashed', 'dotted', 'double', 'none'] as const;
+export interface BorderEdge { style: string; width: number; color: string }
+export type CellBorders = Partial<Record<(typeof BORDER_SIDES)[number], BorderEdge>>;
+
+export function borderCss(b: BorderEdge): string {
+  if (b.style === 'none') return 'hidden';
+  const px = Math.max(b.style === 'double' ? 3 : 1, Math.round(((Number(b.width) || 0.75) * 96) / 72));
+  return `${px}px ${b.style} ${b.color || '#000000'}`;
+}
+
+const bordersAttr = {
+  default: null,
+  getFromDOM: (dom: HTMLElement) => { try { return dom.dataset.borders ? JSON.parse(dom.dataset.borders) : null; } catch { return null; } },
+  setDOMAttr: (value: unknown, attrs: Record<string, unknown>) => {
+    const b = value as CellBorders | null;
+    if (!b || !Object.keys(b).length) return;
+    attrs['data-borders'] = JSON.stringify(b);
+    attrs.style = `${String(attrs.style ?? '')}${BORDER_SIDES.filter((s) => b[s]).map((s) => `border-${s}:${borderCss(b[s]!)};`).join('')}`;
+  },
+};
+
 const tables = tableNodes({
   tableGroup: 'block',
   cellContent: '(paragraph | code_block | table | chart | diagram)+',
-  cellAttributes: { shading: cellAttr('shading', 'background'), valign: cellAttr('valign', 'vertical-align') },
+  cellAttributes: { shading: cellAttr('shading', 'background'), valign: cellAttr('valign', 'vertical-align'), borders: bordersAttr },
 });
 
 export function tableAttrs(n: PMNode): Record<string, string> {
@@ -101,9 +162,10 @@ const nodes: Record<string, NodeSpec> = {
       list: { default: '' },
       level: { default: 0 },
       checked: { default: false },
+      listFmt: { default: null },
     },
     parseDOM: [
-      { tag: 'p', getAttrs: (dom: HTMLElement) => ({ style: dom.dataset.style || 'Normal', list: dom.dataset.list || '', level: Number(dom.dataset.level || 0), checked: dom.dataset.checked === 'true', align: (ALIGNS as readonly string[]).includes(dom.style.textAlign) ? dom.style.textAlign : '' }) },
+      { tag: 'p', getAttrs: (dom: HTMLElement) => ({ style: dom.dataset.style || 'Normal', list: dom.dataset.list || '', level: Number(dom.dataset.level || 0), checked: dom.dataset.checked === 'true', align: (ALIGNS as readonly string[]).includes(dom.style.textAlign) ? dom.style.textAlign : '', listFmt: cleanListFmt(dom.dataset.listFmt ? safeJson(dom.dataset.listFmt) : null) }) },
       ...[1, 2, 3, 4, 5, 6].map((level) => ({ tag: `h${level}`, getAttrs: () => ({ style: `Heading${level}` }) })),
       { tag: 'li', getAttrs: (dom: HTMLElement) => ({ list: dom.parentElement?.nodeName === 'OL' ? 'number' : 'bullet' }) },
     ],

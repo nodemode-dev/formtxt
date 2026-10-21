@@ -2,20 +2,22 @@ import type { Style } from '../engine/model';
 import { Dialog } from '../ui/dialog';
 import { el, escapeHtml, setText } from '../ui/dom';
 import { setCellAttr } from 'prosemirror-tables';
-import { type DocEditor, FONTS } from './editor';
+import { type DocEditor, FONTS, fontStack } from './editor';
 import { selectedPicture, setPicture } from './picture';
 import { CHART_FNS, CHART_LABELS, type ChartData, type ChartOptions, SAMPLE, SERIES_COLORS, gridText, insertChart, paint, parseGrid, selectedChart, setChart } from './chart/chart';
 import { CHART_KINDS } from './chart/types';
 import { SYMBOL_GROUPS } from './symbols';
 import { FORMAT_PRESETS, defaultFormula, evaluate, formulaSites, selectedField, updateFields } from './fields';
-import { schema } from './schema';
+import { type ListFmt, schema } from './schema';
+import { setListFormat } from './commands';
+import { STYLE_SETS, currentSetId, setFonts } from './stylesets';
 import { SHAPES, SHAPE_LABELS, WORDART, insertShape, selectedShape, setShape, shapeDefaults, shapePath } from './shape';
 import { MATH_SNIPPETS, loadMathFonts, putMath, renderMath, selectedMath } from './math';
 import { DIAGRAM_CATEGORIES, DIAGRAM_LAYOUTS, type DiagramItem, insertDiagram, itemsToText, renderDiagram, sampleItems, selectedDiagram, setDiagram, textToItems } from './diagram';
 import { api } from '../io/api';
 import { commands } from '../engine/registry';
 import { toast } from '../ui/toast';
-import { distributeColumns, insertTable, setCellShading, setTableAttr, sortTable, tableInfo } from './table';
+import { distributeColumns, insertTable, setCellBorders, setCellShading, setTableAttr, sortTable, tableInfo } from './table';
 
 function num(v: unknown, fallback = ''): string {
   return typeof v === 'number' && Number.isFinite(v) ? String(v) : fallback;
@@ -86,6 +88,34 @@ export function paragraphDialog(ed: DocEditor): void {
     d.close();
   });
   d.open(align);
+}
+
+export async function styleSetDialog(ed: DocEditor): Promise<void> {
+  if (!ed.view) throw new Error('Open a document first.');
+  await ed.preloadFonts([...new Set(STYLE_SETS.flatMap(setFonts))]);
+  const d = new Dialog('Style sets', 620);
+  let chosen = currentSetId(ed.styles()) || STYLE_SETS[0].id;
+  const gallery = el('<div class="ft-styleset-grid" role="radiogroup" aria-label="Style sets"></div>');
+  for (const s of STYLE_SETS) {
+    const card = el<HTMLButtonElement>(`<button type="button" class="ft-styleset" role="radio" data-set="${s.id}" aria-checked="${s.id === chosen}">
+<span class="ft-styleset-title" style="font-family:${escapeHtml(fontStack(s.heading.font))};color:${s.heading.color};font-style:${s.heading.italic ? 'italic' : 'normal'};text-align:${s.titleAlign}">Title</span>
+<span class="ft-styleset-head" style="font-family:${escapeHtml(fontStack(s.heading.font))};color:${s.heading.color};font-style:${s.heading.italic ? 'italic' : 'normal'}">Heading 1</span>
+<span class="ft-styleset-body" style="font-family:${escapeHtml(fontStack(s.body.font))};color:${s.body.color}">Body text sets the tone of the page.</span>
+<span class="ft-styleset-name">${escapeHtml(s.name)}</span></button>`);
+    card.addEventListener('click', () => {
+      chosen = s.id;
+      for (const c of gallery.querySelectorAll<HTMLElement>('.ft-styleset')) c.setAttribute('aria-checked', String(c.dataset.set === chosen));
+    });
+    card.addEventListener('dblclick', () => { void apply(); });
+    gallery.appendChild(card);
+  }
+  const apply = async (): Promise<void> => {
+    try { await ed.applyStyleSet(chosen); d.close(); } catch (e) { toast(e instanceof Error ? e.message : String(e), 'error'); }
+  };
+  d.body.append(gallery, el('<p class="ft-note">A style set changes the fonts, colours and spacing of Normal, Title, Subtitle, Quote and the headings for the whole document. Text you formatted by hand keeps its formatting. Standard brings back the default look.</p>'));
+  d.button('Cancel', 'ghost', () => d.close());
+  d.button('Apply', 'primary', () => { void apply(); });
+  d.open(gallery.querySelector<HTMLElement>('[aria-checked="true"]') ?? gallery.firstElementChild as HTMLElement);
 }
 
 export function stylesDialog(ed: DocEditor): void {
@@ -251,6 +281,7 @@ export function tablePropertiesDialog(ed: DocEditor): void {
   d.body.appendChild(el(`<p class="ft-note">${info.rows} rows, ${info.cols} columns. Shading and vertical alignment apply to the selected cells.</p>`));
   d.button('Distribute columns', '', () => { ed.run(distributeColumns(Number(width.value) || ed.bodyWidth())); });
   d.button('Sort', '', () => { ed.run(sortTable(Number(sortCol.value) - 1, sortDir.value === 'desc')); });
+  d.button('Borders...', '', () => { d.close(); cellBordersDialog(ed); });
   d.button('Cancel', 'ghost', () => d.close());
   shade.addEventListener('input', () => { noShade.checked = false; });
   d.button('Apply', 'primary', () => {
@@ -263,6 +294,25 @@ export function tablePropertiesDialog(ed: DocEditor): void {
     d.close();
   });
   d.open(look);
+}
+
+export const BORDER_TARGET_LABELS: Array<[string, string]> = [['all', 'All borders'], ['outside', 'Outside borders'], ['inside', 'Inside borders'], ['top', 'Top border'], ['bottom', 'Bottom border'], ['left', 'Left border'], ['right', 'Right border'], ['insideH', 'Inside horizontal'], ['insideV', 'Inside vertical'], ['none', 'No border'], ['clear', 'Back to the table look']];
+
+export function cellBordersDialog(ed: DocEditor): void {
+  if (!ed.view || !tableInfo(ed.view.state)) throw new Error('Put the cursor in a table first.');
+  const d = new Dialog('Cell borders', 440);
+  const target = select(BORDER_TARGET_LABELS, 'all');
+  const style = select([['solid', 'Solid'], ['dashed', 'Dashed'], ['dotted', 'Dotted'], ['double', 'Double']], 'solid');
+  const width = select([['0.5', '1/2 pt'], ['0.75', '3/4 pt'], ['1', '1 pt'], ['1.5', '1 1/2 pt'], ['2.25', '2 1/4 pt'], ['3', '3 pt'], ['4.5', '4 1/2 pt']], '0.75');
+  const color = input('color', '#000000');
+  grid(d, [['Apply to', target], ['Style', style], ['Width', width], ['Colour', color]]);
+  d.body.appendChild(el('<p class="ft-note">Applies to the selected cells; drag across cells first to frame a block. Outside and inside are measured from the selection\'s edge.</p>'));
+  d.button('Cancel', 'ghost', () => d.close());
+  d.button('Apply', 'primary', () => {
+    ed.run(setCellBorders(target.value, { style: style.value, width: Number(width.value), color: color.value }));
+    d.close();
+  });
+  d.open(target);
 }
 
 export function picturePropertiesDialog(ed: DocEditor): void {
@@ -656,6 +706,69 @@ export function formulaDialog(ed: DocEditor): void {
   });
   d.open(code);
   refresh();
+}
+
+const ROMAN: Array<[number, string]> = [[1000, 'm'], [900, 'cm'], [500, 'd'], [400, 'cd'], [100, 'c'], [90, 'xc'], [50, 'l'], [40, 'xl'], [10, 'x'], [9, 'ix'], [5, 'v'], [4, 'iv'], [1, 'i']];
+
+function counterText(n: number, format: string): string {
+  if (format === 'decimal-leading-zero') return n < 10 && n >= 0 ? `0${n}` : String(n);
+  if (format.endsWith('alpha')) {
+    let s = '', k = n;
+    while (k > 0) { k--; s = String.fromCharCode(97 + (k % 26)) + s; k = Math.floor(k / 26); }
+    return format.startsWith('upper') ? s.toUpperCase() : s;
+  }
+  if (format.endsWith('roman') && n > 0 && n < 4000) {
+    let s = '', k = n;
+    for (const [v, r] of ROMAN) while (k >= v) { s += r; k -= v; }
+    return format.startsWith('upper') ? s.toUpperCase() : s;
+  }
+  return String(n);
+}
+
+export const BULLET_CHARS: Array<[string, string]> = [['', 'Default for the level'], ['•', 'Dot'], ['◦', 'Circle'], ['▪', 'Small square'], ['■', 'Square'], ['◆', 'Diamond'], ['►', 'Pointer'], ['→', 'Arrow'], ['–', 'Dash'], ['*', 'Asterisk']];
+
+export function listFormatDialog(ed: DocEditor): void {
+  if (!ed.view) throw new Error('Open a document first.');
+  const para = ed.view.state.selection.$from.parent;
+  const kind = String(para.attrs.list || '');
+  if (!kind || kind === 'check') throw new Error('Put the cursor in a bulleted or numbered list first.');
+  const cur = (para.attrs.listFmt ?? {}) as ListFmt;
+  const level = Number(para.attrs.level) || 0;
+  const levelDefault = ['decimal', 'lower-alpha', 'lower-roman'][level % 3];
+  const d = new Dialog(kind === 'number' ? 'Number format' : 'Bullet', 460);
+  const preview = el('<p class="ft-list-preview" aria-live="polite"></p>');
+  if (kind === 'number') {
+    const format = select([['decimal', '1, 2, 3'], ['decimal-leading-zero', '01, 02, 03'], ['lower-alpha', 'a, b, c'], ['upper-alpha', 'A, B, C'], ['lower-roman', 'i, ii, iii'], ['upper-roman', 'I, II, III']], cur.format ?? levelDefault);
+    const prefix = input('text', cur.prefix ?? '', 'maxlength="24" spellcheck="false" placeholder="For example Step "');
+    const suffix = input('text', cur.suffix ?? '.', 'maxlength="8" spellcheck="false"');
+    const restart = input('number', cur.start !== undefined ? String(cur.start) : '', 'min="0" step="1" placeholder="Continue"');
+    const refresh = (): void => {
+      const s = restart.value === '' ? 1 : Math.max(0, Number(restart.value) || 0);
+      setText(preview, [0, 1, 2].map((i) => `${prefix.value}${counterText(s + i, format.value)}${suffix.value}`).join('   '));
+    };
+    for (const c of [format, prefix, suffix, restart]) c.addEventListener('input', refresh);
+    format.addEventListener('change', refresh);
+    grid(d, [['Number style', format], ['Text before', prefix], ['Text after', suffix], ['Restart at', restart]]);
+    d.body.append(preview, el('<p class="ft-note">Applies to the selected list paragraphs. Leave Restart at empty to continue the numbering from the list above.</p>'));
+    d.button('Cancel', 'ghost', () => d.close());
+    d.button('Apply', 'primary', () => {
+      const fmt: ListFmt = { format: format.value === levelDefault ? undefined : format.value, prefix: prefix.value, suffix: suffix.value === '.' ? undefined : suffix.value };
+      ed.run(setListFormat(fmt, restart.value === '' ? undefined : Math.max(0, Math.round(Number(restart.value) || 0))));
+      d.close();
+    });
+    d.open(format);
+    refresh();
+  } else {
+    const bullet = select(BULLET_CHARS, cur.bullet ?? '');
+    const refresh = (): void => { setText(preview, `${bullet.value || ['•', '◦', '▪'][level % 3]}  List item`); };
+    bullet.addEventListener('change', refresh);
+    grid(d, [['Bullet', bullet]]);
+    d.body.append(preview);
+    d.button('Cancel', 'ghost', () => d.close());
+    d.button('Apply', 'primary', () => { ed.run(setListFormat({ bullet: bullet.value || undefined })); d.close(); });
+    d.open(bullet);
+    refresh();
+  }
 }
 
 export function symbolDialog(ed: DocEditor): void {

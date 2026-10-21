@@ -26,6 +26,7 @@ import { ShapeView, placeConnectors, shapeEditing } from './shape';
 import { InkTool } from './ink';
 import { DiagramView } from './diagram';
 import { updateFields } from './fields';
+import { STYLE_SETS, applyStyleSet, setFonts } from './stylesets';
 import { api } from '../io/api';
 import { toast } from '../ui/toast';
 
@@ -130,9 +131,9 @@ ${TB('format.bold', 'bold', 'Bold', 'Ctrl+B')}${TB('format.italic', 'italic', 'I
 <label class="ft-tb-color" title="Text colour">${icon('textColor', 16)}<input type="color" data-cmd="format.color" value="#1a1a1a" aria-label="Text colour"></label>
 <label class="ft-tb-color" title="Highlight">${icon('highlighter', 16)}<input type="color" data-cmd="format.highlight" value="#fde047" aria-label="Highlight colour"></label>${SEP}
 ${TB('paragraph.align.left', 'alignLeft', 'Align left', 'Ctrl+Shift+L')}${TB('paragraph.align.center', 'alignCenter', 'Center', 'Ctrl+Shift+E')}${TB('paragraph.align.right', 'alignRight', 'Align right', 'Ctrl+Shift+R')}${TB('paragraph.align.justify', 'alignJustify', 'Justify', 'Ctrl+Shift+J')}${SEP}
-${TB('list.bullet', 'listBullet', 'Bulleted list', 'Ctrl+Shift+8')}${TB('list.number', 'listNumber', 'Numbered list', 'Ctrl+Shift+7')}${TB('list.check', 'listCheck', 'Checklist', 'Ctrl+Shift+9')}${TB('paragraph.outdent', 'outdent', 'Decrease indent', 'Shift+Tab')}${TB('paragraph.indent', 'indent', 'Increase indent', 'Tab')}
+${TB('list.bullet', 'listBullet', 'Bulleted list', 'Ctrl+Shift+8')}${TB('list.number', 'listNumber', 'Numbered list', 'Ctrl+Shift+7')}${TB('list.check', 'listCheck', 'Checklist', 'Ctrl+Shift+9')}${TB('list.format', 'listFormat', 'List format: number style, restart, bullet')}${TB('paragraph.outdent', 'outdent', 'Decrease indent', 'Shift+Tab')}${TB('paragraph.indent', 'indent', 'Increase indent', 'Tab')}
 <select class="ft-tb-select ft-tb-spacing" data-cmd="paragraph.lineSpacing" aria-label="Line spacing">${SPACINGS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>${SEP}
-${TB('format.painter', 'painter', 'Format Painter', 'Ctrl+Shift+C')}${TB('format.paragraph', 'paragraph', 'Paragraph settings')}${TB('format.styles', 'styles', 'Styles')}${SEP}
+${TB('format.painter', 'painter', 'Format Painter', 'Ctrl+Shift+C')}${TB('format.paragraph', 'paragraph', 'Paragraph settings')}${TB('format.styles', 'styles', 'Styles')}${TB('format.styleSet', 'styleSet', 'Style sets')}${SEP}
 ${TB('insert.link', 'link', 'Link', 'Ctrl+K')}${TB('insert.codeBlock', 'code', 'Code block')}${TB('insert.pageBreak', 'pageBreak', 'Page break', 'Ctrl+Enter')}${TB('insert.sectionBreak', 'sectionBreak', 'Section break (next page)')}${TB('format.clear', 'clearFormat', 'Clear formatting', 'Ctrl+\\')}${SEP}
 ${TB('insert.picture', 'image', 'Insert picture (or paste or drop one)')}${TB('insert.table', 'table', 'Insert table')}${TB('insert.chart', 'chart', 'Insert chart')}${TB('insert.diagram', 'diagram', 'Diagram (SmartArt)')}${TB('insert.shape', 'shapes', 'Shapes, text box and WordArt')}${TB('insert.icon', 'iconLibrary', 'Icons')}${TB('view.draw', 'pen', 'Draw with ink (Esc stops)')}${TB('insert.equation', 'equation', 'Equation', 'Alt+=')}${TB('insert.symbol', 'omega', 'Symbol')}<span class="ft-tb-group" data-group="table">${TB('table.properties', 'tableProps', 'Table properties (right-click a cell for rows, columns and merging)')}${TB('insert.formula', 'sigma', 'Formula (F9 updates)')}</span>${SEP}
 ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', 'outline', 'Outline')}${SEP}
@@ -598,6 +599,17 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     this.paginator.schedule();
     this.emitChange();
   }
+
+  async applyStyleSet(id: string): Promise<string> {
+    if (!this.doc) throw new Error('Open a document first.');
+    const set = STYLE_SETS.find((s) => s.id === id);
+    if (!set) throw new Error(`No style set is named ${id}. Sets: ${STYLE_SETS.map((s) => s.id).join(', ')}.`);
+    await loadFonts(setFonts(set));
+    this.setStyles(applyStyleSet(this.doc.styles, set));
+    return set.name;
+  }
+
+  async preloadFonts(families: string[]): Promise<void> { await loadFonts(families); }
 
   paraProps(props: Record<string, unknown>): boolean { return this.run(setParaProps(props)); }
   recase(mode: CaseMode): boolean { return this.run(changeCase(mode)); }

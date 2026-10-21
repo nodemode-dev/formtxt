@@ -1,7 +1,7 @@
 import { Fragment, type Node as PMNode } from 'prosemirror-model';
 import { type Command, type EditorState, TextSelection } from 'prosemirror-state';
 import { CellSelection, TableMap, TableView, columnResizing, findTable, isInTable, selectedRect, tableEditing } from 'prosemirror-tables';
-import { schema, tableAttrs } from './schema';
+import { type BorderEdge, type CellBorders, schema, tableAttrs } from './schema';
 
 class FtTableView extends TableView {
   constructor(node: PMNode, minWidth: number) {
@@ -117,6 +117,46 @@ export function setCellShading(color: string): Command {
       const at = rect.map.map[rect.top * rect.map.width + rect.left];
       const cell = rect.table.nodeAt(at)!;
       tr.setNodeMarkup(rect.tableStart + at, undefined, { ...cell.attrs, shading: color });
+    }
+    dispatch(tr);
+    return true;
+  };
+}
+
+export const BORDER_TARGETS = ['all', 'outside', 'inside', 'top', 'bottom', 'left', 'right', 'insideH', 'insideV', 'none', 'clear'] as const;
+
+export function setCellBorders(target: string, edge: BorderEdge): Command {
+  return (state, dispatch) => {
+    if (!isInTable(state)) return false;
+    if (!(BORDER_TARGETS as readonly string[]).includes(target)) return false;
+    if (!dispatch) return true;
+    const rect = selectedRect(state);
+    const { map, table, tableStart } = rect;
+    const tr = state.tr;
+    const seen = new Set<number>();
+    for (let r = rect.top; r < rect.bottom; r++) {
+      for (let c = rect.left; c < rect.right; c++) {
+        const at = map.map[r * map.width + c];
+        if (seen.has(at)) continue;
+        seen.add(at);
+        const cell = table.nodeAt(at)!;
+        const cr = map.findCell(at);
+        const outer = { top: cr.top <= rect.top, bottom: cr.bottom >= rect.bottom, left: cr.left <= rect.left, right: cr.right >= rect.right };
+        const pick: Record<string, boolean> = {
+          top: ['all', 'none'].includes(target) || (target === 'outside' && outer.top) || (target === 'top' && outer.top) || (['inside', 'insideH'].includes(target) && !outer.top),
+          bottom: ['all', 'none'].includes(target) || (target === 'outside' && outer.bottom) || (target === 'bottom' && outer.bottom) || (['inside', 'insideH'].includes(target) && !outer.bottom),
+          left: ['all', 'none'].includes(target) || (target === 'outside' && outer.left) || (target === 'left' && outer.left) || (['inside', 'insideV'].includes(target) && !outer.left),
+          right: ['all', 'none'].includes(target) || (target === 'outside' && outer.right) || (target === 'right' && outer.right) || (['inside', 'insideV'].includes(target) && !outer.right),
+        };
+        let next: CellBorders | null;
+        if (target === 'clear') next = null;
+        else {
+          next = { ...((cell.attrs.borders as CellBorders | null) ?? {}) };
+          const e = target === 'none' ? { style: 'none', width: 0, color: '' } : { ...edge };
+          for (const s of ['top', 'right', 'bottom', 'left'] as const) if (pick[s]) next[s] = e;
+        }
+        if (JSON.stringify(next) !== JSON.stringify(cell.attrs.borders ?? null)) tr.setNodeMarkup(tableStart + at, undefined, { ...cell.attrs, borders: next });
+      }
     }
     dispatch(tr);
     return true;

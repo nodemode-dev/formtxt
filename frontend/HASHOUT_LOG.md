@@ -386,6 +386,24 @@ frontend/
 - logged: v0.16.0 · 2026-10-21
 - The preview places a probe field at the selection in a throwaway transaction to learn its table cell, then asks the engine for the result, so the dialog shows exactly what Insert will produce, including syntax errors and their message.
 
+### tables · cell borders
+- refers-to: src/editor/table.ts :: setCellBorders(); src/editor/schema.ts :: bordersAttr
+- kind: rationale
+- logged: v0.17.0 · 2026-10-21
+- Borders live per cell and per side and are written as inline `border-*` styles, which beat the table look's class rules, so a look still draws every edge nobody set. Outside and inside are measured from the selected rectangle, not each cell, as Word does. Tables use collapsed borders, so `none` is drawn as `hidden`, which also removes the neighbour's shared line; a removed edge then stays gone whichever cell set it. Double lines need at least 3 px to show both strokes, so narrower double borders are drawn at 3 px.
+
+### lists · number formats
+- refers-to: src/editor/schema.ts :: paraAttrs() listFmt; src/styles/editor.css :: data-fmt rules
+- kind: rationale
+- logged: v0.17.0 · 2026-10-21
+- CSS `counter()` cannot take its style from a variable, so each level has one rule per number style keyed on `data-fmt` (54 rules), while the text before and after the number travels as `--ft-num-pre` and `--ft-num-suf` custom properties set inline on the paragraph, which `::before` content can read. A restart is an inline `counter-reset` on the item itself (start minus one, since the item's own increment runs after it) that also resets the deeper levels. Enter copies the format to the new item but drops `start`, so only the item that was restarted restarts. Long markers widen the marker box through `--ft-num-w` instead of wrapping.
+
+### styles · style sets
+- refers-to: src/editor/stylesets.ts :: applyStyleSet(); src/editor/editor.ts :: applyStyleSet()
+- kind: rationale
+- logged: v0.17.0 · 2026-10-21
+- A style set patches font, size, colour and spacing on Normal, Title, Subtitle, Quote and Heading1 to Heading9 and leaves every other key (keep with next, outline level, indents) alone. The set's fonts are loaded before the style sheet is swapped, so the page restyles once in its final fonts rather than reflowing again when a web font arrives; the gallery waits for all nine sets' fonts before it opens for the same reason. Like other style edits, applying a set is not in the undo history; Standard restores the defaults.
+
 ## index.html {#index}
 
 ### index · theme before first paint

@@ -1,7 +1,7 @@
 import type { Mark, Node as PMNode } from 'prosemirror-model';
 import type { Block, FtxtDocument, TextRun } from '../engine/model';
 import { TableMap } from 'prosemirror-tables';
-import { schema } from './schema';
+import { BORDER_SIDES, BORDER_STYLES, type CellBorders, type ListFmt, cleanListFmt, schema } from './schema';
 
 const FLAG_MARKS = ['bold', 'italic', 'strike', 'superscript', 'subscript', 'smallCaps', 'allCaps', 'code'] as const;
 const PROPS = ['align', 'indent', 'indentRight', 'indentFirst', 'spaceBefore', 'spaceAfter', 'lineSpacing', 'keepNext', 'keepLines', 'widowControl', 'border', 'shading', 'tabs', 'collapsed'] as const;
@@ -59,7 +59,17 @@ function inlineNodes(content: TextRun[] | undefined): PMNode[] {
   return out;
 }
 
-interface FtxtCell { header?: boolean; colspan?: number; rowspan?: number; shading?: string; valign?: string; body?: Block[] }
+interface FtxtCell { header?: boolean; colspan?: number; rowspan?: number; shading?: string; valign?: string; borders?: CellBorders; body?: Block[] }
+
+function cleanBorders(b: unknown): CellBorders | null {
+  if (!b || typeof b !== 'object') return null;
+  const out: CellBorders = {};
+  for (const s of BORDER_SIDES) {
+    const e = (b as Record<string, unknown>)[s] as Record<string, unknown> | undefined;
+    if (e && typeof e === 'object' && (BORDER_STYLES as readonly string[]).includes(String(e.style))) out[s] = { style: String(e.style), width: Math.max(0.25, Math.min(6, Number(e.width) || 0.75)), color: /^#[0-9a-f]{6}$/i.test(String(e.color)) ? String(e.color) : '#000000' };
+  }
+  return Object.keys(out).length ? out : null;
+}
 interface FtxtTable { id?: string; look?: string; repeatHeader?: boolean; align?: string; columns?: number[]; rows?: Array<{ cells?: FtxtCell[] }> }
 
 const PX = 96 / 72;
@@ -79,7 +89,7 @@ function tableToPM(t: FtxtTable): PMNode | null {
       for (let k = 0; k < span; k++) taken[col + k] = rowspan;
       const body = blocksToPM(c.body ?? [], false);
       const type = c.header ? schema.nodes.table_header : schema.nodes.table_cell;
-      cells.push(type.create({ colspan: span, rowspan, colwidth: widths.length === span && widths.every((w) => w > 0) ? widths : null, shading: c.shading ?? '', valign: c.valign ?? '' }, body));
+      cells.push(type.create({ colspan: span, rowspan, colwidth: widths.length === span && widths.every((w) => w > 0) ? widths : null, shading: c.shading ?? '', valign: c.valign ?? '', borders: cleanBorders(c.borders) }, body));
       col += span;
     }
     for (let k = 0; k < taken.length; k++) if (taken[k]) taken[k]--;
@@ -120,6 +130,7 @@ function blocksToPM(body: Block[], top: boolean): PMNode[] {
         list: blk.list?.kind ?? '',
         level: blk.list?.level ?? 0,
         checked: !!blk.list?.checked,
+        listFmt: blk.list ? cleanListFmt(blk.list) : null,
       }, inlineNodes(blk.content)));
     }
   }
@@ -202,6 +213,7 @@ function tableFromPM(node: PMNode, section: string): Record<string, unknown> {
       if (cell.attrs.rowspan > 1) c.rowspan = cell.attrs.rowspan;
       if (cell.attrs.shading) c.shading = cell.attrs.shading;
       if (cell.attrs.valign) c.valign = cell.attrs.valign;
+      if (cell.attrs.borders) c.borders = cell.attrs.borders as CellBorders;
       cells.push(c);
     });
     rows.push({ cells });
@@ -246,7 +258,7 @@ export function fromPM(pm: PMNode, section: string): Block[] {
       if (v !== null && JSON.stringify(v) !== JSON.stringify(PROP_DEFAULTS[k])) props[k] = v;
     }
     if (Object.keys(props).length) block.props = props;
-    if (a.list) block.list = { kind: a.list, level: a.level, ...(a.list === 'check' ? { checked: a.checked } : {}) };
+    if (a.list) block.list = { kind: a.list, level: a.level, ...(a.list === 'check' ? { checked: a.checked } : {}), ...(a.list !== 'check' && a.listFmt ? (a.listFmt as ListFmt) : {}) };
     node.forEach((child) => (block.content as unknown[]).push(runFrom(child)));
     out.push(block as unknown as Block);
   });

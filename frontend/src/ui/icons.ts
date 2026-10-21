@@ -63,6 +63,8 @@ export const ICONS: Record<string, string> = {
   pen: L('<path d="M15 4.5l4.5 4.5L9 19.5H4.5V15z"/><path d="M12.5 7l4.5 4.5"/>'),
   omega: L('<path d="M5 19.5h4.5v-2.2a6.5 6.5 0 1 1 5 0v2.2H19"/>'),
   table: L('<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10M15 9.5v10"/>'),
+  listFormat: L('<path d="M10 6.5h10M10 12h10M10 17.5h10"/><path d="M4 5h1.5v4M4 9h3"/><path d="M4 15.2a1.5 1.5 0 0 1 2.9.4c0 1-2.9 2-2.9 3.4h3"/>'),
+  styleSet: L('<path d="M4 6.5h9M4 11h6M4 15.5h4"/><path d="M15.5 13.5l2.5-7 2.5 7M16.3 11.3h3.4"/><path d="M12 19.5h8"/>'),
   sigma: L('<path d="M17.5 6.5V4.5h-11l6 7.5-6 7.5h11v-2"/>'),
   tableProps: L('<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M9.5 9.5v10"/><circle cx="15" cy="14.5" r="2"/>'),
   chevronUp: L('<path d="M6 15l6-6 6 6"/>'),
