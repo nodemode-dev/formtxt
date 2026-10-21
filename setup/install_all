@@ -1,0 +1,8 @@
+#!/usr/bin/env bash
+set -e
+source "$(dirname "$0")/lib.sh"
+ft_say "installing backend"
+( cd "$FORMTXT_ROOT/backend" && ./oc_install "$@" )
+ft_say "installing frontend"
+( cd "$FORMTXT_ROOT/frontend" && ./oc_install "$@" )
+ft_say "done. Boot with ./formtxt"

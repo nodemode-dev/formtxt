@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -e
+FORMTXT_CALLER_DIR="$PWD"
+export FORMTXT_CALLER_DIR
+cd "$(dirname "$0")"
+usage() {
+  printf 'formtxt %s · documents\n' "$(sed -n "s/^export const VERSION = '\(.*\)';$/\1/p" frontend/src/version.ts 2>/dev/null)"
+  cat << 'USAGE'
+
+usage: ./formtxt [command] [options]
+
+  (none) | boot       boot the engine (8199) and the frontend (5199) together
+  install             install backend and frontend
+  backend             boot the engine only
+  frontend            boot the frontend only
+  build               production build of the frontend into frontend/dist
+  desktop dev         run the Tauri desktop shell against the engine
+  cli list|describe   the editor's command catalogue from a terminal
+  clean [--all]       remove build output (--all also venv and node_modules)
+  help                this text
+USAGE
+}
+cmd="${1:-boot}"
+[ $# -gt 0 ] && shift
+case "$cmd" in
+  boot|dev) exec setup/boot_all "$@" ;;
+  install) exec setup/install_all "$@" ;;
+  backend) cd backend && exec ./boot_backend "$@" ;;
+  frontend) cd frontend && exec ./boot_frontend "$@" ;;
+  build) exec setup/build_frontend "$@" ;;
+  desktop)
+    sub="${1:-dev}"
+    [ $# -gt 0 ] && shift
+    case "$sub" in
+      dev) exec setup/desktop_dev "$@" ;;
+      *) usage; exit 2 ;;
+    esac ;;
+  cli) exec python3 setup/catalogue.py "$@" ;;
+  clean) exec setup/clean "$@" ;;
+  help|-h|--help) usage ;;
+  *) printf '[formtxt] unknown command: %s\n\n' "$cmd"; usage; exit 2 ;;
+esac
