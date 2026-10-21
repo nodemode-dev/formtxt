@@ -388,6 +388,7 @@ figure.ft-diagram.is-selected { outline: 2px solid var(--accent-color); outline-
 .ft-pages[data-border="double"] .ft-sheet::after { border: 4px double #6b6b6b; }
 .ft-pages[data-border="accent"] .ft-sheet::after { border: 2px solid #f97316; }
 .ft-pg-spacer { display: block; pointer-events: none; user-select: none; }
+.ft-pg-spacer.ft-col-clone { overflow: hidden; pointer-events: auto; user-select: text; cursor: text; }
 .ft-pages[data-mode="paged"] .ft-pm hr.ft-page-break { margin: 0; border-top-color: transparent; }
 .ft-pages[data-mode="paged"] .ft-pm hr.ft-page-break.ProseMirror-selectednode { border-top-color: var(--accent-color); }
 .ft-tb-zoom { width: 74px; font-variant-numeric: tabular-nums; }

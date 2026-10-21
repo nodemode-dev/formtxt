@@ -14,7 +14,7 @@ import { type CaseMode, changeCase, clearFormatting, insertPageBreak, mark, setA
 import { fromPM, toPM } from './convert';
 import { collapsePlugin, findKey, findPlugin, rules, uniqueIds } from './plugins';
 import type { DocTab, Section, Style } from '../engine/model';
-import { GAP, Paginator, pagesKey, pagesPlugin } from './pages';
+import { GAP, Paginator, cloneHit, pagesKey, pagesPlugin } from './pages';
 import { Ruler } from './ruler';
 import { layoutTabs } from './tabs';
 import { addRowAfter, goToNextCell, isInTable } from 'prosemirror-tables';
@@ -267,6 +267,16 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
         state,
         attributes: { class: 'ft-pm-root', spellcheck: 'true', 'aria-label': 'Document' },
         nodeViews: this.nodeViews(),
+        handleDOMEvents: {
+          mousedown: (view, e) => {
+            const pos = cloneHit(view, e);
+            if (pos === null) return false;
+            e.preventDefault();
+            view.dispatch(view.state.tr.setSelection(TextSelection.create(view.state.doc, pos)));
+            view.focus();
+            return true;
+          },
+        },
         handlePaste: (_view, e) => {
           const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/'));
           if (!files.length) return false;
@@ -290,6 +300,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
           this.syncToolbar();
           if (tr.docChanged) { this.emitChange(); this.scheduleOutline(); if (!tr.getMeta(pagesKey)) { if (next.doc === tr.doc) this.paginator.scheduleEdit(tr); else this.paginator.schedule(); } if (tr.getMeta('paste') || tr.getMeta('uiEvent') === 'drop') this.adoptForeignMedia(); if (!tr.getMeta('fields') && !tr.getMeta(pagesKey)) this.scheduleFields(); }
           if (tr.getMeta(findKey) || tr.docChanged) this.syncFind();
+          if (tr.selectionSet && !tr.docChanged) this.paginator.selectionMoved(next.selection.head);
         },
       });
     } else {

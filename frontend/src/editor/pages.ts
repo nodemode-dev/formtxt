@@ -2,6 +2,7 @@ import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import type { Section } from '../engine/model';
 import { el, patchList, setHtml, setText } from '../ui/dom';
+import { columnsOf } from './sections';
 
 export const PX = 96 / 72;
 export const GAP = 24;
@@ -86,6 +87,53 @@ function spacer(fill: number, inline: boolean, target: number): HTMLElement {
   return n;
 }
 
+function jumpEl(target: number, est: number): HTMLElement {
+  const n = document.createElement('div');
+  n.className = 'ft-pg-spacer ft-col-jump';
+  n.dataset.coltop = target.toFixed(2);
+  n.setAttribute('contenteditable', 'false');
+  n.style.height = '0px';
+  n.style.marginBottom = `${est.toFixed(2)}px`;
+  return n;
+}
+
+function cloneEl(src: HTMLElement, h: number, cut: number, x: number, target: number | null, of: number, mt: number, mb: number): HTMLElement {
+  const n = document.createElement('div');
+  n.className = 'ft-pg-spacer ft-col-clone';
+  n.setAttribute('contenteditable', 'false');
+  n.setAttribute('aria-hidden', 'true');
+  n.dataset.of = String(of);
+  if (target !== null) n.dataset.coltop = target.toFixed(2);
+  n.style.cssText = `height:${h.toFixed(2)}px;margin:${mt.toFixed(2)}px 0 ${mb.toFixed(2)}px 0;translate:${x.toFixed(2)}px 0`;
+  const c = src.cloneNode(true) as HTMLElement;
+  c.style.marginTop = `${(-cut).toFixed(2)}px`;
+  c.style.marginBottom = '0px';
+  c.style.removeProperty('clip-path');
+  c.style.removeProperty('translate');
+  c.classList.remove('ft-col-split', 'ProseMirror-selectednode');
+  n.appendChild(c);
+  return n;
+}
+
+export function cloneHit(view: EditorView, e: MouseEvent): number | null {
+  const wrap = (e.target as Element | null)?.closest?.('.ft-col-clone') as HTMLElement | null;
+  const inner = wrap?.firstElementChild;
+  if (!wrap || !inner) return null;
+  const real = view.nodeDOM(Number(wrap.dataset.of));
+  if (!(real instanceof HTMLElement)) return null;
+  const d = document as Document & { caretPositionFromPoint?: (x: number, y: number) => { offsetNode: Node; offset: number } | null };
+  let node: Node | null = null;
+  let offset = 0;
+  const cp = d.caretPositionFromPoint?.(e.clientX, e.clientY);
+  if (cp) { node = cp.offsetNode; offset = cp.offset; } else { const r = document.caretRangeFromPoint?.(e.clientX, e.clientY); if (r) { node = r.startContainer; offset = r.startOffset; } }
+  if (!node || !inner.contains(node)) return null;
+  const path: number[] = [];
+  for (let n: Node = node; n !== inner && n.parentNode; n = n.parentNode) path.unshift(Array.prototype.indexOf.call(n.parentNode.childNodes, n) as number);
+  let t: Node = real;
+  for (const i of path) { const c = t.childNodes[i]; if (!c) return null; t = c; }
+  try { return view.posAtDOM(t, offset); } catch { return null; }
+}
+
 function lineBoxes(p: HTMLElement): Array<{ top: number; bottom: number; left: number }> {
   const range = document.createRange();
   range.selectNodeContents(p);
@@ -156,6 +204,11 @@ export class Paginator {
   private heights = new WeakMap<HTMLElement, number>();
   private kidCount = -1;
   skipped = 0;
+  private colSplits: Array<{ from: number; at: number; to: number; flip: boolean }> = [];
+
+  selectionMoved(head: number): void {
+    if (this.colSplits.some((s) => head >= s.from && head <= s.to && (head >= s.at) !== s.flip)) this.schedule();
+  }
 
   schedule(): void {
     this.dirty = null;
@@ -196,7 +249,7 @@ export class Paginator {
     for (const k of Array.from(root.children)) if (!(k as HTMLElement).classList.contains('ft-pg-spacer')) count++;
     if (count !== this.kidCount) return false;
     for (const e of dirty) {
-      if (!e.isConnected || e.parentElement !== root || e.matches('[data-masked]') || e.querySelector('.ft-pg-spacer, .ft-pg-repeat, [data-masked]')) return false;
+      if (!e.isConnected || e.parentElement !== root || e.matches('[data-masked], .ft-col-split') || e.querySelector('.ft-pg-spacer, .ft-pg-repeat, [data-masked]')) return false;
       const h = this.heights.get(e);
       if (h === undefined || Math.abs(e.getBoundingClientRect().height / ratio - h) > 0.5) return false;
     }
@@ -266,8 +319,21 @@ export class Paginator {
     const bodyTop = (p: number): number => pageTop(p) + geoOf(secAt(p)).top;
     const bottomOf = (p: number): number => pageTop(p) + geoOf(secAt(p)).H - geoOf(secAt(p)).bottom;
     const startAt = (p: number, id: string): void => { this.sectionStarts.push({ page: p, id }); tops0.length = Math.min(tops0.length, p + 1); };
+    const posOf = (n: HTMLElement): number => {
+      try {
+        const p = view.posAtDOM(n, 0);
+        if (view.nodeDOM(p) === n) return p;
+        return p - 1;
+      } catch { return -1; }
+    };
+    const colsAt = (p: number): ReturnType<typeof columnsOf> => columnsOf(secAt(p));
+    const colX: number[] = [];
+    const jumps: Array<{ pos: number; target: number; est: number }> = [];
+    const splits: Array<{ pos: number; size: number; at: number; cut: number; tail: number; x0: number; x1: number; target: number; est: number; flip: boolean; src: HTMLElement; mt: number; mb: number }> = [];
+    let col = 0;
     for (let i = 0; i < kids.length; i++) {
       const k = kids[i];
+      colX[i] = col * colsAt(page).stride;
       const rect = k.getBoundingClientRect();
       const top = tops[i] + off;
       const height = rect.height / ratio;
@@ -279,13 +345,6 @@ export class Paginator {
         if (start !== 'continuous') { force = true; parity = start === 'oddPage' ? 'odd' : start === 'evenPage' ? 'even' : ''; }
         continue;
       }
-      const posOf = (n: HTMLElement): number => {
-        try {
-          const p = view.posAtDOM(n, 0);
-          if (view.nodeDOM(p) === n) return p;
-          return p - 1;
-        } catch { return -1; }
-      };
       if (force) {
         force = false;
         let to = page + 1;
@@ -302,6 +361,8 @@ export class Paginator {
           breaks.push({ pos, fill, inline: false, target: next });
           off = next + (parseFloat(getComputedStyle(k).marginTop) || 0) - tops[i];
           page = to;
+          col = 0;
+          colX[i] = 0;
         }
         i--;
         continue;
@@ -312,6 +373,55 @@ export class Paginator {
       const keepLines = k.dataset.keepLines === 'true';
       const widow = k.dataset.widow !== 'off';
       let split = false;
+      const cm = colsAt(page);
+      if (cm.count > 1) {
+        const last = col >= cm.count - 1;
+        const nextTop = last ? bodyTop(page + 1) : bodyTop(page);
+        const nextX = last ? 0 : (col + 1) * cm.stride;
+        const pos = posOf(k);
+        if (isPara && (!keepLines || atTop) && pos >= 0) {
+          const lines = lineBoxes(k).map((l) => ({ top: (l.top - rootRect.top) / ratio, bottom: (l.bottom - rootRect.top) / ratio, vtop: l.top }));
+          const min = widow ? 2 : 1;
+          let s = 0;
+          while (s < lines.length && lines[s].bottom + off <= bottomOf(page) + 0.5) s++;
+          if (widow && lines.length - s < min) s = lines.length - min;
+          const at = s >= (atTop ? 1 : min) && s < lines.length ? lineStart(view, k, lines[s].vtop) : null;
+          const node = view.state.doc.nodeAt(pos);
+          if (at !== null && at > pos + 1 && node) {
+            const cut = lines[s].top - tops[i];
+            const tail = height - cut;
+            const head = view.state.selection.head;
+            const flip = head >= at && head <= pos + node.nodeSize;
+            const cs = getComputedStyle(k);
+            splits.push({ pos, size: node.nodeSize, at, cut, tail, x0: col * cm.stride, x1: nextX, target: nextTop, est: nextTop - (top + height), flip, src: k.cloneNode(true) as HTMLElement, mt: parseFloat(cs.marginTop) || 0, mb: parseFloat(cs.marginBottom) || 0 });
+            colX[i] = flip ? nextX : col * cm.stride;
+            off = nextTop + tail - (tops[i] + height);
+            if (last) { page++; col = 0; } else col++;
+            continue;
+          }
+        }
+        let j = i;
+        while (j > 0 && (kids[j - 1].dataset.keepNext === 'true') && i - j < 5 && tops[j - 1] + off > bodyTop(page) + 1 && !splits.some((sp) => sp.pos === posOf(kids[j - 1]))) j--;
+        if (atTop && j === i) continue;
+        const pj = posOf(kids[j]);
+        if (pj < 0) continue;
+        const mtj = parseFloat(getComputedStyle(kids[j]).marginTop) || 0;
+        if (last) {
+          let fill = bodyTop(page + 1) - (tops[j] + off);
+          const prev = j > 0 ? kids[j - 1] : null;
+          if (prev && !prev.classList.contains('ft-page-break')) fill = bodyTop(page + 1) - ((prev.getBoundingClientRect().bottom - rootRect.top) / ratio + off) - (parseFloat(getComputedStyle(prev).marginBottom) || 0);
+          if (fill <= 0) continue;
+          breaks.push({ pos: pj, fill, inline: false, target: bodyTop(page + 1) });
+          page++;
+          col = 0;
+        } else {
+          jumps.push({ pos: pj, target: nextTop + mtj, est: nextTop + mtj - (tops[j] + off) });
+          col++;
+        }
+        off = nextTop + mtj - tops[j];
+        i = j - 1;
+        continue;
+      }
       if (isPara && (!keepLines || atTop)) {
         const lines = lineBoxes(k).map((l) => ({ top: (l.top - rootRect.top) / ratio, bottom: (l.bottom - rootRect.top) / ratio, left: l.left, vtop: l.top }));
         const min = widow ? 2 : 1;
@@ -443,8 +553,31 @@ export class Paginator {
     let count = page + 1;
     while (count < 5000 && bodyTop(count) < contentBottom + 1) count++;
     this.pages = count;
-    if (breaks.length) {
-      const decos: Decoration[] = [];
+    const colDecos: Decoration[] = [];
+    const splitAt = new Map(splits.map((sp) => [sp.pos, sp]));
+    kids.forEach((k, i) => {
+      if (!colX[i] || k.classList.contains('ft-pg-spacer')) return;
+      const p = posOf(k);
+      const node = p >= 0 ? view.state.doc.nodeAt(p) : null;
+      if (node && !splitAt.has(p)) colDecos.push(Decoration.node(p, p + node.nodeSize, { style: `translate:${colX[i].toFixed(2)}px 0` }));
+    });
+    jumps.forEach((jp, n) => colDecos.push(Decoration.widget(jp.pos, () => jumpEl(jp.target, jp.est), { side: -1, key: `cj${n}-${jp.target.toFixed(1)}`, ignoreSelection: true })));
+    splits.forEach((sp, n) => {
+      let hash = 0;
+      for (const ch of sp.src.innerHTML) hash = (hash * 31 + ch.charCodeAt(0)) | 0;
+      const id = `cs${n}-${hash}-${sp.cut.toFixed(1)}-${sp.flip ? 'f' : 'h'}`;
+      if (sp.flip) {
+        colDecos.push(Decoration.widget(sp.pos, () => cloneEl(sp.src, sp.cut, 0, sp.x0, null, sp.pos, sp.mt, 0), { side: -0.5, key: `${id}-a`, ignoreSelection: true }));
+        colDecos.push(Decoration.widget(sp.pos, () => jumpEl(sp.target - sp.cut, sp.est), { side: -0.25, key: `${id}-j`, ignoreSelection: true }));
+        colDecos.push(Decoration.node(sp.pos, sp.pos + sp.size, { class: 'ft-col-split', style: `translate:${sp.x1.toFixed(2)}px 0;clip-path:inset(${sp.cut.toFixed(2)}px 0 0 0)` }));
+      } else {
+        colDecos.push(Decoration.node(sp.pos, sp.pos + sp.size, { class: 'ft-col-split', style: `translate:${sp.x0.toFixed(2)}px 0;clip-path:inset(0 0 ${sp.tail.toFixed(2)}px 0)` }));
+        colDecos.push(Decoration.widget(sp.pos + sp.size, () => cloneEl(sp.src, sp.tail, sp.cut, sp.x1, sp.target, sp.pos, sp.est, sp.mb), { side: -3, key: `${id}-b`, ignoreSelection: true }));
+      }
+    });
+    this.colSplits = splits.map((sp) => ({ from: sp.pos, at: sp.at, to: sp.pos + sp.size, flip: sp.flip }));
+    if (breaks.length || colDecos.length) {
+      const decos: Decoration[] = [...colDecos];
       breaks.forEach((b, n) => {
         if (!b.row) { decos.push(Decoration.widget(b.pos, () => spacer(b.fill, b.inline, b.target ?? 0), { side: -1, key: `pg${n}-${b.fill.toFixed(1)}-${b.inline ? 'i' : 'b'}`, ignoreSelection: true })); return; }
         const { cols, heads } = b.row;
@@ -458,6 +591,17 @@ export class Paginator {
       view.dispatch(view.state.tr.setMeta(pagesKey, DecorationSet.create(view.state.doc, decos)).setMeta('addToHistory', false));
       const spacers = Array.from(root.querySelectorAll<HTMLElement>('.ft-pg-spacer'));
       for (const sp of spacers) {
+        if (sp.dataset.coltop !== undefined) {
+          const want = Number(sp.dataset.coltop);
+          const top0 = root.getBoundingClientRect().top;
+          const jump = sp.classList.contains('ft-col-jump');
+          const ref = jump ? sp.nextElementSibling : sp;
+          if (!ref) continue;
+          const delta = want - (ref.getBoundingClientRect().top - top0) / ratio;
+          const prop = jump ? 'marginBottom' : 'marginTop';
+          if (Math.abs(delta) > 0.5) sp.style[prop] = `${((parseFloat(sp.style[prop]) || 0) + delta).toFixed(2)}px`;
+          continue;
+        }
         const target = Number(sp.dataset.target);
         if (!target) continue;
         const top0 = root.getBoundingClientRect().top;
