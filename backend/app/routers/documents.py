@@ -1,3 +1,5 @@
+import hashlib
+
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
@@ -108,6 +110,58 @@ def thumb(doc_id: str) -> Response:
     except store.NotFound:
         raise _missing(doc_id)
     return Response(thumbs.render(doc), media_type="image/svg+xml", headers={"cache-control": "no-cache"})
+
+
+IMAGE_TYPES = {b"\x89PNG\r\n\x1a\n": ("png", "image/png"), b"\xff\xd8\xff": ("jpg", "image/jpeg"), b"GIF87a": ("gif", "image/gif"),
+               b"GIF89a": ("gif", "image/gif"), b"BM": ("bmp", "image/bmp")}
+MEDIA_TYPES = {"png": "image/png", "jpg": "image/jpeg", "gif": "image/gif", "bmp": "image/bmp", "webp": "image/webp", "svg": "image/svg+xml"}
+
+
+def _sniff(data: bytes) -> tuple[str, str] | None:
+    if data[:4] == b"RIFF" and data[8:12] == b"WEBP":
+        return "webp", "image/webp"
+    head = data[:512].lstrip().lower()
+    if head.startswith(b"<svg") or (head.startswith(b"<?xml") and b"<svg" in data[:2048].lower()):
+        return "svg", "image/svg+xml"
+    for magic, kind in IMAGE_TYPES.items():
+        if data.startswith(magic):
+            return kind
+    return None
+
+
+@router.post("/{doc_id}/media")
+async def add_media(doc_id: str, files: list[UploadFile] = File(...)) -> dict:
+    added, errors = [], []
+    for f in files:
+        data = await f.read(config.MAX_MEDIA_BYTES + 1)
+        if len(data) > config.MAX_MEDIA_BYTES:
+            errors.append(f"{f.filename}: pictures up to {config.MAX_MEDIA_BYTES // (1024 * 1024)} MB are supported.")
+            continue
+        kind = _sniff(data)
+        if not kind:
+            errors.append(f"{f.filename}: not a PNG, JPEG, GIF, WebP, BMP or SVG picture.")
+            continue
+        name = f"{hashlib.sha256(data).hexdigest()[:20]}.{kind[0]}"
+        try:
+            store.add_media(doc_id, name, data)
+        except store.NotFound:
+            raise _missing(doc_id)
+        added.append({"name": name, "type": kind[1], "bytes": len(data), "source": (f.filename or "")[:200]})
+    return {"media": added, "errors": errors}
+
+
+@router.get("/{doc_id}/media/{name}")
+def media(doc_id: str, name: str) -> Response:
+    ext = name.rsplit(".", 1)[-1].lower() if "." in name else ""
+    if ext not in MEDIA_TYPES or "/" in name or ".." in name:
+        raise HTTPException(404, f"No picture is named {name}.")
+    try:
+        data = store.media_file(doc_id, name)
+    except store.NotFound:
+        raise HTTPException(404, f"No picture named {name} is in document {doc_id}.")
+    return Response(data, media_type=MEDIA_TYPES[ext], headers={"cache-control": "private, max-age=31536000, immutable",
+                                                                 "content-security-policy": "default-src 'none'; style-src 'unsafe-inline'; sandbox",
+                                                                 "x-content-type-options": "nosniff"})
 
 
 @router.post("/{doc_id}/duplicate")

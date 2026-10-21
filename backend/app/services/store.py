@@ -112,6 +112,25 @@ def empty_trash() -> int:
     return n
 
 
+def add_media(doc_id: str, name: str, data: bytes) -> None:
+    path = _path(doc_id)
+    with _lock:
+        if not path.is_file():
+            raise NotFound(doc_id)
+        doc, media = package.unpack(path.read_bytes())
+        if name in media:
+            return
+        media[name] = data
+        _write(path, package.pack(doc, media))
+
+
+def media_file(doc_id: str, name: str) -> bytes:
+    media = load(doc_id)[1]
+    if name not in media:
+        raise NotFound(name)
+    return media[name]
+
+
 def adopt(doc: dict, media: dict[str, bytes] | None = None, title: str = "") -> dict:
     fresh = copy.deepcopy(doc)
     fresh["id"] = new_id("d_")

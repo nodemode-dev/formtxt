@@ -69,6 +69,14 @@ def render(doc: dict) -> str:
             y += 8 * scale
             continue
         run, para = _resolve(doc, block.get("style") or "Normal")
+        for pic in (r for r in block.get("content") or [] if isinstance(r, dict) and r.get("type") == "image" and r.get("wrap", "inline") not in ("behind", "front")):
+            pw = min(right - left, float(pic.get("width") or 72) * scale)
+            ph = float(pic.get("height") or 72) * scale * (pw / max(float(pic.get("width") or 72) * scale, 0.01))
+            px = left if pic.get("side") != "right" else right - pw
+            if para.get("align") == "center" or pic.get("wrap") == "topBottom":
+                px = left + (right - left - pw) / 2
+            out.append(f'<rect x="{px:.1f}" y="{y:.1f}" width="{pw:.1f}" height="{ph:.1f}" rx="2" fill="#dcd9d2"/>')
+            y += ph + 4 * scale
         size = float(run.get("size", 11.0)) * scale
         text = _text(block)
         y += float(para.get("spaceBefore", 0.0)) * scale
