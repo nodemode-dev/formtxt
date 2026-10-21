@@ -90,4 +90,5 @@ export interface DocSummary {
   words: number;
   bytes: number;
   deletedAt?: number;
+  locked?: boolean;
 }

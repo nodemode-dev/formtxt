@@ -14,7 +14,7 @@ export interface HomeHooks {
 
 type View = 'start' | 'recent' | 'templates' | 'trash';
 const FORMATS = ['MD', 'TXT'];
-const ACCEPT = '.md,.markdown,.txt';
+const ACCEPT = '.md,.markdown,.txt,.docx,.dotx,.docm,.odt,.ott,.rtf,.html,.htm,.xhtml,.doc,.dot';
 
 function ago(seconds: number): string {
   if (!seconds) return '';
@@ -439,6 +439,8 @@ ${nav('start', 'home', 'Start')}${nav('recent', 'clock', 'Recent documents', 'ft
       setText(n.querySelector('.ft-card-name'), d.title);
       setText(n.querySelector('.ft-card-meta'), `${this.pinned.includes(d.id) ? 'Pinned · ' : ''}${d.words} word${d.words === 1 ? '' : 's'} · ${ago(d.modified)}`);
       setClass(n, 'is-pinned', this.pinned.includes(d.id));
+      setClass(n, 'is-locked', !!d.locked);
+      if (d.locked) setText(n.querySelector('.ft-card-meta'), `Locked with a password · ${ago(d.modified)}`);
       const img = n.querySelector('img') as HTMLImageElement;
       const src = `/api/documents/${d.id}/thumb.svg?v=${encodeURIComponent(String(d.modified))}`;
       if (img.getAttribute('src') !== src) img.src = src;

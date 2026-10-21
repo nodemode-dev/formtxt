@@ -6,7 +6,7 @@ from pathlib import Path
 
 from app.core import config
 from app.core.ids import is_id, new_id
-from app.services import model, package
+from app.services import model, versions, versions_vault as package
 
 EXT = ".ftxt"
 _lock = threading.Lock()
@@ -52,6 +52,7 @@ def save(doc: dict, media: dict[str, bytes] | None = None) -> dict:
         doc.setdefault("meta", {})["modified"] = time.time()
         data = package.pack(doc, kept)
         _write(path, data)
+    versions.after_save(doc, data)
     return model.summary(doc, len(data))
 
 
@@ -61,9 +62,11 @@ def listing(folder: Path | None = None) -> list[dict]:
         try:
             data = path.read_bytes()
             doc, _ = package.unpack(data)
-            out.append(model.summary(doc, len(data)))
-        except (OSError, ValueError):
-            continue
+            out.append(package.flag(model.summary(doc, len(data)), data))
+        except (OSError, ValueError) as exc:
+            row = package.locked_row(exc)
+            if row:
+                out.append(row)
     return sorted(out, key=lambda s: s["modified"], reverse=True)
 
 

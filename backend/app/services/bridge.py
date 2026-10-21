@@ -29,6 +29,8 @@ def resolve(message: dict) -> None:
 
 
 async def call(command: str, params: dict, timeout: float = 60) -> dict:
+    from app.services import versions
+    versions.agent_mark()
     for key, ws in sorted(_windows.items(), reverse=True):
         rid = f"r{next(_ids)}"
         fut = asyncio.get_running_loop().create_future()
@@ -46,4 +48,5 @@ async def call(command: str, params: dict, timeout: float = 60) -> dict:
             return {"ok": bool(out.get("ok")), **({"result": out.get("result")} if out.get("ok") else {"error": str(out.get("error") or "The command failed.")})}
         finally:
             _pending.pop(rid, None)
+            versions.agent_mark()
     return {"ok": False, "error": "No FormTxt window is open. Start it with ./formtxt and open the app, then retry."}

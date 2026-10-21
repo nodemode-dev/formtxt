@@ -7,3 +7,7 @@ reportlab
 pypdf
 pdfplumber
 olefile
+pypdfium2
+pillow
+openpyxl
+cryptography

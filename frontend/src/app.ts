@@ -9,6 +9,9 @@ import { icon } from './ui/icons';
 import { DocEditor } from './editor/editor';
 import { registerEditorCommands } from './editor/register';
 import { registerExtensions } from './editor/ext/index';
+import { networkPreference } from './editor/ext/collab/share';
+import { unlockDocument } from './editor/ext/versions';
+import { vx } from './editor/ext/versions/api';
 import { connectBridge } from './automation/bridge';
 import { CommandPalette } from './ui/palette';
 import { Shortcuts } from './ui/shortcuts';
@@ -125,7 +128,12 @@ export async function startApp(): Promise<void> {
 
   const openDocument = async (id: string): Promise<FtxtDocument> => {
     await flush();
-    const doc = await api.get<FtxtDocument>(`/documents/${encodeURIComponent(id)}`);
+    const fetchDoc = (): Promise<FtxtDocument> => api.get<FtxtDocument>(`/documents/${encodeURIComponent(id)}`);
+    const doc = await fetchDoc().catch(async (e: Error & { status?: number }) => {
+      if (e.status !== 423) throw e;
+      await unlockDocument(id);
+      return fetchDoc();
+    });
     await editor.load(doc);
     setHidden(empty, true);
     editor.show(true);
@@ -158,8 +166,13 @@ export async function startApp(): Promise<void> {
     const stockRow = el('<label class="ft-pref-check"></label>');
     stockRow.append(stock, document.createTextNode(' Search stock pictures online (Insert > Stock images contacts Openverse and, with a key, Pexels through the engine; nothing else leaves this computer)'));
     d.body.appendChild(stockRow);
+    d.body.appendChild(networkPreference());
     const pexels = el<HTMLInputElement>('<input class="ft-input" type="password" autocomplete="off" spellcheck="false" placeholder="Paste a key to add or replace it">');
     d.field('Pexels API key (free at pexels.com/api)', pexels);
+    const cloud = el<HTMLInputElement>('<input class="ft-input" type="text" autocomplete="off" spellcheck="false" placeholder="Leave empty to keep documents only in the library">');
+    d.field('Also save a copy to a folder (a synced Dropbox or OneDrive folder, for example)', cloud);
+    let cloudWas = '';
+    void vx.cloud().then((c) => { cloud.value = c.folder; cloudWas = c.folder; }).catch(() => undefined);
     void api.get<Record<string, unknown>>('/settings').then((s) => {
       if (!author.value) author.value = String(s.author ?? '');
       stock.checked = s.stockImages !== false;
@@ -171,6 +184,7 @@ export async function startApp(): Promise<void> {
       const patch: Record<string, unknown> = { author: author.value.trim(), stockImages: stock.checked };
       if (pexels.value.trim()) patch.pexelsKey = pexels.value.trim();
       void api.post('/settings', patch).then(() => toast('Preferences saved.'));
+      if (cloud.value.trim() !== cloudWas) void vx.setCloud(cloud.value.trim()).then(() => toast(cloud.value.trim() ? 'Every save is also copied to that folder.' : 'Copies to a folder are off.')).catch((e: Error) => toast(e.message, 'error'));
     });
     d.open(author);
   };
