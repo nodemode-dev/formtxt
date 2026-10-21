@@ -22,12 +22,14 @@ def pack(doc: dict, media: dict[str, bytes] | None = None) -> bytes:
 
 def referenced(doc: dict) -> set[str]:
     names: set[str] = set()
-    stack: list = [doc.get("tabs") or []]
+    stack: list = [doc.get("tabs") or [], (doc.get("settings") or {}).get("embeddedFonts") or []]
     while stack:
         item = stack.pop()
         if isinstance(item, dict):
-            if item.get("type") == "image" and isinstance(item.get("media"), str):
-                names.add(item["media"])
+            if item.get("type") in ("image", "video", "audio", "embed", "onlineVideo") or "family" in item:
+                for key in ("media", "thumb", "poster"):
+                    if isinstance(item.get(key), str):
+                        names.add(item[key])
             stack.extend(item.values())
         elif isinstance(item, list):
             stack.extend(item)
