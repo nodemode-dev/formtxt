@@ -100,7 +100,11 @@ export async function startApp(): Promise<void> {
       window.clearTimeout(saveTimer);
       saveTimer = window.setTimeout(() => void flush(), 700);
     },
-    status: (words) => setText(docStatus, `${words} word${words === 1 ? '' : 's'}${pending ? ' · Editing' : ''}`),
+    status: (words) => {
+      const pages = editor.pageCount();
+      const paged = !(editor.doc?.settings as unknown as { pageless?: boolean } | undefined)?.pageless;
+      setText(docStatus, `${paged ? `${pages} page${pages === 1 ? '' : 's'} · ` : ''}${words} word${words === 1 ? '' : 's'}${pending ? ' · Editing' : ''}`);
+    },
   });
   registerEditorCommands(commands, editor);
   const shortcuts = new Shortcuts(commands);
@@ -111,6 +115,8 @@ export async function startApp(): Promise<void> {
   shortcuts.bindGlobal('Mod+/', 'help.shortcuts');
   shortcuts.bindGlobal('Mod+Shift+G', 'tools.wordCount');
   shortcuts.bindGlobal('Mod+Shift+C', 'format.painter');
+  shortcuts.bindGlobal('Mod+=', 'view.zoomIn');
+  shortcuts.bindGlobal('Mod+-', 'view.zoomOut');
   void shortcuts.load();
   connectBridge(commands);
   window.addEventListener('beforeunload', () => { void flush(); });

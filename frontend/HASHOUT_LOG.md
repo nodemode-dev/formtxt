@@ -2,8 +2,8 @@
 
 Living log of comment content, rationale and removed code for the frontend. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.4.0
-Last updated: 2026-10-21 · Phase 2b tabs, styles, paragraph settings, palette, shortcuts, bridge
+Current build version: v0.5.0
+Last updated: 2026-10-21 · Phase 3a pages, headers and footers, page setup, zoom
 
 ---
 
@@ -31,7 +31,8 @@ frontend/
     ├── editor/plugins.ts    input rules, unique ids, find and replace
     ├── editor/editor.ts     DocEditor: toolbar, page, outline, find panel, autosave hooks
     ├── editor/register.ts   editor commands in the registry, toolbar wiring
-    ├── editor/dialogs.ts    paragraph settings, style editor, word count
+    ├── editor/dialogs.ts    paragraph settings, style editor, page setup, header and footer, word count
+    ├── editor/pages.ts      Paginator: page sheets, spacer decorations, page number formats
     ├── automation/bridge.ts WebSocket to /api/live so the CLI runs commands in the window
     ├── ui/palette.ts        Find a Command
     ├── ui/shortcuts.ts      custom and global shortcuts, the shortcuts dialog
@@ -175,6 +176,24 @@ frontend/
 - kind: todo
 - logged: v0.4.0 · 2026-10-21
 - keepNext, keepLines, widowControl and tab stop positions are saved and shown in the dialog; they only change rendering once Phase 3 lays out pages. Tab stops today set the paragraph's `tab-size` from the first stop.
+
+### pages · one flow, spacers between pages
+- refers-to: src/editor/pages.ts :: Paginator.layout()
+- kind: rationale
+- logged: v0.5.0 · 2026-10-21
+- The document stays one contenteditable flow. After each change, in one animation frame and before paint, the paginator clears its decorations, measures every block and every line in natural flow, then places spacer widgets: a block spacer to move a whole paragraph (or a keep-with-next chain of up to five) to the next page, or an inline block-display spacer at a line start to split a paragraph, honouring widow and orphan control and keep lines together. The page sheets (background, header, footer, watermark) are absolutely positioned behind the flow and patched per page.
+
+### pages · measuring traps found and fixed
+- refers-to: src/editor/pages.ts :: layout(); styles/editor.css .ft-pm-root display flow-root
+- kind: warning-context
+- logged: v0.5.0 · 2026-10-21
+- Three traps, each found by a throttled run that checked every line against its page body: the first paragraph's margin collapsed through the editor root and offset every coordinate (fixed with `display: flow-root`); the paged-mode CSS (page breaks lose their margins) was applied after measuring on the first pass (the mode is now set before measuring); and CSS `zoom` changed line wrapping, so zoom is now a transform that never alters layout. Spacer heights get a correction pass against their target page tops, which absorbs margin collapse and line-box rounding.
+
+### pages · cost
+- refers-to: src/editor/pages.ts :: layout()
+- kind: todo
+- logged: v0.5.0 · 2026-10-21
+- Every layout measures the whole tab, so very long documents cost a forced layout per change. Phase 3b should start from the first changed page.
 
 ### toolbar · focus
 - refers-to: src/editor/register.ts :: registerEditorCommands() mousedown

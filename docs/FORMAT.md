@@ -42,7 +42,7 @@ Lengths are points (1/72 inch). Colours are `#rrggbb`. Ids are a prefix plus 4 t
 
 ### Section
 
-`page` (`size` name, `width`, `height`, `orientation`), `margins` (`top`, `right`, `bottom`, `left`, `header`, `footer`, `gutter`), `columns` (`count`, `gap`), `headers` and `footers` (keyed `default`, `first`, `even`), `titlePage`, `start` (`nextPage`, `continuous`, `evenPage`, `oddPage`).
+`page` (`size` name, `width`, `height`, `orientation`), `margins` (`top`, `right`, `bottom`, `left`, `header`, `footer`, `gutter`), `columns` (`count`, `gap`), `headers` and `footers` (keyed `default`, `first`, `even`, each `{text, align}` where `{PAGE}` and `{NUMPAGES}` are fields), `titlePage` (different first page), `start` (`nextPage`, `continuous`, `evenPage`, `oddPage`), optional `pageNumberStart`, `pageNumberFormat` (`decimal`, `lowerRoman`, `upperRoman`, `lowerLetter`, `upperLetter`), `pageColor` and `pageBorder` (`thin`, `double`, `accent`). Document `settings` add `evenOdd` (different odd and even pages), `watermark` (text) and `pageless`.
 
 ### Blocks
 

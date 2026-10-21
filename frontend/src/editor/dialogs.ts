@@ -124,6 +124,86 @@ export function stylesDialog(ed: DocEditor): void {
   d.open(name);
 }
 
+export const PAGE_SIZES: Record<string, [string, number, number]> = {
+  letter: ['US Letter, 8.5 x 11 in', 612, 792], legal: ['US Legal, 8.5 x 14 in', 612, 1008], a4: ['A4, 210 x 297 mm', 595.28, 841.89],
+  a5: ['A5, 148 x 210 mm', 419.53, 595.28], executive: ['Executive, 7.25 x 10.5 in', 522, 756], tabloid: ['Tabloid, 11 x 17 in', 792, 1224],
+};
+
+export function pageGeometry(size: string, orientation: string): { size: string; width: number; height: number; orientation: 'portrait' | 'landscape' } {
+  const [, w, h] = PAGE_SIZES[size] ?? PAGE_SIZES.letter;
+  const land = orientation === 'landscape';
+  return { size: PAGE_SIZES[size] ? size : 'letter', width: land ? h : w, height: land ? w : h, orientation: land ? 'landscape' : 'portrait' };
+}
+
+export function pageSetupDialog(ed: DocEditor): void {
+  const s = ed.section();
+  if (!s) throw new Error('Open a document first.');
+  const settings = (ed.doc?.settings ?? {}) as unknown as Record<string, unknown>;
+  const d = new Dialog('Page setup', 600);
+  const size = select(Object.entries(PAGE_SIZES).map(([k, v]) => [k, v[0]]), s.page.size);
+  const orient = select([['portrait', 'Portrait'], ['landscape', 'Landscape']], s.page.orientation);
+  const m = s.margins;
+  const inch = (pt: number): string => String(+(pt / 72).toFixed(2));
+  const mi = (v: number): HTMLInputElement => input('number', inch(v), 'step="0.05" min="0"');
+  const top = mi(m.top), bottom = mi(m.bottom), left = mi(m.left), right = mi(m.right), header = mi(m.header), footer = mi(m.footer);
+  const color = input('color', s.pageColor || '#ffffff');
+  const border = select([['', 'None'], ['thin', 'Thin line'], ['double', 'Double line'], ['accent', 'Accent colour']], s.pageBorder ?? '');
+  const watermark = input('text', String(settings.watermark ?? ''), 'placeholder="For example DRAFT" spellcheck="false"');
+  const pageless = input('checkbox', String(!!settings.pageless));
+  grid(d, [['Paper size', size], ['Orientation', orient], ['Top margin (in)', top], ['Bottom margin (in)', bottom], ['Left margin (in)', left], ['Right margin (in)', right],
+    ['Header from edge (in)', header], ['Footer from edge (in)', footer], ['Page colour', color], ['Page border', border], ['Watermark text', watermark], ['Pageless', pageless]]);
+  d.button('Cancel', 'ghost', () => d.close());
+  d.button('Apply', 'primary', () => {
+    const pt = (i: HTMLInputElement, fallback: number): number => (i.value.trim() === '' ? fallback : Math.max(0, Number(i.value) * 72));
+    ed.updatePage({
+      page: pageGeometry(size.value, orient.value),
+      margins: { ...m, top: pt(top, m.top), bottom: pt(bottom, m.bottom), left: pt(left, m.left), right: pt(right, m.right), header: pt(header, m.header), footer: pt(footer, m.footer) },
+      pageColor: color.value.toLowerCase() === '#ffffff' ? '' : color.value, pageBorder: border.value,
+    }, { watermark: watermark.value.trim(), pageless: pageless.checked });
+    d.close();
+  });
+  d.open(size);
+}
+
+export function headerFooterDialog(ed: DocEditor): void {
+  const s = ed.section();
+  if (!s) throw new Error('Open a document first.');
+  const settings = (ed.doc?.settings ?? {}) as unknown as Record<string, unknown>;
+  const d = new Dialog('Header and footer', 640);
+  const part = (o: Record<string, unknown>, k: string): { text: string; align: string } => (o?.[k] as { text: string; align: string }) ?? { text: '', align: '' };
+  const rows: Array<[string, HTMLElement]> = [];
+  const fields: Record<string, { text: HTMLInputElement; align: HTMLSelectElement }> = {};
+  for (const where of ['headers', 'footers'] as const) {
+    for (const which of ['default', 'first', 'even'] as const) {
+      const v = part(s[where] as Record<string, unknown>, which);
+      const text = input('text', v.text, 'spellcheck="false" placeholder="Text; {PAGE} and {NUMPAGES} insert numbers"');
+      const align = select([['left', 'Left'], ['center', 'Center'], ['right', 'Right']], v.align || (where === 'footers' ? 'center' : 'left'));
+      fields[`${where}.${which}`] = { text, align };
+      const label = `${where === 'headers' ? 'Header' : 'Footer'}${which === 'default' ? '' : which === 'first' ? ', first page' : ', even pages'}`;
+      rows.push([label, text], [`${label} alignment`, align]);
+    }
+  }
+  const titlePage = input('checkbox', String(!!s.titlePage));
+  const evenOdd = input('checkbox', String(!!settings.evenOdd));
+  const fmt = select([['decimal', '1, 2, 3'], ['lowerRoman', 'i, ii, iii'], ['upperRoman', 'I, II, III'], ['lowerLetter', 'a, b, c'], ['upperLetter', 'A, B, C']], s.pageNumberFormat ?? 'decimal');
+  const start = input('number', String(s.pageNumberStart ?? 1), 'min="0" step="1"');
+  grid(d, [...rows, ['Different first page', titlePage], ['Different odd and even pages', evenOdd], ['Page number format', fmt], ['Start numbering at', start]]);
+  d.button('Cancel', 'ghost', () => d.close());
+  d.button('Apply', 'primary', () => {
+    const collect = (where: string): Record<string, { text: string; align: string }> => {
+      const out: Record<string, { text: string; align: string }> = {};
+      for (const which of ['default', 'first', 'even']) {
+        const f = fields[`${where}.${which}`];
+        if (f.text.value.trim()) out[which] = { text: f.text.value, align: f.align.value };
+      }
+      return out;
+    };
+    ed.updatePage({ headers: collect('headers'), footers: collect('footers'), titlePage: titlePage.checked, pageNumberFormat: fmt.value, pageNumberStart: Math.max(0, Math.round(Number(start.value) || 1)) }, { evenOdd: evenOdd.checked });
+    d.close();
+  });
+  d.open(fields['headers.default'].text);
+}
+
 export function wordCountDialog(ed: DocEditor): void {
   const s = ed.stats();
   const d = new Dialog('Word count', 380);

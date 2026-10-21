@@ -13,7 +13,8 @@ import { icon } from '../ui/icons';
 import { type CaseMode, changeCase, clearFormatting, insertPageBreak, mark, setAlign, setLineSpacing, setLink, setMarkValue, setParaProps, setStyle, shiftIndent, splitWithNextStyle, toggleChecked, toggleCodeBlock, toggleCollapsed, toggleList } from './commands';
 import { fromPM, toPM } from './convert';
 import { collapsePlugin, findKey, findPlugin, rules, uniqueIds } from './plugins';
-import type { DocTab, Style } from '../engine/model';
+import type { DocTab, Section, Style } from '../engine/model';
+import { Paginator, pagesKey, pagesPlugin } from './pages';
 import { schema } from './schema';
 
 const PX = 96 / 72;
@@ -83,6 +84,9 @@ export class DocEditor {
   view: EditorView | null = null;
   doc: FtxtDocument | null = null;
   private readonly page: HTMLElement;
+  private readonly pagesEl: HTMLElement;
+  readonly paginator: Paginator;
+  zoom = 1;
   private readonly mount: HTMLElement;
   private readonly sheet: HTMLStyleElement;
   private readonly outline: HTMLElement;
@@ -113,11 +117,13 @@ ${TB('list.bullet', 'listBullet', 'Bulleted list', 'Ctrl+Shift+8')}${TB('list.nu
 <select class="ft-tb-select ft-tb-spacing" data-cmd="paragraph.lineSpacing" aria-label="Line spacing">${SPACINGS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>${SEP}
 ${TB('format.painter', 'painter', 'Format Painter', 'Ctrl+Shift+C')}${TB('format.paragraph', 'paragraph', 'Paragraph settings')}${TB('format.styles', 'styles', 'Styles')}${SEP}
 ${TB('insert.link', 'link', 'Link', 'Ctrl+K')}${TB('insert.codeBlock', 'code', 'Code block')}${TB('insert.pageBreak', 'pageBreak', 'Page break', 'Ctrl+Enter')}${TB('format.clear', 'clearFormat', 'Clear formatting', 'Ctrl+\\')}${SEP}
-${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', 'outline', 'Outline')}
+${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', 'outline', 'Outline')}${SEP}
+${TB('layout.pageSetup', 'pageSetup', 'Page setup')}${TB('insert.headerFooter', 'headerFooter', 'Header and footer')}${TB('view.pageless', 'pageless', 'Pageless')}
+<select class="ft-tb-select ft-tb-zoom" data-cmd="view.zoom" aria-label="Zoom">${[50, 75, 90, 100, 110, 125, 150, 200].map((z) => `<option value="${z}"${z === 100 ? ' selected' : ''}>${z}%</option>`).join('')}<option value="" disabled hidden></option></select>
 </div>
 <div class="ft-editor-body">
 <nav class="ft-outline" aria-label="Outline"><div class="ft-outline-title ft-tabs-head">Tabs<button type="button" class="ft-tb-btn sm" data-cmd="tabs.add" title="Add tab" aria-label="Add tab">${icon('plus', 14)}</button></div><div class="ft-tabs-list"></div><div class="ft-outline-title">Outline</div><div class="ft-outline-list"></div><p class="ft-outline-none">Headings you add appear here.</p></nav>
-<div class="ft-scroll"><article class="ft-page"><div class="ft-pm"></div></article></div>
+<div class="ft-scroll"><div class="ft-pages"><article class="ft-page"><div class="ft-pm"></div></article></div></div>
 <div class="ft-find" role="search" hidden>
 <div class="ft-find-row"><input class="ft-input ft-find-q" type="search" placeholder="Find" spellcheck="false" aria-label="Find"><span class="ft-find-count"></span>
 <button type="button" class="ft-tb-btn" data-find="prev" title="Previous (Shift+Enter)">${icon('chevronUp', 16)}</button><button type="button" class="ft-tb-btn" data-find="next" title="Next (Enter)">${icon('chevronDown', 16)}</button><button type="button" class="ft-tb-btn" data-find="close" title="Close (Esc)">${icon('close', 16)}</button></div>
@@ -126,6 +132,9 @@ ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', '
 </div>
 </div></div>`);
     this.page = this.root.querySelector('.ft-page') as HTMLElement;
+    this.pagesEl = this.root.querySelector('.ft-pages') as HTMLElement;
+    this.paginator = new Paginator(() => this.view, this.pagesEl, () => this.doc?.sections[0] ?? null, () => (this.doc?.settings ?? {}) as unknown as Record<string, unknown>, () => this.zoom);
+    this.paginator.onLayout = () => this.hooks.status(this.words());
     this.mount = this.root.querySelector('.ft-pm') as HTMLElement;
     this.outline = this.root.querySelector('.ft-outline-list') as HTMLElement;
     this.outlinePane = this.root.querySelector('.ft-outline') as HTMLElement;
@@ -199,11 +208,7 @@ ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', '
     await loadFonts(docFonts(doc));
     this.doc = doc;
     this.sheet.textContent = styleSheet(doc);
-    const s = doc.sections[0];
-    const m = s.margins;
-    this.page.style.width = `${(s.page.width * PX).toFixed(0)}px`;
-    this.page.style.minHeight = `${(s.page.height * PX).toFixed(0)}px`;
-    this.page.style.padding = `${(m.top * PX).toFixed(0)}px ${(m.right * PX).toFixed(0)}px ${(m.bottom * PX).toFixed(0)}px ${(m.left * PX).toFixed(0)}px`;
+    this.applyGeometry();
     const tpl = (doc.settings as unknown as { template?: { layout?: string; accent?: string } }).template;
     this.page.dataset.layout = tpl?.layout ?? 'classic';
     this.page.style.setProperty('--doc-accent', tpl?.accent ?? '#f97316');
@@ -223,7 +228,7 @@ ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', '
           this.view.updateState(next);
           this.states.set(this.activeTab, next);
           this.syncToolbar();
-          if (tr.docChanged) { this.emitChange(); this.scheduleOutline(); }
+          if (tr.docChanged) { this.emitChange(); this.scheduleOutline(); if (!tr.getMeta(pagesKey)) this.paginator.schedule(); }
           if (tr.getMeta(findKey) || tr.docChanged) this.syncFind();
         },
       });
@@ -236,7 +241,58 @@ ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', '
     (this.root.querySelector('.ft-scroll') as HTMLElement).scrollTop = 0;
   }
 
-  show(on: boolean): void { setHidden(this.root, !on); if (on) this.view?.focus(); }
+  show(on: boolean): void {
+    setHidden(this.root, !on);
+    if (on) { this.paginator.layoutNow(); this.hooks.status(this.words()); this.view?.focus(); }
+  }
+
+  applyGeometry(): void {
+    if (!this.doc) return;
+    const s = this.doc.sections[0];
+    const m = s.margins;
+    const ext = s as unknown as { pageColor?: string; pageBorder?: string };
+    const pageless = !!(this.doc.settings as unknown as { pageless?: boolean }).pageless;
+    const W = s.page.width * PX;
+    const css = pageless
+      ? `width:${Math.max(W, 816).toFixed(0)}px;padding:48px 64px 96px;min-height:${(s.page.height * PX).toFixed(0)}px`
+      : `width:${W.toFixed(0)}px;padding:${(m.top * PX).toFixed(0)}px ${(m.right * PX).toFixed(0)}px 0 ${(m.left * PX).toFixed(0)}px`;
+    if (this.page.getAttribute('style')?.split(';--doc-accent')[0] !== css) {
+      const accent = this.page.style.getPropertyValue('--doc-accent');
+      this.page.setAttribute('style', css);
+      if (accent) this.page.style.setProperty('--doc-accent', accent);
+    }
+    this.pagesEl.style.width = pageless ? '' : `${W.toFixed(0)}px`;
+    this.pagesEl.style.setProperty('--page-color', ext.pageColor || '#ffffff');
+    this.pagesEl.style.setProperty('--page-pad-top', `${(m.header * PX).toFixed(0)}px`);
+    this.pagesEl.style.setProperty('--page-pad-bottom', `${(m.footer * PX).toFixed(0)}px`);
+    this.pagesEl.style.setProperty('--page-pad-x', `${(m.left * PX).toFixed(0)}px`);
+    this.pagesEl.style.setProperty('--page-pad-xr', `${(m.right * PX).toFixed(0)}px`);
+    this.pagesEl.dataset.border = ext.pageBorder || '';
+    const scale = this.zoom === 1 ? '' : `scale(${this.zoom})`;
+    if (this.pagesEl.style.transform !== scale) { this.pagesEl.style.transform = scale; this.pagesEl.style.transformOrigin = 'top center'; }
+  }
+
+  section(): Section | null { return this.doc?.sections[0] ?? null; }
+
+  updatePage(section: Partial<Section> & Record<string, unknown>, settings: Record<string, unknown> = {}): boolean {
+    if (!this.doc) throw new Error('Open a document first.');
+    const s = { ...this.doc.sections[0], ...section } as Section;
+    this.doc = { ...this.doc, sections: [s, ...this.doc.sections.slice(1)], settings: { ...this.doc.settings, ...settings } };
+    this.applyGeometry();
+    this.paginator.layoutNow();
+    this.emitChange();
+    return true;
+  }
+
+  setZoom(z: number): number {
+    this.zoom = Math.max(0.25, Math.min(3, z));
+    this.applyGeometry();
+    this.paginator.layoutNow();
+    setValue(this.root.querySelector('.ft-tb-zoom') as HTMLSelectElement, String(Math.round(this.zoom * 100)));
+    return Math.round(this.zoom * 100);
+  }
+
+  pageCount(): number { return this.paginator.pages; }
 
   words(): number {
     return this.view ? this.view.state.doc.textBetween(0, this.view.state.doc.content.size, ' ', ' ').split(/\s+/).filter(Boolean).length : 0;
@@ -250,7 +306,7 @@ ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', '
   }
 
   private makeState(index: number): EditorState {
-    return EditorState.create({ doc: toPM(this.doc!, index), plugins: [rules, ...this.keys(), history(), dropCursor(), gapCursor(), uniqueIds, findPlugin, collapsePlugin] });
+    return EditorState.create({ doc: toPM(this.doc!, index), plugins: [rules, ...this.keys(), history(), dropCursor(), gapCursor(), uniqueIds, findPlugin, collapsePlugin, pagesPlugin] });
   }
 
   tabs(): DocTab[] { return this.doc?.tabs ?? []; }
@@ -265,6 +321,7 @@ ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', '
     let state = this.states.get(id);
     if (!state) { state = this.makeState(index); this.states.set(id, state); }
     this.view.updateState(state);
+    this.paginator.layoutNow();
     this.renderTabs();
     this.renderOutline();
     this.syncToolbar();
@@ -350,6 +407,7 @@ ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', '
     this.sheet.textContent = styleSheet(this.doc);
     this.syncStyleOptions();
     this.syncToolbar();
+    this.paginator.schedule();
     this.emitChange();
   }
 

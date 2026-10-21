@@ -51,6 +51,10 @@ export interface Section {
   footers: Record<string, unknown>;
   titlePage: boolean;
   start: string;
+  pageNumberStart?: number;
+  pageNumberFormat?: string;
+  pageColor?: string;
+  pageBorder?: string;
 }
 
 export interface DocTab {

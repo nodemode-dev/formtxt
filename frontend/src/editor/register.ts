@@ -1,5 +1,6 @@
 import type { CommandRegistry } from '../engine/registry';
-import { paragraphDialog, parseTabs, stylesDialog, wordCountDialog } from './dialogs';
+import type { Section } from '../engine/model';
+import { headerFooterDialog, pageGeometry, pageSetupDialog, paragraphDialog, parseTabs, stylesDialog, wordCountDialog } from './dialogs';
 import { type DocEditor, FONTS } from './editor';
 
 export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): void {
@@ -62,6 +63,33 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
     { name: 'shading', type: 'string', description: '#rrggbb or empty' }, { name: 'tabs', type: 'string', description: 'Tab stops such as "72 left, 288 right dot"' },
   ]);
 
+  add('layout.pageSetup', 'Page setup', 'Layout', 'Paper size, orientation, margins, page colour, border, watermark and pageless.', () => { pageSetupDialog(ed); return true; });
+  add('layout.setPage', 'Set page', 'Layout', 'Set paper size, orientation and margins (inches) without a dialog.', (p) => {
+    const s = ed.section();
+    if (!s) throw new Error('Open a document first.');
+    const m = { ...s.margins };
+    for (const k of ['top', 'bottom', 'left', 'right', 'header', 'footer'] as const) if (p[k] !== undefined) m[k] = Number(p[k]) * 72;
+    return ed.updatePage({ page: pageGeometry(String(p.size ?? s.page.size), String(p.orientation ?? s.page.orientation)), margins: m });
+  }, [
+    { name: 'size', type: 'string', description: 'letter, legal, a4, a5, executive or tabloid' }, { name: 'orientation', type: 'string', description: 'portrait or landscape' },
+    { name: 'top', type: 'number', description: 'Top margin in inches' }, { name: 'bottom', type: 'number', description: 'Bottom margin in inches' },
+    { name: 'left', type: 'number', description: 'Left margin in inches' }, { name: 'right', type: 'number', description: 'Right margin in inches' },
+  ]);
+  add('insert.headerFooter', 'Header and footer', 'Insert', 'Edit headers and footers, a different first page, odd and even pages, and page number format.', () => { headerFooterDialog(ed); return true; });
+  add('insert.pageNumber', 'Page numbers', 'Insert', 'Put "Page N of M" or "N" in the header or footer.', (p) => {
+    const s = ed.section();
+    if (!s) throw new Error('Open a document first.');
+    const where = p.position === 'header' ? 'headers' : 'footers';
+    const text = p.withTotal === false ? '{PAGE}' : 'Page {PAGE} of {NUMPAGES}';
+    return ed.updatePage({ [where]: { ...(s[where] as Record<string, unknown>), default: { text, align: String(p.align ?? 'center') } } } as Partial<Section>);
+  }, [{ name: 'position', type: 'string', description: 'header or footer (default)' }, { name: 'align', type: 'string', description: 'left, center or right' }, { name: 'withTotal', type: 'boolean', description: 'Include "of N" (default true)' }]);
+  add('insert.pageNumbers', 'Page numbers in footer', 'Insert', 'Put "Page N of M" centred in the footer.', () => reg.run('insert.pageNumber', {}));
+  add('view.pageless', 'Pageless', 'View', 'Switch between pages and one continuous pageless sheet.', () => { const on = !(ed.doc?.settings as unknown as { pageless?: boolean })?.pageless; ed.updatePage({}, { pageless: on }); return on; });
+  add('view.zoom', 'Zoom', 'View', 'Set the zoom in percent.', (p) => ed.setZoom(Number(p.percent ?? p.value ?? 100) / 100), [{ name: 'percent', type: 'number', description: '25 to 300' }]);
+  add('view.zoomIn', 'Zoom in', 'View', 'Zoom in by 10 percent.', () => ed.setZoom(ed.zoom + 0.1), [], ['Ctrl+=']);
+  add('view.zoomOut', 'Zoom out', 'View', 'Zoom out by 10 percent.', () => ed.setZoom(ed.zoom - 0.1), [], ['Ctrl+-']);
+  add('tools.pageCount', 'Page count', 'Tools', 'Return the number of pages laid out for the current tab.', () => ed.pageCount());
+
   add('styles.list', 'List styles', 'Format', 'List the paragraph styles in this document.', () => Object.entries(ed.styles()).map(([id, s]) => ({ id, name: s.name, basedOn: s.basedOn, next: s.next })));
   add('tools.wordCount', 'Word count', 'Tools', 'Show words, characters and paragraphs in the current tab.', () => { wordCountDialog(ed); return ed.stats(); }, [], ['Ctrl+Shift+G']);
   add('tools.stats', 'Document statistics', 'Tools', 'Return words, characters and paragraphs of the current tab without opening a dialog.', () => ed.stats());
@@ -79,7 +107,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
 
   const bar = ed.root.querySelector('.ft-toolbar') as HTMLElement;
   bar.addEventListener('mousedown', (e) => { if ((e.target as HTMLElement).closest('.ft-tb-btn')) e.preventDefault(); });
-  const param: Record<string, string> = { 'paragraph.style': 'style', 'format.font': 'family', 'format.size': 'pt', 'format.color': 'value', 'format.highlight': 'value', 'paragraph.lineSpacing': 'value' };
+  const param: Record<string, string> = { 'view.zoom': 'percent', 'paragraph.style': 'style', 'format.font': 'family', 'format.size': 'pt', 'format.color': 'value', 'format.highlight': 'value', 'paragraph.lineSpacing': 'value' };
   bar.addEventListener('change', (e) => {
     const t = e.target as HTMLSelectElement | HTMLInputElement;
     const id = t.dataset.cmd;
