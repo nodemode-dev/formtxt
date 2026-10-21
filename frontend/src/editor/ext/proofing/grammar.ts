@@ -193,8 +193,53 @@ export function grammarIssues(text: string, rules: GrammarRules, skip: (i: numbe
     }
   }
 
+  const swap = (rule: string, cat: RawIssue['cat'], list: Array<[string, string]>, message: (w: string, r: string) => string): void => {
+    for (const [wrong, right] of list) {
+      for (const m of text.matchAll(re(wrong))) {
+        const r = caseLike(m[0], right);
+        push({ from: m.index, to: m.index + m[0].length, cat, rule, message: message(m[0], r), fixes: r ? [fix(`Change to "${r}"`, m.index, m.index + m[0].length, r)] : [] });
+      }
+    }
+  };
+  if (rules.formal) {
+    swap('formal', 'formality', CONTRACTIONS, (w, r) => `In formal writing, spell out "${w}" as "${r}"`);
+    swap('formal', 'formality', CASUAL, (w, r) => `"${w}" is casual; consider "${r}"`);
+  }
+  if (rules.inclusive !== false) swap('inclusive', 'inclusiveness', INCLUSIVE, (w, r) => `Consider the inclusive "${r}" instead of "${w}"`);
+  if (rules.vocabulary !== false) {
+    for (const m of text.matchAll(re('(very|really|extremely|basically|literally|totally)'))) {
+      const after = /^([ \t]+)/.exec(text.slice(m.index + m[0].length));
+      const end = m.index + m[0].length + (after ? after[0].length : 0);
+      push({ from: m.index, to: m.index + m[0].length, cat: 'clarity', rule: 'vocabulary', message: `"${m[0]}" adds little; use a more precise word or delete it`, fixes: [fix('Delete it', m.index, end, '')] });
+    }
+    for (const c of CLICHES) for (const m of text.matchAll(re(c))) push({ from: m.index, to: m.index + m[0].length, cat: 'clarity', rule: 'vocabulary', message: 'Cliche: say what you mean directly', fixes: [] });
+  }
+
   return out.filter((i) => !text.slice(i.from, i.to).includes(OBJECT) || i.rule === 'long');
 }
+
+const APOS = "['’]";
+const CONTRACTIONS: Array<[string, string]> = [
+  [`can${APOS}t`, 'cannot'], [`won${APOS}t`, 'will not'], [`don${APOS}t`, 'do not'], [`doesn${APOS}t`, 'does not'], [`didn${APOS}t`, 'did not'],
+  [`isn${APOS}t`, 'is not'], [`aren${APOS}t`, 'are not'], [`wasn${APOS}t`, 'was not'], [`weren${APOS}t`, 'were not'], [`haven${APOS}t`, 'have not'],
+  [`hasn${APOS}t`, 'has not'], [`hadn${APOS}t`, 'had not'], [`wouldn${APOS}t`, 'would not'], [`couldn${APOS}t`, 'could not'], [`shouldn${APOS}t`, 'should not'],
+  [`it${APOS}s`, 'it is'], [`I${APOS}m`, 'I am'], [`you${APOS}re`, 'you are'], [`we${APOS}re`, 'we are'], [`they${APOS}re`, 'they are'],
+  [`I${APOS}ve`, 'I have'], [`we${APOS}ve`, 'we have'], [`you${APOS}ve`, 'you have'], [`I${APOS}ll`, 'I will'], [`we${APOS}ll`, 'we will'],
+  [`they${APOS}ll`, 'they will'], [`let${APOS}s`, 'let us'], [`that${APOS}s`, 'that is'], [`there${APOS}s`, 'there is'], [`what${APOS}s`, 'what is'],
+];
+const CASUAL: Array<[string, string]> = [
+  ['gonna', 'going to'], ['wanna', 'want to'], ['gotta', 'have to'], ['kinda', 'somewhat'], ['sorta', 'somewhat'], ['a lot of', 'many'], ['lots of', 'many'],
+  ['stuff', 'material'], ['things like that', 'similar items'], ['kids', 'children'], ['guys', 'everyone'], ['okay', 'acceptable'], ['awesome', 'excellent'],
+  ['huge', 'substantial'], ['get rid of', 'remove'], ['figure out', 'determine'], ['find out', 'discover'], ['check out', 'examine'], ['come up with', 'devise'],
+];
+const INCLUSIVE: Array<[string, string]> = [
+  ['chairman', 'chair'], ['chairwoman', 'chair'], ['mankind', 'humankind'], ['manpower', 'workforce'], ['man-made', 'artificial'], ['manmade', 'artificial'],
+  ['policeman', 'police officer'], ['policemen', 'police officers'], ['fireman', 'firefighter'], ['firemen', 'firefighters'], ['businessman', 'businessperson'],
+  ['businessmen', 'businesspeople'], ['salesman', 'salesperson'], ['salesmen', 'salespeople'], ['spokesman', 'spokesperson'], ['mailman', 'mail carrier'],
+  ['stewardess', 'flight attendant'], ['cameraman', 'camera operator'], ['workmen', 'workers'], ['foreman', 'supervisor'], ['blacklist', 'blocklist'],
+  ['whitelist', 'allowlist'], ['manhole', 'maintenance hole'], ['housewife', 'homemaker'],
+];
+const CLICHES = ['think outside the box', 'low-hanging fruit', 'touch base', 'circle back', 'move the needle', 'game changer', 'paradigm shift', 'in this day and age', 'last but not least'].filter((c) => !WORDY.some(([w]) => w === c));
 
 interface Confusion {
   re: RegExp;

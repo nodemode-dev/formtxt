@@ -290,7 +290,7 @@ export async function waitForScan(timeout = 8000): Promise<void> {
 }
 
 export function counts(state: EditorState): Record<Category, number> {
-  const c: Record<Category, number> = { spelling: 0, grammar: 0, clarity: 0, conciseness: 0 };
+  const c: Record<Category, number> = { spelling: 0, grammar: 0, clarity: 0, conciseness: 0, formality: 0, inclusiveness: 0 };
   for (const i of issuesOf(state)) c[i.cat]++;
   return c;
 }

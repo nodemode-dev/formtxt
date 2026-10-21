@@ -199,6 +199,13 @@ export function register(reg: CommandRegistry, ed: DocEditor): void {
     return getPrefs().grammarRules;
   }, [{ name: 'rule', type: 'string', description: 'Rule name' }, { name: 'on', type: 'boolean', description: 'true to turn on' }]);
   add('proofing.options', 'Spelling and grammar options', 'Tools', 'Open the spelling and grammar options.', () => { proofingOptionsDialog(ed); return true; });
+  add('proofing.writingStyle', 'Writing style', 'Tools', 'Choose how strict the Editor is: casual (no formality checks), professional (inclusive language and vocabulary) or formal (also contractions, slang and casual words).', async (p) => {
+    const style = String(p.style ?? 'professional');
+    if (!['casual', 'professional', 'formal'].includes(style)) throw new Error('Writing style is casual, professional or formal.');
+    const rules = { formal: style === 'formal', inclusive: style !== 'casual', vocabulary: style !== 'casual' };
+    await savePrefs({ grammarRules: rules });
+    return { style, rules };
+  }, [{ name: 'style', type: 'string', description: 'casual, professional or formal' }]);
 
   add('proofing.language', 'Language', 'Tools', 'Open the language chooser for the selection or the whole document.', () => { languageDialog(ed); return true; });
   add('proofing.setLanguage', 'Set language', 'Tools', 'Set the proofing language of the selection, or of the document with scope document. An empty code on a selection returns it to the document language.', (p) =>
@@ -310,6 +317,9 @@ export function register(reg: CommandRegistry, ed: DocEditor): void {
     { cmd: 'proofing.editorPanel', label: 'Editor' },
     { cmd: 'proofing.language', label: 'Language' },
     { cmd: 'proofing.options', label: 'Spelling and grammar options' },
+    { cmd: 'proofing.writingStyle', label: 'Writing style: formal', params: { style: 'formal' } },
+    { cmd: 'proofing.writingStyle', label: 'Writing style: professional', params: { style: 'professional' } },
+    { cmd: 'proofing.writingStyle', label: 'Writing style: casual', params: { style: 'casual' } },
     { cmd: 'proofing.dictionaryDialog', label: 'Custom dictionary' },
     { cmd: 'proofing.autocorrectOptions', label: 'AutoCorrect options' },
   ]);

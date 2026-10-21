@@ -4,6 +4,8 @@
 .ft-pf-grammar { text-decoration-line: underline; text-decoration-style: wavy; text-decoration-color: var(--pf-grammar); }
 .ft-pf-clarity { text-decoration-line: underline; text-decoration-style: dashed; text-decoration-color: var(--pf-clarity); }
 .ft-pf-conciseness { text-decoration-line: underline; text-decoration-style: dotted; text-decoration-color: var(--pf-concise); text-decoration-thickness: 2px; }
+.ft-pf-formality { text-decoration-line: underline; text-decoration-style: dotted; text-decoration-color: #a855f7; text-decoration-thickness: 2px; }
+.ft-pf-inclusiveness { text-decoration-line: underline; text-decoration-style: dashed; text-decoration-color: #14b8a6; }
 @media print { .ft-pf { text-decoration: none; } }
 .ft-speaking { background: color-mix(in srgb, var(--accent-color) 38%, transparent); border-radius: 2px; box-decoration-break: clone; }
 
@@ -47,6 +49,8 @@
 .ft-pf-dot[data-cat="grammar"] { background: #3b82f6; }
 .ft-pf-dot[data-cat="clarity"] { background: #6366f1; }
 .ft-pf-dot[data-cat="conciseness"] { background: #0ea5e9; }
+.ft-pf-dot[data-cat="formality"] { background: #a855f7; }
+.ft-pf-dot[data-cat="inclusiveness"] { background: #14b8a6; }
 .ft-pf-current { display: grid; gap: var(--space-2); padding: var(--space-3); border: 1px solid var(--border-light); border-radius: var(--radius-md); background: var(--bg-tertiary); }
 .ft-pf-current[hidden] { display: none; }
 .ft-pf-current > p { margin: 0; }

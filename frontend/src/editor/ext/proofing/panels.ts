@@ -14,7 +14,7 @@ type Located = Issue & { from: number; to: number };
 export const EDITOR_PANEL = 'editor';
 export const ACCESS_PANEL = 'accessibility';
 
-const WEIGHT: Record<Category, number> = { spelling: 3, grammar: 2, clarity: 1, conciseness: 0.75 };
+const WEIGHT: Record<Category, number> = { spelling: 3, grammar: 2, clarity: 1, conciseness: 0.75, formality: 0.75, inclusiveness: 1 };
 
 export function editorScore(c: Record<Category, number>, words: number): number {
   const weighted = CATEGORIES.reduce((n, k) => n + c[k] * WEIGHT[k], 0);

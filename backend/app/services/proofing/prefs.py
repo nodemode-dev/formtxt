@@ -7,13 +7,13 @@ from app.core import config
 _lock = threading.Lock()
 
 RULES = ("list", "smartQuotes", "dashes", "symbols", "arrows", "fractions", "capitalize", "ellipsis")
-GRAMMAR_RULES = ("repeated", "article", "capital", "spaces", "punctuation", "long", "passive", "wordy", "confusion")
+GRAMMAR_RULES = ("repeated", "article", "capital", "spaces", "punctuation", "long", "passive", "wordy", "confusion", "formal", "inclusive", "vocabulary")
 
 DEFAULTS: dict = {
     "dictionary": [],
     "spelling": True,
     "grammar": True,
-    "grammarRules": {k: True for k in GRAMMAR_RULES},
+    "grammarRules": {k: k != "formal" for k in GRAMMAR_RULES},
     "autocorrect": {
         "enabled": True,
         "rules": {k: (k != "capitalize") for k in RULES},

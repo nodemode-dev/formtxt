@@ -1,12 +1,14 @@
-export type Category = 'spelling' | 'grammar' | 'clarity' | 'conciseness';
+export type Category = 'spelling' | 'grammar' | 'clarity' | 'conciseness' | 'formality' | 'inclusiveness';
 
-export const CATEGORIES: Category[] = ['spelling', 'grammar', 'clarity', 'conciseness'];
+export const CATEGORIES: Category[] = ['spelling', 'grammar', 'clarity', 'conciseness', 'formality', 'inclusiveness'];
 
 export const CATEGORY_LABEL: Record<Category, string> = {
   spelling: 'Spelling',
   grammar: 'Grammar',
   clarity: 'Clarity',
   conciseness: 'Conciseness',
+  formality: 'Formality',
+  inclusiveness: 'Inclusiveness',
 };
 
 export interface Fix {
@@ -42,6 +44,9 @@ export interface GrammarRules {
   passive: boolean;
   wordy: boolean;
   confusion: boolean;
+  formal: boolean;
+  inclusive: boolean;
+  vocabulary: boolean;
 }
 
 export const RULE_LABELS: Record<keyof GrammarRules, string> = {
@@ -54,6 +59,9 @@ export const RULE_LABELS: Record<keyof GrammarRules, string> = {
   passive: 'Passive voice',
   wordy: 'Wordy phrases',
   confusion: 'Its and it\'s, their and there, then and than',
+  formal: 'Formal writing: contractions, slang and casual words',
+  inclusive: 'Inclusive language: gendered and exclusionary terms',
+  vocabulary: 'Vocabulary: vague intensifiers and cliches',
 };
 
 export interface AutoCorrectRules {
@@ -87,7 +95,7 @@ export const DEFAULT_PREFS: ProofingPrefs = {
   dictionary: [],
   spelling: true,
   grammar: true,
-  grammarRules: { repeated: true, article: true, capital: true, spaces: true, punctuation: true, long: true, passive: true, wordy: true, confusion: true },
+  grammarRules: { repeated: true, article: true, capital: true, spaces: true, punctuation: true, long: true, passive: true, wordy: true, confusion: true, formal: false, inclusive: true, vocabulary: true },
   autocorrect: {
     enabled: true,
     rules: { list: true, smartQuotes: true, dashes: true, symbols: true, arrows: true, fractions: true, capitalize: false, ellipsis: true },
