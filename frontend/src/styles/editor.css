@@ -59,6 +59,9 @@
 .ft-shape-frame > svg { position: absolute; inset: 0; width: 100%; height: 100%; overflow: visible; }
 .ft-shape-text { position: absolute; inset: 0; display: flex; flex-direction: column; box-sizing: border-box; padding: 6px 8px; overflow: hidden; color: #1a1a1a; line-height: 1.25; white-space: pre-wrap; overflow-wrap: anywhere; outline: none; cursor: default; user-select: none; }
 .ft-shape.is-editing .ft-shape-text { cursor: text; user-select: text; }
+.ft-shape[data-flow] .ft-shape-text { justify-content: flex-start !important; }
+.ft-shape.is-editing[data-flow] .ft-shape-text { overflow: visible; }
+.ft-shape.is-editing[data-flow] .ft-shape-frame { outline: 1px dashed var(--accent-color); outline-offset: 2px; }
 .ft-shape-editor { outline: none; white-space: pre-wrap; caret-color: var(--accent-color); }
 .ft-pm .ft-shape-text p[data-style="Normal"] { margin: 0; font-family: inherit; font-size: inherit; color: inherit; font-weight: inherit; text-align: inherit; line-height: inherit; }
 .ft-pm .ft-shape-text p { position: static; }

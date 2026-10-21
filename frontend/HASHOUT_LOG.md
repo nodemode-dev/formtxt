@@ -494,6 +494,12 @@ frontend/
 - logged: v0.21.0 · 2026-10-21
 - Every request goes to the engine: thumbnails load from `/api/stock/thumb/...`, so the window itself only ever talks to localhost and no third party sees the user's browser. A picked picture is downloaded by the engine into the document's media with its credit, then inserted like an uploaded one; the credit line is a small grey italic paragraph after the picture's paragraph. The key row takes the search row's place on the Pexels tab until a key works, and a refused key brings it back, so the dialog height never changes; More results keeps its space with visibility instead of display.
 
+### shapes · linked text boxes
+- refers-to: src/editor/shape.ts :: flowTextBoxes(), overflowUnit(), clipAt(); ShapeView.showFlow()
+- kind: rationale
+- logged: v0.22.0 · 2026-10-21
+- The story lives once, in the chain's first box, so editing, undo and saving stay one node's attrs. After every layout the flow pass walks each chain: the first box shows the whole story; the first character (or atom, or line break) whose bottom passes the box's padding edge is found by binary search over the rendered text, and the next box shows the story cut at that character's position, at its own width, and so on. Characters and inline atoms are counted the same way in the DOM and in the document (text characters one each, chips, fields, tabs and breaks one each), which is what lets a DOM index become a cut position. Each box is clipped with clip-path at the top of the first line that went on, so no half line shows twice. A box only re-renders when its slice changes, so layouts that move nothing repaint nothing. Double-clicking any box edits the first box (deferred one tick so the double-click's own focus handling cannot pull focus back to the page) with its clip lifted and a dashed outline; Ctrl+Home and Ctrl+End stay inside the box editor, because Chrome otherwise moves the caret to the end of the outer page and typing replaces the selected box. Linking requires an empty target and refuses cycles and a box that already continues another. Rotated boxes are measured unrotated.
+
 ## index.html {#index}
 
 ### index · theme before first paint

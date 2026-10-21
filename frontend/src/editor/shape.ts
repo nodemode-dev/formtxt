@@ -2,7 +2,7 @@ import { baseKeymap, toggleMark } from 'prosemirror-commands';
 import { history, redo, undo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import { DOMSerializer, Fragment, type Node as PMNode } from 'prosemirror-model';
-import { type Command, EditorState, NodeSelection, Selection } from 'prosemirror-state';
+import { type Command, EditorState, NodeSelection, Selection, TextSelection } from 'prosemirror-state';
 import { EditorView, type NodeView } from 'prosemirror-view';
 import type { Block } from '../engine/model';
 import { blocksToNodes, fromPM } from './convert';
@@ -46,6 +46,128 @@ export function placeConnectors(root: HTMLElement): void {
     if (!a || !b) { v.placeConnector(null, null); continue; }
     v.placeConnector(edgePoint(a, [b.x + b.w / 2, b.y + b.h / 2]), edgePoint(b, [a.x + a.w / 2, a.y + a.h / 2]));
   }
+}
+
+function unitPositions(doc: PMNode): number[] {
+  const out: number[] = [];
+  doc.descendants((n, pos) => {
+    if (n.isText) { for (let i = 0; i < n.nodeSize; i++) out.push(pos + i); }
+    else if (n.isInline && n.isLeaf) out.push(pos);
+    return true;
+  });
+  return out;
+}
+
+function overflowUnit(text: HTMLElement): { index: number; top: number } {
+  const box = text.getBoundingClientRect();
+  const limit = box.bottom - (parseFloat(getComputedStyle(text).paddingBottom) || 0) * (box.height / (text.offsetHeight || box.height || 1));
+  const segs: Array<{ node: Node; len: number }> = [];
+  const walk = (n: Node): void => {
+    for (const c of Array.from(n.childNodes)) {
+      if (c.nodeType === Node.TEXT_NODE) { const len = (c as Text).data.length; if (len) segs.push({ node: c, len }); }
+      else if (c instanceof HTMLElement) {
+        if (c.getAttribute('contenteditable') === 'false' || c.nodeName === 'BR' || c.nodeName === 'IMG') segs.push({ node: c, len: 1 });
+        else walk(c);
+      }
+    }
+  };
+  walk(text);
+  const total = segs.reduce((s, x) => s + x.len, 0);
+  if (!total) return { index: -1, top: 0 };
+  const range = document.createRange();
+  const rectOf = (i: number): { top: number; bottom: number } => {
+    let k = i;
+    for (const s of segs) {
+      if (k < s.len) {
+        if (s.node.nodeType !== Node.TEXT_NODE) return (s.node as HTMLElement).getBoundingClientRect();
+        range.setStart(s.node, k); range.setEnd(s.node, k + 1);
+        const r = range.getClientRects();
+        return r[r.length - 1] ?? range.getBoundingClientRect();
+      }
+      k -= s.len;
+    }
+    return { top: -Infinity, bottom: -Infinity };
+  };
+  if (rectOf(total - 1).bottom <= limit + 0.5) return { index: -1, top: 0 };
+  let lo = 0, hi = total - 1;
+  while (lo < hi) { const mid = (lo + hi) >> 1; if (rectOf(mid).bottom > limit + 0.5) hi = mid; else lo = mid + 1; }
+  return { index: lo, top: rectOf(lo).top };
+}
+
+function clipAt(text: HTMLElement, screenTop: number | null): void {
+  let v = '';
+  if (screenTop !== null) {
+    const r = text.getBoundingClientRect();
+    const ratio = r.height && text.offsetHeight ? r.height / text.offsetHeight : 1;
+    v = `inset(0 0 ${Math.max(0, (r.bottom - screenTop) / ratio).toFixed(1)}px 0)`;
+  }
+  if (text.style.clipPath !== v) text.style.clipPath = v;
+}
+
+const stories = new Map<string, { doc: PMNode; units: number[] }>();
+
+export function flowTextBoxes(root: HTMLElement): void {
+  const boxes = Array.from(root.querySelectorAll<HTMLElement>('.ft-shape[data-kind="textBox"]'));
+  const byId = new Map<string, HTMLElement>();
+  for (const b of boxes) if (b.dataset.sid) byId.set(b.dataset.sid, b);
+  const targets = new Set(boxes.map((b) => b.dataset.next ?? '').filter(Boolean));
+  const inChain = new Set<HTMLElement>();
+  for (const head of boxes) {
+    if (!head.dataset.next || targets.has(head.dataset.sid ?? '')) continue;
+    const chain = [head];
+    for (let cur = head; cur.dataset.next;) {
+      const n = byId.get(cur.dataset.next);
+      if (!n || chain.includes(n)) break;
+      chain.push(n);
+      cur = n;
+    }
+    if (chain.length < 2) continue;
+    const hv = shapeViews.get(head);
+    if (!hv) continue;
+    for (const b of chain) { inChain.add(b); if (b.dataset.flowHead !== head.dataset.sid) b.dataset.flowHead = head.dataset.sid ?? ''; }
+    if (hv.isEditing()) continue;
+    const blocks = hv.storyBlocks();
+    const key = JSON.stringify(blocks);
+    let story = stories.get(key);
+    if (!story) {
+      const doc = schema.nodes.doc.create(null, blocksToNodes(blocks));
+      story = { doc, units: unitPositions(doc) };
+      if (stories.size > 50) stories.clear();
+      stories.set(key, story);
+    }
+    let unit = 0;
+    chain.forEach((box, i) => {
+      const v = shapeViews.get(box);
+      if (!v) return;
+      if (i > 0 && unit >= story!.units.length) { v.showFlow([], `${key}|end`); clipAt(v.textElement(), null); return; }
+      const slice = unit === 0 ? story!.doc : story!.doc.cut(story!.units[unit]);
+      const nodes: PMNode[] = [];
+      slice.forEach((n) => nodes.push(n));
+      v.showFlow(nodes, `${key}|${unit}`);
+      const o = i === chain.length - 1 ? { index: -1, top: 0 } : overflowUnit(v.textElement());
+      clipAt(v.textElement(), o.index > 0 ? o.top : null);
+      unit = o.index < 0 ? story!.units.length : unit + Math.max(1, o.index);
+    });
+  }
+  for (const b of boxes) {
+    if (inChain.has(b)) continue;
+    if (b.dataset.flowHead) delete b.dataset.flowHead;
+    shapeViews.get(b)?.clearFlow();
+  }
+}
+
+export function textBoxChains(doc: PMNode): Array<{ head: string; boxes: string[] }> {
+  const next = new Map<string, string>();
+  doc.descendants((n) => { if (n.type === schema.nodes.shape && n.attrs.kind === 'textBox' && n.attrs.id) next.set(String(n.attrs.id), String(n.attrs.next || '')); return true; });
+  const targets = new Set([...next.values()].filter(Boolean));
+  const out: Array<{ head: string; boxes: string[] }> = [];
+  for (const [id, nx] of next) {
+    if (!nx || targets.has(id)) continue;
+    const boxes = [id];
+    for (let cur = nx; cur && next.has(cur) && !boxes.includes(cur); cur = next.get(cur) ?? '') boxes.push(cur);
+    if (boxes.length > 1) out.push({ head: id, boxes });
+  }
+  return out;
 }
 
 export const SHAPES = ['rect', 'roundRect', 'ellipse', 'triangle', 'rightTriangle', 'diamond', 'pentagon', 'hexagon', 'octagon', 'star', 'arrowRight', 'arrowLeft', 'arrowUp', 'arrowDown', 'chevron', 'callout', 'cloud', 'heart', 'plus', 'line', 'textBox', 'wordArt'] as const;
@@ -160,7 +282,7 @@ export class ShapeView implements NodeView {
     const w = Number(a.width) * PX, h = Number(a.height) * PX;
     const kind = String(a.kind);
     const wrap = String(a.wrap || 'front');
-    for (const [k, v] of [['wrap', wrap], ['side', String(a.side || 'left')], ['kind', kind], ['wordart', kind === 'wordArt' ? String(a.wordart || 'fill') : ''], ['sid', String(a.id || '')], ['from', String(a.from || '')], ['to', String(a.to || '')]] as const) if ((this.dom.dataset[k] ?? '') !== v) { if (v) this.dom.dataset[k] = v; else delete this.dom.dataset[k]; }
+    for (const [k, v] of [['wrap', wrap], ['side', String(a.side || 'left')], ['kind', kind], ['wordart', kind === 'wordArt' ? String(a.wordart || 'fill') : ''], ['sid', String(a.id || '')], ['from', String(a.from || '')], ['to', String(a.to || '')], ['next', kind === 'textBox' ? String(a.next || '') : '']] as const) if ((this.dom.dataset[k] ?? '') !== v) { if (v) this.dom.dataset[k] = v; else delete this.dom.dataset[k]; }
     if (kind === 'connector') { this.applyConnector(); return; }
     set(this.frame, 'width', `${w.toFixed(2)}px`);
     set(this.frame, 'height', `${h.toFixed(2)}px`);
@@ -260,7 +382,33 @@ export class ShapeView implements NodeView {
     return String(a.text ?? '').split('\n').map((t) => ({ type: 'paragraph', style: 'Normal', content: t ? [{ type: 'text', text: t }] : [] }) as unknown as Block);
   }
 
+  private flow: string | null = null;
+
+  isEditing(): boolean { return this.editing; }
+  focusEditor(): void { this.inner?.focus(); }
+  storyBlocks(): Block[] { return this.blocks(); }
+  textElement(): HTMLElement { return this.text; }
+
+  showFlow(nodes: PMNode[], key: string): void {
+    if (this.editing) return;
+    if (this.dom.dataset.flow !== '1') this.dom.dataset.flow = '1';
+    if (key === this.flow) return;
+    this.flow = key;
+    this.shown = '';
+    this.text.replaceChildren(DOMSerializer.fromSchema(schema).serializeFragment(Fragment.fromArray(nodes)));
+  }
+
+  clearFlow(): void {
+    if (this.dom.dataset.flow) delete this.dom.dataset.flow;
+    if (this.text.style.clipPath) this.text.style.clipPath = '';
+    if (this.flow === null) return;
+    this.flow = null;
+    this.shown = '';
+    if (!this.editing) this.renderText();
+  }
+
   private renderText(): void {
+    if (this.flow !== null) return;
     const a = this.node.attrs;
     const rich = Array.isArray(a.content) && a.content.length > 0;
     const key = rich ? JSON.stringify(a.content) : `t:${String(a.text ?? '')}`;
@@ -272,13 +420,21 @@ export class ShapeView implements NodeView {
 
   edit(): void {
     if (this.editing) return;
+    const head = this.dom.dataset.flowHead;
+    if (head && head !== this.node.attrs.id) {
+      const hd = (this.view.dom as HTMLElement).querySelector<HTMLElement>(`.ft-shape[data-sid="${CSS.escape(head)}"]`);
+      const hv = hd ? shapeViews.get(hd) : undefined;
+      if (hv) { window.setTimeout(() => { hv.edit(); hv.focusEditor(); }, 0); return; }
+    }
+    this.flow = null;
+    if (this.text.style.clipPath) this.text.style.clipPath = '';
     this.editing = true;
     this.dom.classList.add('is-editing');
     this.text.replaceChildren();
     this.shown = '';
     const doc = schema.nodes.doc.create(null, blocksToNodes(this.blocks()));
     this.inner = new EditorView(this.text, {
-      state: EditorState.create({ doc, plugins: [history(), keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo, 'Mod-b': toggleMark(schema.marks.bold), 'Mod-i': toggleMark(schema.marks.italic), 'Mod-u': toggleMark(schema.marks.underline) }), keymap(baseKeymap)] }),
+      state: EditorState.create({ doc, plugins: [history(), keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo, 'Mod-b': toggleMark(schema.marks.bold), 'Mod-i': toggleMark(schema.marks.italic), 'Mod-u': toggleMark(schema.marks.underline), 'Mod-End': (s, d) => { d?.(s.tr.setSelection(Selection.atEnd(s.doc)).scrollIntoView()); return true; }, 'Mod-Home': (s, d) => { d?.(s.tr.setSelection(Selection.atStart(s.doc)).scrollIntoView()); return true; }, 'Shift-Mod-End': (s, d) => { d?.(s.tr.setSelection(TextSelection.create(s.doc, s.selection.anchor, Selection.atEnd(s.doc).head))); return true; }, 'Shift-Mod-Home': (s, d) => { d?.(s.tr.setSelection(TextSelection.create(s.doc, s.selection.anchor, Selection.atStart(s.doc).head))); return true; } }), keymap(baseKeymap)] }),
       attributes: { class: 'ft-shape-editor', spellcheck: 'true', 'aria-label': 'Shape text' },
     });
     this.inner.focus();

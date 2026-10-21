@@ -22,7 +22,7 @@ import { tablePlugins } from './table';
 import { PictureView, fitSize, insertPicture, naturalSize } from './picture';
 import { ChartView } from './chart/chart';
 import { MathView, loadMathFonts } from './math';
-import { ShapeView, placeConnectors, shapeEditing } from './shape';
+import { ShapeView, flowTextBoxes, placeConnectors, shapeEditing } from './shape';
 import { InkTool } from './ink';
 import { DiagramView } from './diagram';
 import { MermaidView } from './mermaid';
@@ -137,7 +137,7 @@ ${TB('list.bullet', 'listBullet', 'Bulleted list', 'Ctrl+Shift+8')}${TB('list.nu
 <select class="ft-tb-select ft-tb-spacing" data-cmd="paragraph.lineSpacing" aria-label="Line spacing">${SPACINGS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>${SEP}
 ${TB('format.painter', 'painter', 'Format Painter', 'Ctrl+Shift+C')}${TB('format.paragraph', 'paragraph', 'Paragraph settings')}${TB('format.styles', 'styles', 'Styles')}${TB('format.styleSet', 'styleSet', 'Style sets')}${SEP}
 ${TB('insert.link', 'link', 'Link', 'Ctrl+K')}${TB('insert.codeBlock', 'code', 'Code block')}${TB('insert.pageBreak', 'pageBreak', 'Page break', 'Ctrl+Enter')}${TB('insert.sectionBreak', 'sectionBreak', 'Section break (next page)')}${TB('format.clear', 'clearFormat', 'Clear formatting', 'Ctrl+\\')}${SEP}
-${TB('insert.picture', 'image', 'Insert picture (or paste or drop one)')}${TB('insert.stockImage', 'stock', 'Stock images (Openverse, Pexels)')}${TB('insert.table', 'table', 'Insert table')}${TB('insert.chart', 'chart', 'Insert chart')}${TB('insert.diagram', 'diagram', 'Diagram (SmartArt)')}${TB('insert.mermaid', 'mermaid', 'Mermaid diagram from text')}${TB('insert.shape', 'shapes', 'Shapes, text box and WordArt')}${TB('insert.icon', 'iconLibrary', 'Icons')}${TB('view.draw', 'pen', 'Draw with ink (Esc stops)')}${TB('insert.equation', 'equation', 'Equation', 'Alt+=')}${TB('insert.symbol', 'omega', 'Symbol')}${TB('insert.emoji', 'smile', 'Emoji')}${TB('insert.chip', 'chip', 'Smart chip: date, person, dropdown or document (or type @)')}${TB('insert.block', 'blocks', 'Building blocks: meeting notes, email draft and your own')}<span class="ft-tb-group" data-group="table">${TB('table.properties', 'tableProps', 'Table properties (right-click a cell for rows, columns and merging)')}${TB('insert.formula', 'sigma', 'Formula (F9 updates)')}</span>${SEP}
+${TB('insert.picture', 'image', 'Insert picture (or paste or drop one)')}${TB('insert.stockImage', 'stock', 'Stock images (Openverse, Pexels)')}${TB('insert.table', 'table', 'Insert table')}${TB('insert.chart', 'chart', 'Insert chart')}${TB('insert.diagram', 'diagram', 'Diagram (SmartArt)')}${TB('insert.mermaid', 'mermaid', 'Mermaid diagram from text')}${TB('insert.shape', 'shapes', 'Shapes, text box and WordArt')}${TB('insert.icon', 'iconLibrary', 'Icons')}${TB('view.draw', 'pen', 'Draw with ink (Esc stops)')}${TB('insert.equation', 'equation', 'Equation', 'Alt+=')}${TB('insert.symbol', 'omega', 'Symbol')}${TB('insert.emoji', 'smile', 'Emoji')}${TB('insert.chip', 'chip', 'Smart chip: date, person, dropdown or document (or type @)')}${TB('insert.block', 'blocks', 'Building blocks: meeting notes, email draft and your own')}<span class="ft-tb-group" data-group="table">${TB('table.properties', 'tableProps', 'Table properties (right-click a cell for rows, columns and merging)')}${TB('insert.formula', 'sigma', 'Formula (F9 updates)')}</span><span class="ft-tb-group" data-group="shape">${TB('shape.connect', 'connector', 'Connect to another shape')}${TB('shape.link', 'linkBoxes', 'Link text boxes: text continues in the next box')}${TB('shape.unlink', 'unlinkBoxes', 'Break the link to the next text box')}</span>${SEP}
 ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', 'outline', 'Outline')}${SEP}
 ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 'pageSetup', 'Page setup')}${TB('insert.headerFooter', 'headerFooter', 'Header and footer')}${TB('view.pageless', 'pageless', 'Pageless')}
 <select class="ft-tb-select ft-tb-zoom" data-cmd="view.zoom" aria-label="Zoom">${[50, 75, 90, 100, 110, 125, 150, 200].map((z) => `<option value="${z}"${z === 100 ? ' selected' : ''}>${z}%</option>`).join('')}<option value="" disabled hidden></option></select>
@@ -155,7 +155,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     this.page = this.root.querySelector('.ft-page') as HTMLElement;
     this.pagesEl = this.root.querySelector('.ft-pages') as HTMLElement;
     this.paginator = new Paginator(() => this.view, this.pagesEl, () => this.doc?.sections[0] ?? null, () => { const st = (this.doc?.settings ?? {}) as unknown as Record<string, unknown>; return this.viewMode === 'draft' ? { ...st, pageless: true } : st; }, () => this.zoom);
-    this.paginator.onLayout = () => { this.placePageAnchored(); if (this.view) placeConnectors(this.view.dom as HTMLElement); this.hooks.status(this.words()); };
+    this.paginator.onLayout = () => { this.placePageAnchored(); if (this.view) { flowTextBoxes(this.view.dom as HTMLElement); placeConnectors(this.view.dom as HTMLElement); } this.hooks.status(this.words()); };
     this.paginator.beforeMeasure = layoutTabs;
     this.paginator.sectionsOf = () => this.doc?.sections ?? [];
     this.ink = new InkTool(this, () => this.pagesEl, (on) => setClass(this.root.querySelector('[data-cmd="view.draw"]'), 'is-on', on));
@@ -842,6 +842,12 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     setClass(this.root.querySelector('[data-cmd="insert.codeBlock"]'), 'is-on', para.type === schema.nodes.code_block);
     const inTable = isInTable(state);
     for (const b of Array.from(this.root.querySelectorAll<HTMLButtonElement>('[data-group="table"] button'))) if (b.disabled === inTable) b.disabled = !inTable;
+    const shape = state.selection instanceof NodeSelection && state.selection.node.type === schema.nodes.shape ? state.selection.node : null;
+    const box = shape?.attrs.kind === 'textBox';
+    for (const b of Array.from(this.root.querySelectorAll<HTMLButtonElement>('[data-group="shape"] button'))) {
+      const on = b.dataset.cmd === 'shape.connect' ? !!shape && shape.attrs.kind !== 'connector' : b.dataset.cmd === 'shape.unlink' ? box && !!shape?.attrs.next : box;
+      if (b.disabled === on) b.disabled = !on;
+    }
     const sec = this.doc.sections[0];
     const a = para.attrs;
     this.ruler.update({

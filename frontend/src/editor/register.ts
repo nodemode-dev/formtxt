@@ -15,7 +15,7 @@ import { stockDialog, stockSearch } from './stock';
 import { allBlocks, deleteBlock, insertBlock, saveBlock } from './blocks';
 import { cellBordersDialog, chipDialog, listFormatDialog, styleSetDialog, chartDialog, diagramDialog, equationDialog, formulaDialog, shapeGalleryDialog, shapePropertiesDialog, symbolDialog } from './dialogs';
 import { formulaSites, insertVariable, selectedField, updateFields } from './fields';
-import { SHAPES, SHAPE_WRAPS, WORDART, insertShape, newShapeId, selectedShape, setShape, shapeDefaults } from './shape';
+import { SHAPES, SHAPE_WRAPS, WORDART, insertShape, newShapeId, selectedShape, setShape, shapeDefaults, textBoxChains } from './shape';
 import { putMath, selectedMath } from './math';
 import { findIcon, iconAttrs, iconsDialog } from './icons-dialog';
 import { DIAGRAM_COLORS, DIAGRAM_LAYOUTS, DIAGRAM_STYLES, type DiagramItem, insertDiagram, itemsToText, sampleItems, selectedDiagram, setDiagram, textToItems } from './diagram';
@@ -444,6 +444,58 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
     document.addEventListener('keydown', esc, true);
     return true;
   }, [{ name: 'to', type: 'string', description: 'Id of the target shape (see shape.info)' }]);
+  const linkBoxes = (fromPos: number, toId: string): void => {
+    const v = ed.view!;
+    const from = v.state.doc.nodeAt(fromPos);
+    if (!from || from.attrs.kind !== 'textBox') throw new Error('Select a text box to link from.');
+    let toPos = -1;
+    v.state.doc.descendants((n, pos) => { if (n.type === schema.nodes.shape && n.attrs.id === toId) toPos = pos; return toPos < 0; });
+    const to = toPos >= 0 ? v.state.doc.nodeAt(toPos) : null;
+    if (!to || to.attrs.kind !== 'textBox') throw new Error('Text can only flow into another text box.');
+    const fromId = shapeIdAt(fromPos);
+    if (fromId === toId) throw new Error('Pick a different text box.');
+    if (String(to.attrs.text ?? '').trim() || (Array.isArray(to.attrs.content) && to.attrs.content.length)) throw new Error('The text box to link to must be empty.');
+    const next = new Map<string, string>();
+    v.state.doc.descendants((n) => { if (n.type === schema.nodes.shape && n.attrs.kind === 'textBox' && n.attrs.id) next.set(String(n.attrs.id), String(n.attrs.next || '')); return true; });
+    for (const [id, nx] of next) if (nx === toId && id !== fromId) throw new Error('That text box already continues another text box.');
+    for (let cur = toId, n = 0; cur && n < 1000; cur = next.get(cur) ?? '', n++) if (cur === fromId) throw new Error('That would make the text flow in a circle.');
+    const fresh = v.state.doc.nodeAt(fromPos)!;
+    v.dispatch(v.state.tr.setNodeMarkup(fromPos, undefined, { ...fresh.attrs, next: toId }));
+  };
+  add('shape.link', 'Link text boxes', 'Shape', 'Make text that does not fit in the selected text box continue in an empty text box; with no target, the next text box you click is the target (Esc cancels). Chains can be any length; type in any box of a chain to edit the whole text.', (p) => {
+    const s = ed.view ? selectedShape(ed.view.state) : null;
+    if (!s || !ed.view || s.node.attrs.kind !== 'textBox') throw new Error('Select the text box the text should flow from first.');
+    if (p.to !== undefined) { linkBoxes(s.pos, String(p.to)); return true; }
+    const from = s.pos;
+    const root = ed.view.dom as HTMLElement;
+    root.classList.add('is-connecting');
+    toast('Click the empty text box the text should continue in (Esc cancels).');
+    const stop = (): void => { root.classList.remove('is-connecting'); document.removeEventListener('pointerdown', pick, true); document.removeEventListener('keydown', esc, true); };
+    const esc = (e: KeyboardEvent): void => { if (e.key === 'Escape') { e.preventDefault(); stop(); } };
+    const pick = (e: PointerEvent): void => {
+      const el = (e.target as HTMLElement).closest<HTMLElement>('.ft-pm-root .ft-shape');
+      stop();
+      if (!el || !ed.view) return;
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        const at = ed.view.posAtDOM(el, 0);
+        const pos = ed.view.state.doc.nodeAt(at)?.type === schema.nodes.shape ? at : at - 1;
+        linkBoxes(from, shapeIdAt(pos));
+      } catch (err) { toast((err as Error).message, 'error'); }
+    };
+    document.addEventListener('pointerdown', pick, true);
+    document.addEventListener('keydown', esc, true);
+    return true;
+  }, [{ name: 'to', type: 'string', description: 'Id of the empty text box to continue in (see shape.info)' }]);
+  add('shape.unlink', 'Break link', 'Shape', 'Stop the text flowing out of the selected text box; the text stays in the boxes before the break.', () => {
+    const s = ed.view ? selectedShape(ed.view.state) : null;
+    if (!s || !ed.view || s.node.attrs.kind !== 'textBox') throw new Error('Select a linked text box first.');
+    if (!s.node.attrs.next) throw new Error('That text box does not continue in another one.');
+    ed.view.dispatch(ed.view.state.tr.setNodeMarkup(s.pos, undefined, { ...s.node.attrs, next: '' }));
+    return true;
+  });
+  add('shape.chains', 'List linked text boxes', 'Shape', 'Every chain of linked text boxes, by shape id, from the box that holds the text.', () => (ed.view ? textBoxChains(ed.view.state.doc) : []));
   add('shape.fill', 'Shape fill', 'Shape', 'Fill colour; empty removes the fill.', needShape((_a, p) => ({ fill: color(p.color) })), [{ name: 'color', type: 'string', description: '#rrggbb or empty' }]);
   add('shape.outline', 'Shape outline', 'Shape', 'Outline colour and width in points; empty colour removes the outline.', needShape((a, p) => ({ stroke: p.color === undefined ? a.stroke : color(p.color), strokeWidth: p.width === undefined ? a.strokeWidth : Math.max(0, Number(p.width) || 0) })), [{ name: 'color', type: 'string', description: '#rrggbb or empty' }, { name: 'width', type: 'number', description: 'Points' }]);
   add('shape.textFormat', 'Shape text format', 'Shape', 'Text colour, size, bold, font and alignment inside the selected shape.', needShape((a, p) => ({
