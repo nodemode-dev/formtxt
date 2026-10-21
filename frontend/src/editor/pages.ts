@@ -326,23 +326,71 @@ export class Paginator {
         return p - 1;
       } catch { return -1; }
     };
-    const colsAt = (p: number): ReturnType<typeof columnsOf> => columnsOf(secAt(p));
+    const balanceFrom = (from: number, cols: ReturnType<typeof columnsOf>): number => {
+      if (cols.count < 2) return 0;
+      let end = from;
+      while (end < kids.length && !kids[end].classList.contains('ft-section-break')) end++;
+      const brk = kids[end];
+      if (!brk || String(byId.get(brk.dataset.section ?? '')?.start ?? 'nextPage') !== 'continuous' || end <= from) return 0;
+      const last = kids[end - 1];
+      const total = tops[end - 1] + last.getBoundingClientRect().height / ratio - tops[from];
+      return total > 0 ? total / cols.count + 2 : 0;
+    };
+    let curCols = columnsOf(first);
+    let band = { page: 0, top: NaN, limit: balanceFrom(0, curCols) };
+    let bandMax = -Infinity;
+    let bandMaxPage = -1;
+    let pendingBand = false;
+    let bandWasMulti = false;
+    let pendingLimit = 0;
+    let colForce = false;
+    const slotTop = (): number => (band.page === page && !isNaN(band.top) ? band.top : bodyTop(page));
+    const limitOf = (): number => (band.page === page && band.limit && col < curCols.count - 1 ? Math.min(bottomOf(page), slotTop() + band.limit) : bottomOf(page));
     const colX: number[] = [];
     const jumps: Array<{ pos: number; target: number; est: number }> = [];
     const splits: Array<{ pos: number; size: number; at: number; cut: number; tail: number; x0: number; x1: number; target: number; est: number; flip: boolean; src: HTMLElement; mt: number; mb: number }> = [];
     let col = 0;
     for (let i = 0; i < kids.length; i++) {
       const k = kids[i];
-      colX[i] = col * colsAt(page).stride;
+      colX[i] = col * curCols.stride;
       const rect = k.getBoundingClientRect();
       const top = tops[i] + off;
       const height = rect.height / ratio;
       if (k.classList.contains('ft-page-break')) { force = true; continue; }
+      if (k.classList.contains('ft-column-break')) { colForce = true; continue; }
       if (k.classList.contains('ft-section-break')) {
         const id = k.dataset.section ?? '';
         const start = String(byId.get(id)?.start ?? 'nextPage');
         if (id) startAt(page + 1, id);
-        if (start !== 'continuous') { force = true; parity = start === 'oddPage' ? 'odd' : start === 'evenPage' ? 'even' : ''; }
+        bandWasMulti = curCols.count > 1;
+        curCols = columnsOf(byId.get(id) ?? first);
+        if (start !== 'continuous') { force = true; parity = start === 'oddPage' ? 'odd' : start === 'evenPage' ? 'even' : ''; pendingLimit = balanceFrom(i + 1, curCols); }
+        else { pendingBand = true; col = 0; }
+        continue;
+      }
+      if (pendingBand && !force) {
+        pendingBand = false;
+        const mt = parseFloat(getComputedStyle(k).marginTop) || 0;
+        const pj = posOf(k);
+        if (bandWasMulti && bandMaxPage === page && bandMax < bottomOf(page) - 1 && pj >= 0) {
+          const target = bandMax + mt;
+          if (Math.abs(target - top) > 0.5) { jumps.push({ pos: pj, target, est: target - top }); off = target - tops[i]; }
+        }
+        band = { page, top: tops[i] + off - mt, limit: balanceFrom(i, curCols) };
+        i--;
+        continue;
+      }
+      if (colForce && !force) {
+        colForce = false;
+        const pj = posOf(k);
+        if (curCols.count > 1 && col < curCols.count - 1 && pj >= 0) {
+          const mt = parseFloat(getComputedStyle(k).marginTop) || 0;
+          const target = slotTop() + mt;
+          jumps.push({ pos: pj, target, est: target - top });
+          off = target - tops[i];
+          col++;
+        } else force = true;
+        i--;
         continue;
       }
       if (force) {
@@ -364,26 +412,35 @@ export class Paginator {
           col = 0;
           colX[i] = 0;
         }
+        band = { page, top: NaN, limit: pendingLimit };
+        pendingLimit = 0;
+        pendingBand = false;
         i--;
         continue;
       }
-      if (top + height <= bottomOf(page) + 0.5) continue;
-      const atTop = top - (parseFloat(getComputedStyle(k).marginTop) || 0) <= bodyTop(page) + 1;
+      if (top + height <= limitOf() + 0.5) {
+        if (bandMaxPage !== page) { bandMax = -Infinity; bandMaxPage = page; }
+        bandMax = Math.max(bandMax, top + height);
+        continue;
+      }
+      const multi = curCols.count > 1;
+      const atTop = top - (parseFloat(getComputedStyle(k).marginTop) || 0) <= (multi ? slotTop() : bodyTop(page)) + 1 && (!multi || col > 0 || slotTop() <= bodyTop(page) + 1);
       const isPara = k.nodeName === 'P';
       const keepLines = k.dataset.keepLines === 'true';
       const widow = k.dataset.widow !== 'off';
       let split = false;
-      const cm = colsAt(page);
+      const cm = curCols;
       if (cm.count > 1) {
         const last = col >= cm.count - 1;
-        const nextTop = last ? bodyTop(page + 1) : bodyTop(page);
+        const nextTop = last ? bodyTop(page + 1) : slotTop();
         const nextX = last ? 0 : (col + 1) * cm.stride;
         const pos = posOf(k);
         if (isPara && (!keepLines || atTop) && pos >= 0) {
           const lines = lineBoxes(k).map((l) => ({ top: (l.top - rootRect.top) / ratio, bottom: (l.bottom - rootRect.top) / ratio, vtop: l.top }));
           const min = widow ? 2 : 1;
           let s = 0;
-          while (s < lines.length && lines[s].bottom + off <= bottomOf(page) + 0.5) s++;
+          const lim = limitOf();
+          while (s < lines.length && lines[s].bottom + off <= lim + 0.5) s++;
           if (widow && lines.length - s < min) s = lines.length - min;
           const at = s >= (atTop ? 1 : min) && s < lines.length ? lineStart(view, k, lines[s].vtop) : null;
           const node = view.state.doc.nodeAt(pos);
@@ -396,12 +453,16 @@ export class Paginator {
             splits.push({ pos, size: node.nodeSize, at, cut, tail, x0: col * cm.stride, x1: nextX, target: nextTop, est: nextTop - (top + height), flip, src: k.cloneNode(true) as HTMLElement, mt: parseFloat(cs.marginTop) || 0, mb: parseFloat(cs.marginBottom) || 0 });
             colX[i] = flip ? nextX : col * cm.stride;
             off = nextTop + tail - (tops[i] + height);
-            if (last) { page++; col = 0; } else col++;
+            if (last) { page++; col = 0; } else {
+              col++;
+              if (bandMaxPage !== page) { bandMax = -Infinity; bandMaxPage = page; }
+              bandMax = Math.max(bandMax, top + cut, nextTop + tail);
+            }
             continue;
           }
         }
         let j = i;
-        while (j > 0 && (kids[j - 1].dataset.keepNext === 'true') && i - j < 5 && tops[j - 1] + off > bodyTop(page) + 1 && !splits.some((sp) => sp.pos === posOf(kids[j - 1]))) j--;
+        while (j > 0 && (kids[j - 1].dataset.keepNext === 'true') && i - j < 5 && tops[j - 1] + off > slotTop() + 1 && !splits.some((sp) => sp.pos === posOf(kids[j - 1]))) j--;
         if (atTop && j === i) continue;
         const pj = posOf(kids[j]);
         if (pj < 0) continue;
