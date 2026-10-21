@@ -289,6 +289,24 @@ frontend/
 - logged: v0.10.0 · 2026-10-21
 - Copied pictures carry their source document in the image URL, which parsing turns into a transient `from` attribute (never saved). While `from` is set the picture shows from the source document; after a paste or drop the editor fetches the file, uploads it here (the content-hash name stays the same), records its metadata and clears `from` outside undo history. Crop, rotation and adjustments travel in `data-pic`.
 
+### shapes · one node for shapes, text boxes and WordArt
+- refers-to: src/editor/shape.ts :: shapePath(), ShapeView; styles/editor.css .ft-shape
+- kind: rationale
+- logged: v0.11.0 · 2026-10-21
+- Shapes reuse the picture model: an inline atom anchored in its paragraph, the same wrap modes (minus tight) and the same handle, drag and commit-on-release maths, with the ratio taken from the outer box so zoom and rotation do not skew distances. Outlines are SVG paths generated for the current size (the stroke is inset by half its width so it never clips); text is an HTML layer on top so it wraps and takes document fonts. Text is plain, typed in place after a double-click (`plaintext-only`, Ctrl+Enter or leaving saves, Esc cancels); rich paragraphs inside text boxes would need nested editors and are later work. WordArt is the same node with no outline and a style class; its colours come from CSS variables, so the inline text colour is not set for WordArt (a throttled run caught the fill style rendering black when it was).
+
+### equations · KaTeX
+- refers-to: src/editor/math.ts :: MathView, loadMathFonts(); styles/doc-fonts.css
+- kind: rationale
+- logged: v0.11.0 · 2026-10-21
+- Equations store LaTeX and render with KaTeX (`throwOnError: false`, so bad input shows its source in red instead of throwing). The view re-renders only when the source or display flag changes. KaTeX's fonts load before a document containing equations is shown, and the equation dialog loads them while the preview is open, so an inserted equation never reflows when its font arrives. Inserting while an equation, shape or picture is selected replaces it, as in Word; the dialog edits the selected equation in place.
+
+### app · word count on open
+- refers-to: src/app.ts :: openDocument()
+- kind: warning-context
+- logged: v0.11.0 · 2026-10-21
+- The recent-card word count read `r.text` on every run, so any document with a tab, picture, shape or equation run raised "Cannot read properties of undefined (reading 'split')" in a toast on open (since 0.7.0; the document still opened). Only text runs are counted now.
+
 ### pages · cost
 - refers-to: src/editor/pages.ts :: layout()
 - kind: todo
