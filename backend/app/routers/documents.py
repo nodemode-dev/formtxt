@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from app.core import config
 from app.routers import templates
-from app.services import intake, model, package, store, thumbs
+from app.services import exchange, intake, model, package, store, thumbs
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -54,11 +54,14 @@ async def import_files(files: list[UploadFile] = File(...)) -> dict:
             errors.append(f"{f.filename}: larger than FormTxt opens")
             continue
         try:
-            doc = intake.to_document(f.filename or "document.txt", data)
-        except intake.Unsupported as exc:
+            if exchange.handles(f.filename or ""):
+                doc, media = exchange.read(f.filename or "", data)
+            else:
+                doc, media = intake.to_document(f.filename or "document.txt", data), None
+            made.append(model.summary(store.adopt(doc, media)))
+        except (intake.Unsupported, exchange.Unsupported) as exc:
             errors.append(str(exc))
             continue
-        made.append(model.summary(store.adopt(doc)))
     if not made and errors:
         raise HTTPException(415, " ".join(errors))
     return {"documents": made, "errors": errors}
