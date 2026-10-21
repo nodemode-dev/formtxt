@@ -1,0 +1,10 @@
+.ft-reader { position: absolute; inset: 0; overflow: auto; padding: var(--space-6) var(--space-4) var(--space-8); }
+.ft-reader[hidden] { display: none; }
+.ft-reader-note { max-width: 816px; margin: 0 auto var(--space-3); color: var(--text-muted); font-size: var(--ft-12); text-align: center; }
+.ft-page { position: relative; margin: 0 auto; background: var(--page-bg); color: var(--page-ink); box-shadow: var(--page-shadow); user-select: text; }
+.ft-page[data-layout="banded"]::before { content: ''; position: absolute; inset: 0 0 auto 0; height: 10px; background: var(--doc-accent); }
+.ft-page[data-layout="letterhead"]::before, .ft-page[data-layout="newsletter"]::before { content: ''; position: absolute; top: 72px; left: 96px; right: 96px; height: 2px; background: var(--doc-accent); }
+.ft-block { overflow-wrap: anywhere; }
+.ft-block code { font-family: var(--font-mono); font-size: 0.92em; }
+.ft-block a { color: var(--doc-accent, #1d4ed8); }
+.ft-s-Quote { border-left: 3px solid var(--doc-accent, #f97316); padding-left: 12px; }

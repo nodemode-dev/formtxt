@@ -83,4 +83,5 @@ export interface DocSummary {
   created: number;
   words: number;
   bytes: number;
+  deletedAt?: number;
 }

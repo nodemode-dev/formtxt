@@ -2,8 +2,8 @@
 
 Living log of comment content, rationale and removed code for the frontend. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.1.0
-Last updated: 2026-10-21 · Phase 0 shell
+Current build version: v0.2.0
+Last updated: 2026-10-21 · Phase 1 home screen and reader
 
 ---
 
@@ -24,7 +24,11 @@ frontend/
     ├── io/api.ts            fetch helpers and EngineError
     ├── ui/dom.ts            patch helpers (from FormDeck)
     ├── ui/icons.ts          inline currentColor SVG icons
-    └── styles/              fonts, tokens (with the z scale), light mode, shell
+    ├── ui/home.ts           Home: Start, Recent, Templates, Trash, template preview
+    ├── ui/reader.ts         read-only page view until the Phase 2 editor
+    ├── ui/dialog.ts         modal dialog in #overlay-root
+    ├── ui/toast.ts          toasts and the undo toast in #toast-root
+    └── styles/              fonts, tokens (with the z scale), light mode, shell, components, home, reader
 ```
 
 ---
@@ -34,8 +38,44 @@ frontend/
 - [index.html](#index)
 - [src/app.ts](#app)
 - [src/styles/tokens.css](#tokens)
+- [src/ui/home.ts](#home)
+- [src/ui/reader.ts](#reader)
 
 ---
+
+## src/ui/home.ts {#home}
+
+### home · ported from FormDeck
+- refers-to: src/ui/home.ts :: class Home
+- kind: explainer
+- logged: v0.2.0 · 2026-10-21
+- Structure, nav, hero dropzone, card grids, context menu, inline confirm bar, multi-select and the undo toast follow FormDeck 0.23.0's `ui/home.ts`, renamed `ft-` and pointed at documents.
+
+### home · no shift on list changes
+- refers-to: src/ui/home.ts :: trashDocs(), restore(), upsert()
+- kind: rationale
+- logged: v0.2.0 · 2026-10-21
+- Delete and Undo update the grid at the click, before the engine answers, so the cards move inside the browser's input window instead of a second later. Opening or creating a document calls `upsert` while Home is hidden, so reopening Home never inserts a card under the pointer. Verified: zero layout-shift entries over the whole throttled run.
+
+### home · recent grid and the empty card
+- refers-to: src/ui/home.ts :: renderDocs()
+- kind: explainer
+- logged: v0.2.0 · 2026-10-21
+- The skeleton card holds the first row until the library loads; the empty card lives in its own grid so `patchList` never removes and re-adds it.
+
+### home · first paint
+- refers-to: src/app.ts :: startApp() Promise.all before revealApp
+- kind: rationale
+- logged: v0.2.0 · 2026-10-21
+- The app is revealed after the library and templates load (capped at 1.5 s) and fonts are ready, so Home appears complete.
+
+## src/ui/reader.ts {#reader}
+
+### reader · stepping stone
+- refers-to: src/ui/reader.ts :: class Reader
+- kind: todo
+- logged: v0.2.0 · 2026-10-21
+- Renders the first document tab as one continuous sheet at the section's page width and margins, with styles resolved through `basedOn`. The ProseMirror editor replaces it in Phase 2, and pagination comes in Phase 3.
 
 ## index.html {#index}
 

@@ -1,9 +1,13 @@
 import { mirrorCatalogue } from './automation/catalogue';
 import type { DocSummary, FtxtDocument } from './engine/model';
 import { commands } from './engine/registry';
-import { api } from './io/api';
-import { delayedIndicator, mountOnce, q, revealApp, setClass, setHtml, setText, setTitle } from './ui/dom';
+import { api, type TemplateSummary } from './io/api';
+import { Dialog } from './ui/dialog';
+import { delayedIndicator, el, mountOnce, q, revealApp, setClass, setHidden, setHtml, setText, setTitle } from './ui/dom';
+import { Home } from './ui/home';
 import { icon } from './ui/icons';
+import { Reader } from './ui/reader';
+import { toast } from './ui/toast';
 import { VERSION } from './version';
 
 type Theme = 'dark' | 'light';
@@ -13,15 +17,16 @@ const SHELL = `
   <span class="ft-brand">${icon('brand', 18)}<span>FormTxt</span></span>
   <span class="ft-docname" data-ref="docname"></span>
   <span class="ft-actions">
+    <button type="button" class="ft-btn" data-cmd="home.open">${icon('home', 16)}<span>Home</span></button>
     <button type="button" class="ft-btn square" data-cmd="view.toggleTheme" data-ref="theme" aria-label="Switch theme"></button>
     <button type="button" class="ft-btn primary" data-cmd="file.new">${icon('plus', 16)}<span>New document</span></button>
   </span>
 </header>
 <main class="ft-main">
-  <section class="ft-empty">
+  <section class="ft-empty" data-ref="empty">
     ${icon('document', 48)}
     <h1>No document open</h1>
-    <p>FormTxt is in its first build. The home screen with templates and recent documents arrives next; for now a new document is created in your library.</p>
+    <p>Open one from Home, start a blank document, or pick a template.</p>
   </section>
 </main>
 <footer class="ft-status">
@@ -66,18 +71,110 @@ export async function startApp(): Promise<void> {
     description: 'Switch between the dark and light themes.',
     run: () => { setTheme(currentTheme() === 'dark' ? 'light' : 'dark'); paintThemeButton(themeButton); return currentTheme(); },
   });
+  const main = q<HTMLElement>(root, '.ft-main');
+  const empty = q<HTMLElement>(root, '[data-ref="empty"]');
+  const reader = new Reader(main);
+
+  const openDocument = async (id: string): Promise<FtxtDocument> => {
+    const doc = await api.get<FtxtDocument>(`/documents/${encodeURIComponent(id)}`);
+    reader.show(doc);
+    setHidden(empty, true);
+    setHidden(reader.root, false);
+    setText(docname, doc.title);
+    document.title = `${doc.title} · FormTxt`;
+    home.close();
+    const words = doc.tabs.flatMap((t) => t.body).flatMap((b) => b.content ?? []).reduce((n, r) => n + r.text.split(/\s+/).filter(Boolean).length, 0);
+    home.upsert({ id: doc.id, title: doc.title, modified: doc.meta.modified, created: doc.meta.created, words, bytes: 0 });
+    return doc;
+  };
+  const createDocument = async (template: string, title?: string): Promise<FtxtDocument> => {
+    const doc = await api.post<FtxtDocument>('/documents', { title: title ?? '', template });
+    return openDocument(doc.id);
+  };
+  const importFiles = async (files: File[]): Promise<void> => {
+    try {
+      const out = await api.upload<{ documents: DocSummary[]; errors: string[] }>('/documents/import', files);
+      for (const err of out.errors) toast(err, 'error');
+      if (out.documents.length === 1) await openDocument(out.documents[0].id);
+      else if (out.documents.length > 1) toast(`Added ${out.documents.length} documents to your library.`);
+    } catch (e) {
+      toast((e as Error).message, 'error');
+    }
+  };
+  const preferences = (): void => {
+    const d = new Dialog('Preferences', 460);
+    const author = el<HTMLInputElement>('<input class="ft-input" type="text" spellcheck="false" placeholder="Your name">');
+    d.field('Author name for new documents', author);
+    void api.get<Record<string, unknown>>('/settings').then((s) => { if (!author.value) author.value = String(s.author ?? ''); });
+    d.button('Cancel', 'ghost', () => d.close());
+    d.button('Save', 'primary', () => { d.close(); void api.post('/settings', { author: author.value.trim() }).then(() => toast('Preferences saved.')); });
+    d.open(author);
+  };
+  const home = new Home({
+    openDocument: (id) => { void openDocument(id).catch((e: Error) => toast(`Could not open the document: ${e.message}`, 'error')); },
+    createDocument: async (template, title) => { await createDocument(template, title).catch((e: Error) => toast(`Could not create the document: ${e.message}`, 'error')); },
+    importFiles,
+    preferences,
+  }, root);
+
+  commands.register({
+    id: 'home.open',
+    label: 'Home',
+    group: 'File',
+    description: 'Show Home: recent documents, templates and the Trash.',
+    run: () => { home.open(); return true; },
+  });
   commands.register({
     id: 'file.new',
     label: 'New document',
     group: 'File',
-    description: 'Create a blank document in your library.',
+    description: 'Create a blank document in your library and open it.',
     params: [{ name: 'title', type: 'string', description: 'Title of the new document' }],
     run: async (params) => {
-      const doc = await api.post<FtxtDocument>('/documents', { title: String(params.title ?? '') });
-      setText(docname, doc.title);
-      setText(engine, 'Saved to your library');
+      const doc = await createDocument('', String(params.title ?? ''));
       return { id: doc.id, title: doc.title };
     },
+  });
+  commands.register({
+    id: 'file.newFromTemplate',
+    label: 'New from template',
+    group: 'File',
+    description: 'Create a document from a template and open it.',
+    params: [{ name: 'template', type: 'string', description: 'Template id, from templates.list' }, { name: 'title', type: 'string', description: 'Title of the new document' }],
+    run: async (params) => {
+      const doc = await createDocument(String(params.template ?? ''), params.title ? String(params.title) : undefined);
+      return { id: doc.id, title: doc.title };
+    },
+  });
+  commands.register({
+    id: 'file.open',
+    label: 'Open document',
+    group: 'File',
+    description: 'Open a document from your library by id.',
+    params: [{ name: 'id', type: 'string', description: 'Document id, from file.list' }],
+    run: async (params) => { const doc = await openDocument(String(params.id ?? '')); return { id: doc.id, title: doc.title }; },
+  });
+  commands.register({
+    id: 'file.trash',
+    label: 'Move to Trash',
+    group: 'File',
+    description: 'Move a document to the Trash.',
+    params: [{ name: 'id', type: 'string', description: 'Document id' }],
+    run: async (params) => { await home.trashDocs([String(params.id ?? '')]); return true; },
+  });
+  commands.register({
+    id: 'templates.list',
+    label: 'List templates',
+    group: 'File',
+    description: 'List the built-in and saved templates.',
+    run: async () => (await api.get<{ templates: TemplateSummary[] }>('/templates')).templates.map((t) => ({ id: t.id, name: t.name, category: t.category })),
+  });
+  commands.register({
+    id: 'app.preferences',
+    label: 'Preferences',
+    group: 'App',
+    description: 'Set the author name used for new documents.',
+    run: () => { preferences(); return true; },
   });
   commands.register({
     id: 'file.list',
@@ -92,7 +189,7 @@ export async function startApp(): Promise<void> {
     if (target?.dataset.cmd) void commands.run(target.dataset.cmd).catch((err: Error) => setText(engine, err.message));
   });
 
-  await fontsReady();
+  await Promise.all([fontsReady(), Promise.race([home.load().catch(() => undefined), new Promise((r) => setTimeout(r, 1500))])]);
   revealApp();
 
   const stop = delayedIndicator(() => setText(engine, 'Connecting to the engine'), () => undefined);
