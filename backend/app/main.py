@@ -8,7 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core import config
-from app.routers import blocks, commands, data, documents, formula, live, system, templates
+from app.routers import blocks, commands, data, documents, formula, live, stock, system, templates
 
 
 def _write_discovery() -> None:
@@ -43,6 +43,7 @@ app.include_router(templates.router, prefix="/api")
 app.include_router(data.router, prefix="/api")
 app.include_router(formula.router, prefix="/api")
 app.include_router(blocks.router, prefix="/api")
+app.include_router(stock.router, prefix="/api")
 app.include_router(commands.router)
 app.include_router(live.router)
 

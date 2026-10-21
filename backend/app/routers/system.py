@@ -35,12 +35,18 @@ def capabilities() -> dict:
 
 @router.get("/settings")
 def get_settings() -> dict:
-    return config.read_settings()
+    s = config.read_settings()
+    key = str(s.pop("pexelsKey", "") or "")
+    return {**s, "pexelsKeySet": bool(key)}
 
 
 @router.post("/settings")
 def set_settings(patch: dict) -> dict:
-    allowed = {k: v for k, v in patch.items() if k in {"author", "units", "defaultPageSize", "theme", "autosave", "pinned", "recentHidden", "keys"}}
+    allowed = {k: v for k, v in patch.items() if k in {"author", "units", "defaultPageSize", "theme", "autosave", "pinned", "recentHidden", "keys", "pexelsKey", "stockImages"}}
+    if "pexelsKey" in allowed:
+        allowed["pexelsKey"] = "".join(ch for ch in str(allowed["pexelsKey"] or "") if ch.isalnum())[:120]
+    if "stockImages" in allowed:
+        allowed["stockImages"] = bool(allowed["stockImages"])
     if "keys" in allowed:
         raw = allowed["keys"] if isinstance(allowed["keys"], dict) else {}
         allowed["keys"] = {str(cid)[:120]: [str(k)[:40] for k in combos][:4] for cid, combos in list(raw.items())[:2000] if isinstance(combos, list)}
@@ -49,4 +55,6 @@ def set_settings(patch: dict) -> dict:
     for key in ("pinned", "recentHidden"):
         if key in allowed:
             allowed[key] = [str(i)[:80] for i in allowed[key] if isinstance(i, str)][:500] if isinstance(allowed[key], list) else []
-    return config.write_settings(allowed)
+    merged = config.write_settings(allowed)
+    key = str(merged.pop("pexelsKey", "") or "")
+    return {**merged, "pexelsKeySet": bool(key)}

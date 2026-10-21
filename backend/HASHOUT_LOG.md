@@ -210,3 +210,23 @@ backend/
 - kind: rationale
 - logged: v0.19.0 · 2026-10-21
 - Saved building blocks are library-wide, so they live in `blocks.json` beside `settings.json` rather than in any document, written through a temp file and rename like settings. Up to 200 blocks of 2 MB each; saving a name that already exists (ignoring case) replaces that block. Image runs are dropped on save because their media files live inside one document's package.
+
+## app/services/stock.py, app/routers/stock.py {#stock}
+
+### stock · fetching safely
+- refers-to: app/services/stock.py :: _public(), _CheckedRedirect, _get()
+- kind: rationale
+- logged: v0.21.0 · 2026-10-21
+- The engine is the only part that goes online, and only for stock pictures. Every address, including each redirect, must resolve to public IPs only (no loopback, private, link-local, reserved or multicast), responses are capped (4 MB JSON, 3 MB thumbnails, 25 MB pictures) and sniffed as PNG, JPEG, GIF, WebP or BMP (SVG refused), and a redirect to another host drops the Authorization header so the Pexels key never leaves api.pexels.com. Downloads accept only ids from recent search results (kept in memory, 2,000 entries), so the window cannot make the engine fetch an arbitrary address. Uses the standard library's urllib, no new dependency.
+
+### stock · keys and switch
+- refers-to: app/routers/system.py :: get_settings(), set_settings()
+- kind: rationale
+- logged: v0.21.0 · 2026-10-21
+- The Pexels key lives in settings.json on this computer and is never sent back to the window: GET and POST /api/settings return `pexelsKeySet` instead. `stockImages: false` turns every stock route off with a 403.
+
+### stock · not verified live here
+- refers-to: app/services/stock.py :: search()
+- kind: gotcha
+- logged: v0.21.0 · 2026-10-21
+- From the build sandbox Openverse answered once, then rate-limited (429) and timed out, and Cloudflare refuses Python's default user agent outright (error 1010), which is why requests carry a FormTxt user agent. The window-to-engine-to-service path was checked against a stand-in that returns the services' documented response shapes; a live check against both services is still owed.
