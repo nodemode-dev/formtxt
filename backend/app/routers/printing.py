@@ -46,6 +46,8 @@ def export_saved(doc_id: str, tagged: bool = True, download: bool = True) -> Res
 
 @router.post("/print/export.pdf")
 def export_current(doc: dict, tagged: bool = True, download: bool = True) -> Response:
+    raw = doc.pop("_drawings", None)
+    doc["_drawings"] = raw if isinstance(raw, dict) else {}
     media: dict[str, bytes] = {}
     try:
         media = store.load(str(doc.get("id", "")))[1]

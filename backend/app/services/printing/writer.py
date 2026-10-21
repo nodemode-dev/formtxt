@@ -1,4 +1,5 @@
 import io
+import json
 import math
 import re
 import shutil
@@ -162,6 +163,26 @@ class Ctx:
     def warn(self, text: str) -> None:
         if text and text not in self.warnings:
             self.warnings.append(text)
+
+    def drawing(self, group: str, key: str) -> tuple[str, int, int] | None:
+        import base64
+        cache = self.__dict__.setdefault("drawing_cache", {})
+        if (group, key) in cache:
+            return cache[(group, key)]
+        url = ((self.doc.get("_drawings") or {}).get(group) or {}).get(key)
+        out = None
+        if isinstance(url, str) and url.startswith("data:image/png;base64,"):
+            try:
+                data = base64.b64decode(url.split(",", 1)[1])
+                im = PILImage.open(io.BytesIO(data))
+                im.load()
+                path = self.tmp / f"draw{len(cache)}.png"
+                im.save(path, "PNG")
+                out = (str(path), im.size[0], im.size[1])
+            except (OSError, ValueError):
+                out = None
+        cache[(group, key)] = out
+        return out
 
     def fam(self, name: str) -> fonts.Family:
         family = fonts.family(name)
@@ -399,12 +420,16 @@ def paragraph_flowables(ctx: Ctx, block: dict, avail: float, parent: Elem, top: 
         label = list_label(ctx, info)
     else:
         label = ""
-    images = [r for r in content if r.get("type") == "image"]
-    only_images = bool(images) and all(r.get("type") == "image" or (r.get("type") == "text" and not str(r.get("text", "")).strip()) or r.get("type") == "break" for r in content)
+    images = [r for r in content if r.get("type") == "image" or (r.get("type") == "shape" and ctx.drawing("shapes", shape_key(r)))]
+    only_images = bool(images) and all(r in images or (r.get("type") == "text" and not str(r.get("text", "")).strip()) or r.get("type") == "break" for r in content)
     if only_images and not info:
         out: list[Flowable] = []
         for r in images:
-            pic = ctx.picture(r)
+            if r.get("type") == "shape":
+                drawn = ctx.drawing("shapes", shape_key(r))
+                pic = (drawn[0], float(r.get("width") or drawn[1] * 0.375), float(r.get("height") or drawn[2] * 0.375)) if drawn else None
+            else:
+                pic = ctx.picture(r)
             if not pic:
                 continue
             if str(r.get("wrap") or "inline") not in ("inline", "topBottom"):
@@ -445,9 +470,18 @@ def paragraph_flowables(ctx: Ctx, block: dict, avail: float, parent: Elem, top: 
         elif t == "field":
             parts.append(text_markup(ctx, str(r.get("result", "")), fam))
         elif t == "shape":
-            ctx.warn("Drawn shapes are not written to the PDF yet; their text is.")
-            if r.get("text"):
-                parts.append(text_markup(ctx, str(r["text"]), fam))
+            drawn = ctx.drawing("shapes", shape_key(r))
+            if drawn:
+                w = float(r.get("width") or drawn[1] * 0.375)
+                h = float(r.get("height") or drawn[2] * 0.375)
+                sc = min(1.0, (avail - st.leftIndent) / max(w, 1))
+                parts.append(f'<img src="{drawn[0]}" width="{w * sc:.1f}" height="{h * sc:.1f}" valign="bottom"/>')
+                if str(r.get("wrap") or "front") not in ("inline", "topBottom"):
+                    ctx.warn("Shapes and pictures that float around text are placed in line in the PDF.")
+            else:
+                ctx.warn("Drawn shapes are written to the PDF when it is exported from the open window; otherwise their text is.")
+                if r.get("text"):
+                    parts.append(text_markup(ctx, str(r["text"]), fam))
         elif t == "math":
             ctx.warn("Equations are written as their LaTeX source.")
             parts.append(text_markup(ctx, str(r.get("latex", "")), fam))
@@ -675,6 +709,8 @@ def table_flowable(ctx: Ctx, block: dict, avail: float, parent: Elem) -> list[Fl
 def chart_blocks(ctx: Ctx, block: dict, avail: float, parent: Elem) -> list[Flowable]:
     ctx.last_list_parent = None
     flow = chart_flowable(block, avail, CHART_COLORS)
+    if flow is None and block.get("id") and ctx.drawing("blocks", str(block["id"])):
+        return figure_image(ctx, block, avail, parent, f"{block.get('kind')} chart: {block.get('title') or ''}".strip())
     if flow is None:
         ctx.warn(f"A {block.get('kind')} chart is written as a caption only; bar, horizontal bar, line, area and donut charts are drawn.")
         data = block.get("data") or {}
@@ -688,6 +724,24 @@ def chart_blocks(ctx: Ctx, block: dict, avail: float, parent: Elem) -> list[Flow
         alt += f". Categories: {', '.join(str(c) for c in cats[:12])}"
     flow.hAlign = {"left": "LEFT", "right": "RIGHT"}.get(str(block.get("align") or ""), "CENTER")
     tagged = Tagged(flow, Elem("Figure", parent, alt), None)
+    tagged.space = (4, 10)
+    return [tagged]
+
+
+def shape_key(r: dict) -> str:
+    fx = lambda v: f"{float(v or 0):.2f}"
+    return json.dumps([str(r.get("kind") or ""), fx(r.get("width")), fx(r.get("height")), fx(r.get("x")), fx(r.get("y")), str(r.get("path") or ""), str(r.get("text") or "")], separators=(",", ":"), ensure_ascii=False)
+
+
+def figure_image(ctx: Ctx, block: dict, avail: float, parent: Elem, alt: str) -> list[Flowable]:
+    ctx.last_list_parent = None
+    path, pw, ph = ctx.drawing("blocks", str(block["id"]))
+    natural = pw * 0.375
+    width = float(block.get("width") or 0) or natural
+    width = min(avail, width)
+    img = Image(path, width, width * ph / max(pw, 1))
+    img.hAlign = {"left": "LEFT", "right": "RIGHT"}.get(str(block.get("align") or ""), "CENTER")
+    tagged = Tagged(img, Elem("Figure", parent, alt), None)
     tagged.space = (4, 10)
     return [tagged]
 
@@ -708,8 +762,10 @@ def blocks_flowables(ctx: Ctx, body: list, avail: float, parent: Elem, top: bool
             out.extend(table_flowable(ctx, block, avail, parent))
         elif t == "chart":
             out.extend(chart_blocks(ctx, block, avail, parent))
+        elif t in ("mermaid", "diagram") and block.get("id") and ctx.drawing("blocks", str(block["id"])):
+            out.extend(figure_image(ctx, block, avail, parent, str(block.get("alt") or (f"Diagram ({block.get('layout')})" if t == "diagram" else "Mermaid diagram"))))
         elif t in ("mermaid", "diagram"):
-            ctx.warn("Mermaid drawings and SmartArt-style diagrams are not drawn in the PDF; a caption stands in.")
+            ctx.warn("Mermaid drawings and SmartArt-style diagrams are drawn when the PDF is exported from the open window; otherwise a caption stands in.")
             label = block.get("alt") or (f"Diagram: {block.get('code', '')[:60]}" if t == "mermaid" else f"Diagram ({block.get('layout')})")
             st = ParagraphStyle("cap", fontName=ctx.base_family.faces["regular"], fontSize=9, textColor=HexColor("#5a5a5a"), spaceAfter=8)
             out.append(Tagged(Paragraph(escape(str(label)), st), Elem("P", parent), None))

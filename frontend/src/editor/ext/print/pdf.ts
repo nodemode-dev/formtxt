@@ -2,6 +2,7 @@ import { commands } from '../../../engine/registry';
 import { EngineError } from '../../../io/api';
 import { toast } from '../../../ui/toast';
 import type { DocEditor } from '../../editor';
+import { drawings } from './raster';
 
 export interface PdfExport { name: string; pages: number; bytes: number; notes: string[]; tagged: { elements: number; headings: number } }
 export interface PdfOpen { id: string; title: string; pages: number; notes: string[]; paragraphs: number; headings: number; tables: number; pictures: number; lists: number }
@@ -30,7 +31,7 @@ export async function exportPdf(ed: DocEditor, tagged: boolean, id: string): Pro
   const flag = `tagged=${tagged ? 'true' : 'false'}`;
   const res = id
     ? await fetch(`/api/documents/${encodeURIComponent(id)}/export.pdf?${flag}`)
-    : await fetch(`/api/print/export.pdf?${flag}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(doc) });
+    : await fetch(`/api/print/export.pdf?${flag}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...doc, _drawings: await drawings(ed).catch(() => ({ blocks: {}, shapes: {} })) }) });
   if (!res.ok) return fail(res);
   const blob = await res.blob();
   const title = (doc?.title ?? ed.current()?.title ?? 'document').replace(/[^\w .-]+/g, '').trim() || 'document';
