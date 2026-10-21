@@ -30,10 +30,25 @@ def is_agent() -> bool:
     return time.time() < _agent_until
 
 
+_hint = threading.local()
+
+
+def set_editor_hint(by: str) -> None:
+    _hint.by = by if by in ("agent", "person", "both") else ""
+
+
 def actor(doc: dict | None = None) -> str:
+    person = str(config.read_settings().get("author") or ((doc or {}).get("meta") or {}).get("author") or "You")[:80]
+    by = getattr(_hint, "by", "")
+    if by == "agent":
+        return "Agent"
+    if by == "both":
+        return f"{person} and Agent"
+    if by == "person":
+        return person
     if is_agent():
         return "Agent"
-    return str(config.read_settings().get("author") or ((doc or {}).get("meta") or {}).get("author") or "You")[:80]
+    return person
 
 
 def _root(doc_id: str) -> Path:

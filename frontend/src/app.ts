@@ -13,6 +13,7 @@ import { networkPreference } from './editor/ext/collab/share';
 import { unlockDocument } from './editor/ext/versions';
 import { vx } from './editor/ext/versions/api';
 import { connectBridge } from './automation/bridge';
+import { noteEdit, takeEditor } from './automation/actor';
 import { CommandPalette } from './ui/palette';
 import { Shortcuts } from './ui/shortcuts';
 import { toast } from './ui/toast';
@@ -91,7 +92,8 @@ export async function startApp(): Promise<void> {
     const doc = pending;
     pending = null;
     if (!doc) return saving;
-    saving = saving.then(() => api.put<DocSummary>(`/documents/${encodeURIComponent(doc.id)}`, doc)).then((s) => {
+    const by = takeEditor();
+    saving = saving.then(() => api.put<DocSummary>(`/documents/${encodeURIComponent(doc.id)}${by ? `?by=${by}` : ''}`, doc)).then((s) => {
       doc.meta.modified = s.modified;
       if (!pending) setText(docStatus, `${s.words} word${s.words === 1 ? '' : 's'} · Saved`);
       home.upsert({ id: s.id, title: s.title, modified: s.modified, created: s.created, words: s.words, bytes: s.bytes });
@@ -100,6 +102,7 @@ export async function startApp(): Promise<void> {
   };
   const editor = new DocEditor(main, {
     changed: (doc) => {
+      noteEdit();
       pending = doc;
       window.clearTimeout(saveTimer);
       saveTimer = window.setTimeout(() => void flush(), 700);

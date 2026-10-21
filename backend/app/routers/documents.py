@@ -6,7 +6,7 @@ from pydantic import BaseModel
 
 from app.core import config
 from app.routers import templates
-from app.services import exchange, intake, model, package, store, thumbs
+from app.services import exchange, intake, model, package, store, thumbs, versions
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 
@@ -86,13 +86,16 @@ def read(doc_id: str) -> dict:
 
 
 @router.put("/{doc_id}")
-def save(doc_id: str, doc: dict) -> dict:
+def save(doc_id: str, doc: dict, by: str = "") -> dict:
     if doc.get("id") != doc_id:
         raise HTTPException(422, "The document's id does not match the address it was saved to.")
+    versions.set_editor_hint(by)
     try:
         return store.save(doc)
     except model.InvalidDocument as exc:
         raise HTTPException(422, str(exc))
+    finally:
+        versions.set_editor_hint("")
 
 
 @router.get("/{doc_id}/download")

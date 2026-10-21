@@ -1,4 +1,5 @@
 import type { CommandRegistry } from '../engine/registry';
+import { asAgent } from './actor';
 
 function safe(value: unknown): unknown {
   if (value === undefined) return null;
@@ -20,7 +21,7 @@ export function connectBridge(reg: CommandRegistry): void {
       try { msg = JSON.parse(String(ev.data)); } catch { return; }
       if (msg.t !== 'run' || !msg.id || !msg.command) return;
       try {
-        const result = await reg.run(msg.command, msg.params ?? {});
+        const result = await asAgent(async () => reg.run(msg.command!, msg.params ?? {}));
         ws.send(JSON.stringify({ t: 'result', id: msg.id, ok: true, result: safe(result) }));
       } catch (e) {
         ws.send(JSON.stringify({ t: 'result', id: msg.id, ok: false, error: (e as Error).message }));
