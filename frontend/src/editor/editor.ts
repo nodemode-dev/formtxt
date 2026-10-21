@@ -20,6 +20,7 @@ import { layoutTabs } from './tabs';
 import { addRowAfter, goToNextCell, isInTable } from 'prosemirror-tables';
 import { tablePlugins } from './table';
 import { PictureView, fitSize, insertPicture, naturalSize } from './picture';
+import { ChartView } from './chart/chart';
 import { api } from '../io/api';
 import { toast } from '../ui/toast';
 
@@ -128,7 +129,7 @@ ${TB('list.bullet', 'listBullet', 'Bulleted list', 'Ctrl+Shift+8')}${TB('list.nu
 <select class="ft-tb-select ft-tb-spacing" data-cmd="paragraph.lineSpacing" aria-label="Line spacing">${SPACINGS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>${SEP}
 ${TB('format.painter', 'painter', 'Format Painter', 'Ctrl+Shift+C')}${TB('format.paragraph', 'paragraph', 'Paragraph settings')}${TB('format.styles', 'styles', 'Styles')}${SEP}
 ${TB('insert.link', 'link', 'Link', 'Ctrl+K')}${TB('insert.codeBlock', 'code', 'Code block')}${TB('insert.pageBreak', 'pageBreak', 'Page break', 'Ctrl+Enter')}${TB('insert.sectionBreak', 'sectionBreak', 'Section break (next page)')}${TB('format.clear', 'clearFormat', 'Clear formatting', 'Ctrl+\\')}${SEP}
-${TB('insert.picture', 'image', 'Insert picture (or paste or drop one)')}${TB('insert.table', 'table', 'Insert table')}<span class="ft-tb-group" data-group="table">${TB('table.properties', 'tableProps', 'Table properties (right-click a cell for rows, columns and merging)')}</span>${SEP}
+${TB('insert.picture', 'image', 'Insert picture (or paste or drop one)')}${TB('insert.table', 'table', 'Insert table')}${TB('insert.chart', 'chart', 'Insert chart')}${TB('insert.symbol', 'omega', 'Symbol')}<span class="ft-tb-group" data-group="table">${TB('table.properties', 'tableProps', 'Table properties (right-click a cell for rows, columns and merging)')}</span>${SEP}
 ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', 'outline', 'Outline')}${SEP}
 ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 'pageSetup', 'Page setup')}${TB('insert.headerFooter', 'headerFooter', 'Header and footer')}${TB('view.pageless', 'pageless', 'Pageless')}
 <select class="ft-tb-select ft-tb-zoom" data-cmd="view.zoom" aria-label="Zoom">${[50, 75, 90, 100, 110, 125, 150, 200].map((z) => `<option value="${z}"${z === 100 ? ' selected' : ''}>${z}%</option>`).join('')}<option value="" disabled hidden></option></select>
@@ -251,7 +252,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
       this.view = new EditorView(this.mount, {
         state,
         attributes: { class: 'ft-pm-root', spellcheck: 'true', 'aria-label': 'Document' },
-        nodeViews: { image: (node, view, getPos) => new PictureView(node, view, getPos) },
+        nodeViews: { image: (node, view, getPos) => new PictureView(node, view, getPos), chart: (node) => new ChartView(node) },
         handlePaste: (_view, e) => {
           const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/'));
           if (!files.length) return false;
@@ -272,7 +273,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
           this.view.updateState(next);
           this.states.set(this.activeTab, next);
           this.syncToolbar();
-          if (tr.docChanged) { this.emitChange(); this.scheduleOutline(); if (!tr.getMeta(pagesKey)) this.paginator.schedule(); }
+          if (tr.docChanged) { this.emitChange(); this.scheduleOutline(); if (!tr.getMeta(pagesKey)) this.paginator.schedule(); if (tr.getMeta('paste') || tr.getMeta('uiEvent') === 'drop') this.adoptForeignMedia(); }
           if (tr.getMeta(findKey) || tr.docChanged) this.syncFind();
         },
       });
@@ -617,6 +618,54 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
   spacing(v: number | null): boolean { return this.run(setLineSpacing(v)); }
   clear(): boolean { return this.run(clearFormatting); }
   pageBreak(): boolean { return this.run(insertPageBreak); }
+  insertText(text: string): boolean {
+    return this.run((state, dispatch) => {
+      if (!text) return false;
+      dispatch?.(state.tr.insertText(text).scrollIntoView());
+      return true;
+    });
+  }
+
+  private adopting = new Set<string>();
+
+  private adoptForeignMedia(): void {
+    if (!this.view || !this.doc) return;
+    const own = this.doc.id;
+    const wanted = new Map<string, { from: string; name: string }>();
+    this.view.state.doc.descendants((n) => {
+      if (n.type === schema.nodes.image && n.attrs.from) {
+        const from = String(n.attrs.from), name = String(n.attrs.media);
+        if (from !== own || !(name in (this.doc?.media ?? {}))) wanted.set(`${from}/${name}`, { from, name });
+      }
+      return true;
+    });
+    for (const [key, { from, name }] of wanted) {
+      if (this.adopting.has(key)) continue;
+      this.adopting.add(key);
+      const clear = (): void => {
+        this.adopting.delete(key);
+        if (!this.view || !this.doc || this.doc.id !== own) return;
+        const tr = this.view.state.tr;
+        this.view.state.doc.descendants((n, pos) => { if (n.type === schema.nodes.image && n.attrs.from === from && n.attrs.media === name) tr.setNodeMarkup(pos, undefined, { ...n.attrs, from: '' }); return true; });
+        if (tr.docChanged) this.view.dispatch(tr.setMeta('addToHistory', false));
+      };
+      if (from === own) { clear(); continue; }
+      void fetch(mediaUrl(name, from)).then(async (res) => {
+        if (!res.ok) throw new Error(`the source picture is no longer available (${res.status})`);
+        const blob = await res.blob();
+        const out = await api.upload<{ media: Array<{ name: string; type: string; bytes: number; source: string }>; errors: string[] }>(`/documents/${encodeURIComponent(own)}/media`, [new File([blob], name, { type: blob.type })]);
+        if (out.errors.length || !this.doc || this.doc.id !== own) throw new Error(out.errors[0] ?? 'the document changed');
+        const m = out.media[0];
+        const meta = ((await this.otherMedia(from))[name] ?? {}) as Record<string, unknown>;
+        this.doc = { ...this.doc, media: { ...(this.doc.media ?? {}), [m.name]: { ...meta, type: m.type, bytes: m.bytes } } };
+        clear();
+      }).catch((e: Error) => { this.adopting.delete(key); toast(`Could not copy a pasted picture: ${e.message}`, 'error'); });
+    }
+  }
+
+  private async otherMedia(id: string): Promise<Record<string, unknown>> {
+    try { return ((await api.get<FtxtDocument>(`/documents/${encodeURIComponent(id)}`)).media ?? {}) as Record<string, unknown>; } catch { return {}; }
+  }
   codeBlock(): boolean { return this.run(toggleCodeBlock); }
   link(href: string | null): boolean { return this.run(setLink(href)); }
 

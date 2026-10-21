@@ -43,8 +43,11 @@ let mediaDoc = '';
 
 export function setMediaDocument(id: string): void { mediaDoc = id; }
 
-export function mediaUrl(name: string): string {
-  return name && mediaDoc ? `/api/documents/${encodeURIComponent(mediaDoc)}/media/${encodeURIComponent(name)}` : '';
+export function mediaDocument(): string { return mediaDoc; }
+
+export function mediaUrl(name: string, from = ''): string {
+  const doc = from || mediaDoc;
+  return name && doc ? `/api/documents/${encodeURIComponent(doc)}/media/${encodeURIComponent(name)}` : '';
 }
 
 export const TABLE_LOOKS =['grid', 'plain', 'rows', 'banded', 'accent'] as const;
@@ -61,7 +64,7 @@ const cellAttr = (name: string, css: string) => ({
 
 const tables = tableNodes({
   tableGroup: 'block',
-  cellContent: '(paragraph | code_block | table)+',
+  cellContent: '(paragraph | code_block | table | chart)+',
   cellAttributes: { shading: cellAttr('shading', 'background'), valign: cellAttr('valign', 'vertical-align') },
 });
 
@@ -140,10 +143,19 @@ const nodes: Record<string, NodeSpec> = {
     attrs: {
       media: { default: '' }, alt: { default: '' }, width: { default: 144 }, height: { default: 108 },
       crop: { default: null }, rotate: { default: 0 }, brightness: { default: 100 }, contrast: { default: 100 }, saturation: { default: 100 }, transparency: { default: 0 },
-      wrap: { default: 'inline' }, side: { default: 'left' }, x: { default: 0 }, y: { default: 0 },
+      wrap: { default: 'inline' }, side: { default: 'left' }, x: { default: 0 }, y: { default: 0 }, from: { default: '' },
     },
-    parseDOM: [{ tag: 'span.ft-pic', getAttrs: (dom: HTMLElement) => ({ media: dom.dataset.media || '', alt: dom.querySelector('img')?.getAttribute('alt') ?? '', width: Number(dom.dataset.w) || 144, height: Number(dom.dataset.h) || 108, wrap: dom.dataset.wrap || 'inline', side: dom.dataset.side || 'left' }) }],
-    toDOM: (n) => ['span', { class: 'ft-pic', 'data-media': String(n.attrs.media), 'data-w': String(n.attrs.width), 'data-h': String(n.attrs.height), 'data-wrap': String(n.attrs.wrap), 'data-side': String(n.attrs.side) }, ['img', { src: mediaUrl(String(n.attrs.media)), alt: String(n.attrs.alt), width: String(Math.round(Number(n.attrs.width) * 96 / 72)) }]],
+    parseDOM: [{ tag: 'span.ft-pic', getAttrs: (dom: HTMLElement) => {
+      let rest: Record<string, unknown> = {};
+      try { rest = JSON.parse(dom.dataset.pic ?? '{}') as Record<string, unknown>; } catch { rest = {}; }
+      const src = dom.querySelector('img')?.getAttribute('src') ?? '';
+      const from = /\/api\/documents\/([^/]+)\/media\//.exec(src)?.[1] ?? '';
+      return { ...rest, media: dom.dataset.media || '', alt: dom.querySelector('img')?.getAttribute('alt') ?? '', width: Number(dom.dataset.w) || 144, height: Number(dom.dataset.h) || 108, wrap: dom.dataset.wrap || 'inline', side: dom.dataset.side || 'left', from: decodeURIComponent(from) };
+    } }],
+    toDOM: (n) => {
+      const { crop, rotate, brightness, contrast, saturation, transparency, x, y } = n.attrs;
+      return ['span', { class: 'ft-pic', 'data-media': String(n.attrs.media), 'data-w': String(n.attrs.width), 'data-h': String(n.attrs.height), 'data-wrap': String(n.attrs.wrap), 'data-side': String(n.attrs.side), 'data-pic': JSON.stringify({ crop, rotate, brightness, contrast, saturation, transparency, x, y }) }, ['img', { src: mediaUrl(String(n.attrs.media), String(n.attrs.from || '')), alt: String(n.attrs.alt), width: String(Math.round(Number(n.attrs.width) * 96 / 72)) }]];
+    },
   },
   section_break: {
     group: 'block',
@@ -159,6 +171,15 @@ const nodes: Record<string, NodeSpec> = {
     selectable: true,
     parseDOM: [{ tag: 'hr.ft-page-break' }],
     toDOM: () => ['hr', { class: 'ft-page-break', contenteditable: 'false' }],
+  },
+  chart: {
+    group: 'block',
+    atom: true,
+    selectable: true,
+    draggable: true,
+    attrs: { id: { default: null }, kind: { default: 'bar' }, title: { default: '' }, width: { default: 468 }, height: { default: 252 }, align: { default: 'center' }, options: { default: {} }, data: { default: { categories: [], series: [] } } },
+    parseDOM: [{ tag: 'figure.ft-chart', getAttrs: (dom: HTMLElement) => { try { return JSON.parse(dom.dataset.chart ?? '{}') as Record<string, unknown>; } catch { return {}; } } }],
+    toDOM: (n) => ['figure', { class: 'ft-chart', 'data-chart': JSON.stringify({ ...n.attrs, id: null }) }],
   },
   table: {
     ...tables.table,

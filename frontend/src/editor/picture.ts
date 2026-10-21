@@ -62,7 +62,7 @@ export class PictureView implements NodeView {
     const side = String(a.side || 'left');
     if (this.dom.dataset.side !== side) this.dom.dataset.side = side;
     if (this.dom.dataset.media !== String(a.media)) this.dom.dataset.media = String(a.media);
-    const src = mediaUrl(String(a.media));
+    const src = mediaUrl(String(a.media), String(a.from || ''));
     if (this.img.getAttribute('src') !== src) this.img.setAttribute('src', src);
     if (this.img.alt !== String(a.alt)) this.img.alt = String(a.alt);
     set(this.frame, 'width', `${w.toFixed(2)}px`);

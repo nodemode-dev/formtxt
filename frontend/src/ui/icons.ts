@@ -55,6 +55,8 @@ export const ICONS: Record<string, string> = {
   headerFooter: L('<rect x="4.5" y="3.5" width="15" height="17" rx="1.5"/><path d="M4.5 7.5h15M4.5 16.5h15"/>'),
   pageless: L('<path d="M5 3.5v17M19 3.5v17M8.5 7.5h7M8.5 11h7M8.5 14.5h5"/>'),
   image: L('<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="9.5" r="1.6"/><path d="M4 17l5-5 3.5 3.5 2.5-2.5 5 5"/>'),
+  chart: L('<path d="M4.5 4.5v15h15"/><path d="M8.5 16v-4M12.5 16V8.5M16.5 16v-6"/>'),
+  omega: L('<path d="M5 19.5h4.5v-2.2a6.5 6.5 0 1 1 5 0v2.2H19"/>'),
   table: L('<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10M15 9.5v10"/>'),
   tableProps: L('<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M9.5 9.5v10"/><circle cx="15" cy="14.5" r="2"/>'),
   chevronUp: L('<path d="M6 15l6-6 6 6"/>'),

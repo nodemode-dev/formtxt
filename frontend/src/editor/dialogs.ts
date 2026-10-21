@@ -4,6 +4,10 @@ import { el, escapeHtml, setText } from '../ui/dom';
 import { setCellAttr } from 'prosemirror-tables';
 import { type DocEditor, FONTS } from './editor';
 import { selectedPicture, setPicture } from './picture';
+import { CHART_FNS, CHART_LABELS, type ChartData, type ChartOptions, SAMPLE, gridText, insertChart, paint, parseGrid, selectedChart, setChart } from './chart/chart';
+import { CHART_KINDS } from './chart/types';
+import { SYMBOL_GROUPS } from './symbols';
+import { api } from '../io/api';
 import { toast } from '../ui/toast';
 import { distributeColumns, insertTable, setCellShading, setTableAttr, sortTable, tableInfo } from './table';
 
@@ -300,6 +304,112 @@ export function picturePropertiesDialog(ed: DocEditor): void {
     d.close();
   });
   d.open(alt);
+}
+
+export function chartDialog(ed: DocEditor, insert: boolean): void {
+  const cur = insert ? null : ed.view ? selectedChart(ed.view.state) : null;
+  if (!insert && !cur) throw new Error('Click a chart first.');
+  const a = (cur?.node.attrs ?? { kind: 'bar', title: '', width: Math.min(468, ed.bodyWidth()), height: 252, align: 'center', options: {}, data: SAMPLE }) as Record<string, unknown>;
+  const o = (a.options ?? {}) as ChartOptions;
+  const d = new Dialog(insert ? 'Insert chart' : 'Chart', 760);
+  const kind = select(CHART_KINDS.map((k) => [k, CHART_LABELS[k]] as [string, string]), String(a.kind));
+  const title = input('text', String(a.title ?? ''), 'spellcheck="true" placeholder="Shown above the chart"');
+  const width = input('number', String(a.width), 'min="120" step="1"');
+  const height = input('number', String(a.height), 'min="90" step="1"');
+  const align = select([['left', 'Left'], ['center', 'Centre'], ['right', 'Right']], String(a.align ?? 'center'));
+  const labels = input('checkbox', String(!!o.labels));
+  const legend = input('checkbox', String(o.legend !== false));
+  const smooth = input('checkbox', String(!!o.smooth));
+  const stacked = input('checkbox', String(!!o.stacked));
+  const fn = select(CHART_FNS.map((f) => [f, f[0].toUpperCase() + f.slice(1)] as [string, string]), String(o.fn ?? 'sum'));
+  const target = input('number', o.target ? String(o.target) : '', 'step="any" placeholder="None"');
+  const grid = el<HTMLTextAreaElement>('<textarea class="ft-input ft-chart-data" rows="9" spellcheck="false" aria-label="Chart data"></textarea>');
+  grid.value = gridText((a.data ?? SAMPLE) as ChartData);
+  const preview = el('<div class="ft-chart-preview"><figure class="ft-chart"><svg class="chart" role="img" aria-label="Preview"></svg></figure></div>');
+  const svg = preview.querySelector('svg') as SVGSVGElement;
+  const file = el<HTMLInputElement>('<input type="file" accept=".csv,.tsv,.txt,.xlsx" hidden>');
+  const note = el('<p class="ft-note"></p>');
+  setText(note, 'First row: a label column, then one column per series. Paste straight from a spreadsheet, or import a .csv or .xlsx file.');
+  const attrs = (): Record<string, unknown> => ({
+    kind: kind.value, title: title.value.trim(), width: Math.max(120, Number(width.value) || 468), height: Math.max(90, Number(height.value) || 252), align: align.value,
+    options: { labels: labels.checked, legend: legend.checked, smooth: smooth.checked, stacked: stacked.checked, fn: fn.value, ...(Number(target.value) ? { target: Number(target.value) } : {}) },
+    data: parseGrid(grid.value),
+  });
+  let frame = 0;
+  const refresh = (): void => {
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      const at = attrs();
+      const scale = Math.min(1, 440 / (Number(at.width) * 96 / 72));
+      paint(svg, { ...at, width: Number(at.width) * scale, height: Number(at.height) * scale });
+    });
+  };
+  for (const n of [kind, title, width, height, labels, legend, smooth, stacked, fn, target, grid]) n.addEventListener('input', refresh);
+  for (const n of [kind, labels, legend, smooth, stacked, fn]) n.addEventListener('change', refresh);
+  file.addEventListener('change', () => {
+    const f = file.files?.[0];
+    file.value = '';
+    if (!f) return;
+    void api.upload<{ rows: string[][] }>('/data/parse', [f]).then((r) => { grid.value = r.rows.map((row) => row.join('\t')).join('\n'); refresh(); toast(`Read ${Math.max(0, r.rows.length - 1)} rows from ${f.name}.`); }).catch((e: Error) => toast(`Could not read ${f.name}: ${e.message}`, 'error'));
+  });
+  const cols = el('<div class="ft-chart-dialog"></div>');
+  const left = el('<div></div>');
+  const right = el('<div></div>');
+  cols.append(left, right);
+  d.body.appendChild(cols);
+  const g = el('<div class="ft-form-grid"></div>');
+  for (const [label, control] of [['Type', kind], ['Title', title], ['Width (pt)', width], ['Height (pt)', height], ['Alignment', align], ['Number shows', fn], ['Target (gauge, radial)', target], ['Data labels', labels], ['Legend', legend], ['Smooth lines', smooth], ['Stacked', stacked]] as Array<[string, HTMLElement]>) {
+    const l = el('<label class="ft-field"><span class="ft-field-label"></span></label>');
+    setText(l.querySelector('.ft-field-label'), label);
+    l.appendChild(control);
+    g.appendChild(l);
+  }
+  left.appendChild(g);
+  right.append(preview, grid, note, file);
+  d.button('Import data file', '', () => file.click());
+  d.button('Cancel', 'ghost', () => d.close());
+  d.button(insert ? 'Insert' : 'Apply', 'primary', () => {
+    const at = attrs();
+    if (!(at.data as ChartData).categories.length) { toast('Add at least one row of data.', 'error'); return; }
+    ed.run(insert ? insertChart(at) : setChart(at));
+    d.close();
+  });
+  d.open(kind);
+  refresh();
+}
+
+export function symbolDialog(ed: DocEditor): void {
+  const d = new Dialog('Symbol', 560);
+  const gridEl = el('<div class="ft-symbols" role="grid" aria-label="Symbols"></div>');
+  for (const [group, chars] of SYMBOL_GROUPS) {
+    const head = el('<div class="ft-symbols-head"></div>');
+    setText(head, group);
+    gridEl.appendChild(head);
+    for (const ch of chars) {
+      const b = el<HTMLButtonElement>('<button type="button" class="ft-symbol"></button>');
+      setText(b, ch);
+      b.title = `U+${ch.codePointAt(0)!.toString(16).toUpperCase().padStart(4, '0')}`;
+      b.dataset.ch = ch;
+      gridEl.appendChild(b);
+    }
+  }
+  const code = input('text', '', 'spellcheck="false" placeholder="Unicode code, such as 2122 or U+00A7"');
+  gridEl.addEventListener('click', (e) => {
+    const ch = (e.target as HTMLElement).closest<HTMLElement>('[data-ch]')?.dataset.ch;
+    if (ch) { ed.insertText(ch); d.close(); }
+  });
+  d.body.appendChild(gridEl);
+  d.field('Character code', code);
+  d.button('Cancel', 'ghost', () => d.close());
+  d.button('Insert code', 'primary', () => {
+    const hex = code.value.trim().replace(/^(u\+|0x)/i, '');
+    const n = parseInt(hex, 16);
+    if (!/^[0-9a-f]{1,6}$/i.test(hex) || !(n > 31 && n <= 0x10ffff)) { toast('Enter a hexadecimal Unicode code such as 00A9.', 'error'); return; }
+    ed.insertText(String.fromCodePoint(n));
+    d.close();
+  });
+  d.open(code);
 }
 
 export function wordCountDialog(ed: DocEditor): void {

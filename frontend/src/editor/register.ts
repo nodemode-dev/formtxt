@@ -2,9 +2,13 @@ import type { CommandRegistry } from '../engine/registry';
 import type { Section } from '../engine/model';
 import { type Command, NodeSelection, TextSelection } from 'prosemirror-state';
 import { WRAPS, insertPicture, selectedPicture, setPicture } from './picture';
+import { CHART_FNS, SAMPLE, insertChart, parseGrid, selectedChart, setChart } from './chart/chart';
+import { exportChart } from './chart/chartdraw';
+import { CHART_KINDS } from './chart/types';
 import { CellSelection, addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow, deleteTable, isInTable, mergeCells, setCellAttr, splitCell, toggleHeaderColumn, toggleHeaderRow } from 'prosemirror-tables';
 import { el, setHidden, setText } from '../ui/dom';
 import { toast } from '../ui/toast';
+import { chartDialog, symbolDialog } from './dialogs';
 import { headerFooterDialog, insertTableDialog, pageGeometry, pageSetupDialog, paragraphDialog, parseTabs, picturePropertiesDialog, stylesDialog, tablePropertiesDialog, wordCountDialog } from './dialogs';
 import { type DocEditor, FONTS } from './editor';
 import { TABLE_LOOKS, schema } from './schema';
@@ -236,6 +240,77 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
     const pos = ed.view.posAtDOM(pic, 0);
     ed.view.dispatch(ed.view.state.tr.setSelection(NodeSelection.create(ed.view.state.doc, pos)));
     picturePropertiesDialog(ed);
+  });
+
+  const needChart = (patch: (a: Record<string, unknown>, p: Record<string, unknown>) => Record<string, unknown>) => (p: Record<string, unknown>) => {
+    const c = ed.view ? selectedChart(ed.view.state) : null;
+    if (!c) throw new Error('Select a chart first (click it, or run chart.select).');
+    return ed.run(setChart(patch(c.node.attrs as Record<string, unknown>, p)));
+  };
+  const kindOf = (v: unknown): string => {
+    const k = String(v ?? 'bar');
+    if (!(CHART_KINDS as readonly string[]).includes(k)) throw new Error(`Chart type must be one of ${CHART_KINDS.join(', ')}.`);
+    return k;
+  };
+  add('insert.chart', 'Chart', 'Insert', `Insert a chart; with no data, opens the chart editor. Types: ${CHART_KINDS.join(', ')}.`, (p) => {
+    if (p.data === undefined && p.kind === undefined) { chartDialog(ed, true); return true; }
+    const data = p.data !== undefined ? parseGrid(String(p.data).replace(/\\t/g, '\t').replace(/\\n/g, '\n')) : SAMPLE;
+    if (!data.categories.length) throw new Error('The data needs a header row and at least one row of values.');
+    return ed.run(insertChart({ kind: kindOf(p.kind), title: String(p.title ?? ''), width: Math.min(Number(p.width) || 468, ed.bodyWidth()), height: Number(p.height) || 252, data }));
+  }, [{ name: 'kind', type: 'string', description: CHART_KINDS.join(', ') }, { name: 'data', type: 'string', description: 'Rows of tab- or comma-separated values, header first; \\n separates rows' }, { name: 'title', type: 'string', description: 'Title above the chart' }, { name: 'width', type: 'number', description: 'Points' }, { name: 'height', type: 'number', description: 'Points' }]);
+  add('chart.properties', 'Chart editor', 'Chart', 'Type, title, size, options and data of the selected chart (or double-click a chart).', () => { chartDialog(ed, false); return true; });
+  add('chart.kind', 'Chart type', 'Chart', `Change the chart type: ${CHART_KINDS.join(', ')}.`, needChart((_a, p) => ({ kind: kindOf(p.kind) })), [{ name: 'kind', type: 'string', description: CHART_KINDS.join(', ') }]);
+  add('chart.data', 'Chart data', 'Chart', 'Replace the data with tab- or comma-separated rows, header first.', needChart((_a, p) => {
+    const data = parseGrid(String(p.data ?? '').replace(/\\t/g, '\t').replace(/\\n/g, '\n'));
+    if (!data.categories.length) throw new Error('The data needs a header row and at least one row of values.');
+    return { data };
+  }), [{ name: 'data', type: 'string', description: 'Rows; \\n separates rows' }]);
+  add('chart.options', 'Chart options', 'Chart', 'Data labels, legend, smooth lines, stacking, the number shown (sum, average, min, max, count) and a target.', needChart((_a, p) => {
+    const o: Record<string, unknown> = {};
+    for (const k of ['labels', 'legend', 'smooth', 'stacked']) if (p[k] !== undefined) o[k] = !!p[k];
+    if (p.fn !== undefined) { if (!(CHART_FNS as readonly string[]).includes(String(p.fn))) throw new Error(`fn must be one of ${CHART_FNS.join(', ')}.`); o.fn = String(p.fn); }
+    if (p.target !== undefined) o.target = Number(p.target) || undefined;
+    return { options: o };
+  }), [{ name: 'labels', type: 'boolean', description: 'Data labels' }, { name: 'legend', type: 'boolean', description: 'Legend' }, { name: 'smooth', type: 'boolean', description: 'Smooth lines' }, { name: 'stacked', type: 'boolean', description: 'Stack series' }, { name: 'fn', type: 'string', description: CHART_FNS.join(', ') }, { name: 'target', type: 'number', description: 'Target for gauge and radial' }]);
+  add('chart.size', 'Chart size', 'Chart', 'Set the chart size in points.', needChart((a, p) => ({ width: Math.max(120, Math.min(ed.bodyWidth(), Number(p.width) || Number(a.width))), height: Math.max(90, Number(p.height) || Number(a.height)) })), [{ name: 'width', type: 'number', description: 'Points' }, { name: 'height', type: 'number', description: 'Points' }]);
+  add('chart.title', 'Chart title', 'Chart', 'Set the title shown above the chart.', needChart((_a, p) => ({ title: String(p.text ?? '').trim() })), [{ name: 'text', type: 'string', description: 'Title; empty removes it' }]);
+  add('chart.export', 'Export chart', 'Chart', 'Download the selected chart as an SVG or PNG file.', (p) => {
+    const c = ed.view ? selectedChart(ed.view.state) : null;
+    const svg = c && ed.view ? (ed.view.nodeDOM(c.pos) as HTMLElement | null)?.querySelector('svg') : null;
+    if (!c || !svg) throw new Error('Select a chart first.');
+    return exportChart(svg as SVGSVGElement, String(c.node.attrs.title || 'chart'), p.format === 'png' ? 'png' : 'svg').then(() => true);
+  }, [{ name: 'format', type: 'string', description: 'svg or png' }]);
+  add('chart.info', 'Chart at cursor', 'Chart', 'Type, size, options and data of the selected chart.', () => {
+    const c = ed.view ? selectedChart(ed.view.state) : null;
+    return c ? { ...c.node.attrs, pos: c.pos } : null;
+  });
+  add('chart.select', 'Select chart', 'Chart', 'Select the first chart, or the next one after the selection.', () => {
+    if (!ed.view) throw new Error('Open a document first.');
+    const { state } = ed.view;
+    const all: number[] = [];
+    state.doc.descendants((n, pos) => { if (n.type === schema.nodes.chart) all.push(pos); return true; });
+    if (!all.length) throw new Error('The document has no charts.');
+    const at = all.find((pos) => pos > state.selection.from) ?? all[0];
+    ed.view.dispatch(state.tr.setSelection(NodeSelection.create(state.doc, at)).scrollIntoView());
+    return at;
+  });
+  add('insert.symbol', 'Symbol', 'Insert', 'Insert a symbol or special character; with no value, opens the symbol picker.', (p) => {
+    if (p.char === undefined && p.code === undefined) { symbolDialog(ed); return true; }
+    if (p.char !== undefined) return ed.insertText(String(p.char));
+    const hex = String(p.code).trim().replace(/^(u\+|0x)/i, '');
+    const n = parseInt(hex, 16);
+    if (!/^[0-9a-f]{1,6}$/i.test(hex) || !(n > 31 && n <= 0x10ffff)) throw new Error('code must be a hexadecimal Unicode code such as 00A9.');
+    return ed.insertText(String.fromCodePoint(n));
+  }, [{ name: 'char', type: 'string', description: 'The character to insert' }, { name: 'code', type: 'string', description: 'Hexadecimal Unicode code, such as 2122' }]);
+  ed.root.addEventListener('dblclick', (e) => {
+    const fig = (e.target as HTMLElement).closest<HTMLElement>('.ft-pm-root figure.ft-chart');
+    if (!fig || !ed.view || !ed.view.editable) return;
+    e.preventDefault();
+    const pos = ed.view.posAtDOM(fig, 0);
+    const $p = ed.view.state.doc.resolve(pos);
+    const at = $p.nodeAfter?.type === schema.nodes.chart ? pos : pos - 1;
+    ed.view.dispatch(ed.view.state.tr.setSelection(NodeSelection.create(ed.view.state.doc, at)));
+    chartDialog(ed, false);
   });
 
   const menu = el<HTMLElement>('<div class="ft-menu" role="menu" aria-label="Table" hidden></div>');

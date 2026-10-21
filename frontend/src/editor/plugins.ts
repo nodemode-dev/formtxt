@@ -16,9 +16,9 @@ export const uniqueIds = new Plugin({
     const tr = state.tr;
     let changed = false;
     state.doc.descendants((node, pos) => {
-      if (node.type !== schema.nodes.paragraph && node.type !== schema.nodes.code_block && node.type !== schema.nodes.table) return node.type.spec.tableRole !== undefined;
+      if (node.type !== schema.nodes.paragraph && node.type !== schema.nodes.code_block && node.type !== schema.nodes.table && node.type !== schema.nodes.chart) return node.type.spec.tableRole !== undefined;
       const id = node.attrs.id as string | null;
-      if (!id || seen.has(id)) { tr.setNodeMarkup(pos, undefined, { ...node.attrs, id: newId(node.type === schema.nodes.table ? 't_' : 'p_') }); changed = true; }
+      if (!id || seen.has(id)) { tr.setNodeMarkup(pos, undefined, { ...node.attrs, id: newId(node.type === schema.nodes.table ? 't_' : node.type === schema.nodes.chart ? 'c_' : 'p_') }); changed = true; }
       else seen.add(id);
       return node.type === schema.nodes.table;
     });

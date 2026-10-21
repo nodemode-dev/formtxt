@@ -81,6 +81,12 @@ function blocksToPM(body: Block[], top: boolean): PMNode[] {
     const blk = b as Block & { type: string; text?: string; props?: Record<string, unknown>; list?: { kind: string; level: number; checked?: boolean } };
     if (blk.type === 'code') blocks.push(schema.nodes.code_block.create({ id: blk.id }, blk.text ? schema.text(blk.text) : null));
     else if (blk.type === 'table') { const t = tableToPM(blk as unknown as FtxtTable); if (t) blocks.push(t); }
+    else if (blk.type === 'chart') {
+      const c = blk as unknown as Record<string, unknown>;
+      const attrs: Record<string, unknown> = { id: c.id || newId('c_') };
+      for (const k of ['kind', 'title', 'width', 'height', 'align', 'options', 'data']) if (c[k] !== undefined && c[k] !== null) attrs[k] = c[k];
+      blocks.push(schema.nodes.chart.create(attrs));
+    }
     else if (blk.type === 'pageBreak') { if (top) blocks.push(schema.nodes.page_break.create()); }
     else if (blk.type === 'sectionBreak') { if (top) blocks.push(schema.nodes.section_break.create({ section: (blk as unknown as { next?: string }).next ?? null })); }
     else {
@@ -171,6 +177,15 @@ export function fromPM(pm: PMNode, section: string): Block[] {
   const out: Block[] = [];
   pm.forEach((node) => {
     if (node.type.name === 'table') { out.push(tableFromPM(node, section) as unknown as Block); return; }
+    if (node.type.name === 'chart') {
+      const a = node.attrs;
+      const c: Record<string, unknown> = { type: 'chart', id: a.id || newId('c_'), kind: a.kind, width: a.width, height: a.height, data: a.data };
+      if (a.title) c.title = a.title;
+      if (a.align && a.align !== 'center') c.align = a.align;
+      if (a.options && Object.keys(a.options as object).length) c.options = a.options;
+      out.push(c as unknown as Block);
+      return;
+    }
     if (node.type.name === 'code_block') { out.push({ type: 'code', id: node.attrs.id || newId(), text: node.textContent } as unknown as Block); return; }
     if (node.type.name === 'page_break') { out.push({ type: 'pageBreak', id: newId() } as unknown as Block); return; }
     if (node.type.name === 'section_break') { out.push({ type: 'sectionBreak', id: newId(), next: node.attrs.section } as unknown as Block); return; }
