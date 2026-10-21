@@ -6,6 +6,7 @@ from fastapi import APIRouter, HTTPException, Request
 from pydantic import BaseModel, Field
 
 from app.core import config
+from app.services import bridge
 
 router = APIRouter(prefix="/api/commands", tags=["commands"])
 FILE = "commands-catalogue.json"
@@ -69,9 +70,48 @@ def catalogue(group: str = "", text: str = "") -> dict:
             "hint": "" if _state["commands"] else "The catalogue is empty: open the FormTxt window (./formtxt), wait a few seconds, then ask again."}
 
 
+class Run(BaseModel):
+    params: dict = Field(default_factory=dict)
+
+
+class Step(BaseModel):
+    id: str
+    params: dict = Field(default_factory=dict)
+
+
+class Batch(BaseModel):
+    steps: list[Step]
+    stopOnError: bool = True
+
+
+async def execute(cid: str, params: dict) -> dict:
+    _load()
+    if _state["commands"] and find(cid) is None:
+        return {"ok": False, "error": f"No command has the id {cid}. Search with GET /api/commands?text=word."}
+    return await bridge.call(cid, params)
+
+
+@router.post("/batch")
+async def batch(body: Batch, request: Request) -> dict:
+    require_local(request)
+    results = []
+    for step in body.steps:
+        out = await execute(step.id, step.params)
+        results.append({"id": step.id, **out})
+        if not out["ok"] and body.stopOnError:
+            break
+    return {"ok": all(r["ok"] for r in results), "results": results}
+
+
 @router.get("/{cid}")
 def describe(cid: str) -> dict:
     found = find(cid)
     if found is None:
         raise HTTPException(404, f"No command has the id {cid}. Search with GET /api/commands?text=word.")
     return found
+
+
+@router.post("/{cid}")
+async def run(cid: str, request: Request, body: Run | None = None) -> dict:
+    require_local(request)
+    return await execute(cid, body.params if body else {})

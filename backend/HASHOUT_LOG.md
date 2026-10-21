@@ -2,8 +2,8 @@
 
 Living log of comment content, rationale and removed code for the engine. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.2.0
-Last updated: 2026-10-21 · Phase 1 templates, thumbnails, intake, trash
+Current build version: v0.4.0
+Last updated: 2026-10-21 · Phase 2b window bridge, keys in settings
 
 ---
 
@@ -24,6 +24,8 @@ backend/
     ├── routers/documents.py library: create, read, save, download, trash, restore
     ├── routers/commands.py  command catalogue mirror and search
     ├── routers/templates.py template catalogue, previews, save as template, instantiate
+    ├── routers/live.py      WebSocket /api/live for the window bridge
+    ├── services/bridge.py   relays a command to the open window and waits for its answer
     ├── services/model.py    .ftxt document model, default styles and sections
     ├── services/package.py  .ftxt zip pack and unpack
     ├── services/store.py    the library on disk: trash, purge, duplicate, adopt
@@ -103,11 +105,11 @@ backend/
 
 ## app/routers/commands.py {#commands}
 
-### commands · Phase 0 scope
+### commands · Phase 0 scope (closed in v0.4.0)
 - refers-to: app/routers/commands.py :: router
-- kind: todo
-- logged: v0.1.0 · 2026-10-21
-- Mirror, list and describe only. Running a command from the CLI or MCP needs the live window bridge (FormDeck's `services/bridge.py`), which lands with the editor in Phase 2.
+- kind: explainer
+- logged: v0.1.0 · 2026-10-21, updated v0.4.0
+- Mirror, list and describe since 0.1.0; since 0.4.0 `POST /api/commands/<id>` and `/batch` run commands in the open window through `services/bridge.py` and `routers/live.py` (WebSocket `/api/live`, loopback only). An unknown id is refused before the window is asked; with no window open the answer says how to open one. Simpler than FormDeck's bridge: no per-deck routing, the newest window answers.
 
 ## app/services/templates/ {#templates}
 
