@@ -10,6 +10,7 @@ import { askCompare, runCompare } from './review/compare';
 import { addComment, clearTrash, deleteMessage, detectActive, editMessage, gotoComment, activeId, paintSheet, reactToSelection, replyTo, restoreFromTrash, setActive, setAssignee, setResolved, threads, toggleReaction } from './review/comments';
 import { beginNewComment, copyLink, openPicker, panelElement, refresh, setTab, showEditors } from './review/panel';
 import { REACTIONS } from './review/icons';
+import { badgePlugin, refreshBadges } from './review/badges';
 import { applyChanges, changesAtSelection, collectChanges, currentMode, editorsOf, moveToChange, setMode, syncModeFromDoc, trackPlugin } from './review/track';
 
 const PANEL = 'review';
@@ -86,6 +87,7 @@ export function register(reg: CommandRegistry, e: DocEditor): void {
   bind(e);
   addPlugin(trackPlugin());
   addPlugin(viewPlugin());
+  addPlugin(badgePlugin());
   addPlugin(keymap({
     'Mod-Alt-m': () => { void commands.run('review.newComment').catch((err: Error) => toast(err.message, 'error')); return true; },
     'Mod-Alt-e': () => { void commands.run('review.toggleTracking').catch((err: Error) => toast(err.message, 'error')); return true; },
@@ -98,6 +100,7 @@ export function register(reg: CommandRegistry, e: DocEditor): void {
     notify();
   });
   onChange(paintSheet);
+  onChange(refreshBadges);
 
   const add = (id: string, label: string, description: string, params: CommandParam[], run: (p: Record<string, unknown>) => unknown, keys?: string[]): void =>
     reg.register({ id, label, group: 'Review', description, params, keys, run });
