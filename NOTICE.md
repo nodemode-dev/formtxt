@@ -20,4 +20,4 @@ FormTxt. Copyright 2026 nodemode-ai. Licensed under the Apache License 2.0 (`LIC
 
 ## From the form family
 
-`frontend/src/ui/dom.ts` comes from FormDeck (Apache-2.0, same owner). `frontend/src/editor/chart/chartdraw.ts` and `chartkinds.ts` come from Form.md 0.46.0 (`web/src/extensions/database/views/`, Apache-2.0, same owner), with imports pointed at `chart/types.ts`, comments moved to `frontend/HASHOUT_LOG.md` and two em dash fallbacks changed to hyphens.
+`frontend/src/ui/dom.ts` comes from FormDeck (Apache-2.0, same owner). The diagram layouts in `frontend/src/editor/diagram.ts` are ported from FormDeck 0.23.0's `editor/diagram.ts` (same owner): the layout maths is kept, while FormDeck's theme colours and slide shapes are replaced by fixed colours and an SVG renderer. `frontend/src/editor/chart/chartdraw.ts` and `chartkinds.ts` come from Form.md 0.46.0 (`web/src/extensions/database/views/`, Apache-2.0, same owner), with imports pointed at `chart/types.ts`, comments moved to `frontend/HASHOUT_LOG.md` and two em dash fallbacks changed to hyphens.

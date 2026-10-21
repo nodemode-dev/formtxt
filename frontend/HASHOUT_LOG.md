@@ -314,6 +314,18 @@ frontend/
 - logged: v0.12.0 · 2026-10-21
 - The round handle above a selected picture or shape rotates it by the angle swept around the box centre from where the drag started, added to the current rotation (so grabbing a rotated object never makes it jump); Shift snaps to 15 degrees. Picture borders are an inset box shadow on a `::after` layer so they sit over the image without changing its size; rounded corners clip through the frame's `overflow: hidden`. Shape gradients are a per-view `linearGradient` with a random id.
 
+### diagrams · FormDeck's layouts, FormTxt's renderer
+- refers-to: src/editor/diagram.ts :: generate(), renderDiagram(), DiagramView
+- kind: rationale
+- logged: v0.13.0 · 2026-10-21
+- The 12 layout functions are FormDeck's, kept line for line where possible. FormDeck emits slide shapes with theme colour references; here each layout emits plain boxes (geometry, frame, hex colours, text lines), drawn as SVG paths with a positioned HTML text layer so text wraps and fits like FormDeck's shrink-on-overflow (the same size search). Colours: colourful cycles the document accent and five fixed hues; the shade schemes darken then lighten one hue across the items, as FormDeck's lumMod and lumOff do. Items are a plain tree with no ids; text is edited as indented lines. The view redraws only when layout, items, style, colours, size or the accent change.
+
+### pages · atom blocks at a page break
+- refers-to: src/editor/pages.ts :: layout() posOf()
+- kind: warning-context
+- logged: v0.13.0 · 2026-10-21
+- `posAtDOM(element, 0)` returns the position inside a node with content but the position before an atom block such as a chart or diagram, so `- 1` put the page break before the previous block: a chart or diagram that did not fit pushed the block above it to the next page as well (present since charts arrived in 0.10.0, seen in a diagram screenshot). `posOf` now checks `nodeDOM` and only steps back for nodes with content.
+
 ### app · word count on open
 - refers-to: src/app.ts :: openDocument()
 - kind: warning-context
