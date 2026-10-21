@@ -104,6 +104,13 @@ def listing(doc_id: str) -> dict:
     return {"versions": versions.listing(doc_id)}
 
 
+@router.get("/{doc_id}/editors")
+def editors(doc_id: str, ids: str = "") -> dict:
+    _data(doc_id)
+    wanted = [i for i in ids.split(",") if i][:500]
+    return {"editors": versions.editors(doc_id, wanted)}
+
+
 @router.post("/{doc_id}/open")
 def opened(doc_id: str) -> dict:
     _data(doc_id)

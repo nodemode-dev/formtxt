@@ -350,3 +350,34 @@ def reseal_versions(doc_id: str, key: tuple[bytes, bytes, int] | None) -> None:
 
 def forget(doc_id: str) -> None:
     shutil.rmtree(config.data_dir() / "Versions" / doc_id, ignore_errors=True)
+
+
+def _para_texts(doc: dict) -> dict[str, str]:
+    out: dict[str, str] = {}
+    for tab in doc.get("tabs") or []:
+        for block in tab.get("body") or []:
+            if isinstance(block, dict) and block.get("id") and block.get("type", "paragraph") == "paragraph":
+                out[str(block["id"])] = "".join(_run_text(r) for r in block.get("content") or [])
+    return out
+
+
+def editors(doc_id: str, ids: list[str]) -> dict[str, list[dict]]:
+    want = set(ids)
+    seen: dict[str, str] = {}
+    out: dict[str, list[dict]] = {i: [] for i in ids}
+    for row in sorted(_read_index(doc_id), key=lambda r: r["ts"]):
+        try:
+            doc, _media, _row = load_version(doc_id, row["id"])
+        except (OSError, LookupError, ValueError):
+            continue
+        for pid, text in _para_texts(doc).items():
+            if pid not in want or seen.get(pid) == text:
+                continue
+            seen[pid] = text
+            who = str(row.get("author") or "You")
+            hist = out[pid]
+            if hist and hist[-1]["author"] == who:
+                hist[-1]["time"] = row["ts"]
+            else:
+                hist.append({"author": who, "time": row["ts"]})
+    return out

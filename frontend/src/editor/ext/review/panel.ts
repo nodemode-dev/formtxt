@@ -6,7 +6,7 @@ import { authorColor } from '../review-spec';
 import { type Comment, type Mode, type Reply, allComments, ed, me, onChange, people, sameName, view, when } from './core';
 import { REVIEW_META, activeId, addComment, deleteMessage, editMessage, gotoComment, linkTo, mentionsIn, replyTo, selectionRange, setAssignee, setKnownNames, setResolved, toggleReaction, threads } from './comments';
 import { ICON, REACTIONS } from './icons';
-import { type Change, KIND_LABEL, applyChanges, collectChanges, currentMode, editorsOf, moveToChange, onMode, setMode } from './track';
+import { type Change, type Editor, KIND_LABEL, applyChanges, collectChanges, currentMode, editorsWithHistory, moveToChange, onMode, setMode } from './track';
 
 type Tab = 'comments' | 'changes';
 type Compose = { kind: 'new' | 'reply' | 'edit'; cid: string; rid: string; range?: { from: number; to: number } };
@@ -163,9 +163,9 @@ export function refresh(): void {
   for (const a of ['prev', 'next', 'acceptAll', 'rejectAll']) setDisabled(q<HTMLButtonElement>(`[data-act="${a}"]`), !hasChanges);
 }
 
-export function showEditors(): void {
-  if (!root) return;
-  const rows = editorsOf();
+export async function showEditors(): Promise<Editor[]> {
+  if (!root) return [];
+  const rows = await editorsWithHistory();
   patch(q('[data-list="editors"]'), rows, {
     key: (r) => r.author.toLowerCase(),
     create: () => el('<div class="rv-editor"><span class="rv-dot"></span><b class="rv-author"></b><span class="rv-time"></span></div>'),
@@ -174,10 +174,11 @@ export function showEditors(): void {
       const color = authorColor(r.author);
       if (dot.style.background !== color) dot.style.background = color;
       setText(n.querySelector('.rv-author'), r.author);
-      const parts = [r.inserted ? `${r.inserted} typed` : '', r.deleted ? `${r.deleted} deleted` : '', r.commented ? `${r.commented} comment${r.commented === 1 ? '' : 's'}` : ''].filter(Boolean);
+      const parts = [r.edited ? `edited ${r.edited} paragraph${r.edited === 1 ? '' : 's'}` : '', r.last ? `last ${when(r.last)}` : '', r.inserted ? `${r.inserted} typed` : '', r.deleted ? `${r.deleted} deleted` : '', r.commented ? `${r.commented} comment${r.commented === 1 ? '' : 's'}` : ''].filter(Boolean);
       setText(n.querySelector('.rv-time'), parts.join(', '));
     },
   });
+  return rows;
 }
 
 export function setTab(next: Tab): void {

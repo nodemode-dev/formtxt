@@ -5,6 +5,7 @@ import { AddMarkStep, RemoveMarkStep, ReplaceStep } from 'prosemirror-transform'
 import { schema } from '../../schema';
 import { type Mode, type Range, allComments, commentRanges, ed, me, newId, nowSec, notify, sameName, view } from './core';
 import { REVIEW_META } from './comments';
+import { api } from '../../../io/api';
 
 export const trackKey = new PluginKey('review-track');
 const REUSE_SECONDS = 600;
@@ -317,7 +318,33 @@ export function moveToChange(dir: 1 | -1): Change | null {
   return c;
 }
 
-export interface Editor { author: string; inserted: number; deleted: number; commented: number }
+export interface Editor { author: string; inserted: number; deleted: number; commented: number; edited?: number; last?: number }
+
+export async function editorsWithHistory(): Promise<Editor[]> {
+  const v = view();
+  const rows = editorsOf();
+  const { from, to } = v.state.selection;
+  const lo = from === to ? 0 : from;
+  const hi = from === to ? v.state.doc.content.size : to;
+  const ids: string[] = [];
+  v.state.doc.nodesBetween(lo, hi, (node) => { if (node.type === schema.nodes.paragraph) { if (node.attrs.id) ids.push(String(node.attrs.id)); return false; } return true; });
+  const docId = ed().docId();
+  if (!ids.length || !docId) return rows;
+  let hist: Record<string, Array<{ author: string; time: number }>> = {};
+  try { hist = (await api.get<{ editors: typeof hist }>(`/versions/${encodeURIComponent(docId)}/editors?ids=${encodeURIComponent(ids.slice(0, 500).join(','))}`)).editors; } catch { return rows; }
+  const byName = new Map(rows.map((r) => [r.author.toLowerCase(), r]));
+  for (const list of Object.values(hist)) {
+    const counted = new Set<string>();
+    for (const h of list) {
+      const k = h.author.toLowerCase();
+      let r = byName.get(k);
+      if (!r) { r = { author: h.author, inserted: 0, deleted: 0, commented: 0 }; byName.set(k, r); rows.push(r); }
+      if (!counted.has(k)) { r.edited = (r.edited ?? 0) + 1; counted.add(k); }
+      r.last = Math.max(r.last ?? 0, h.time);
+    }
+  }
+  return rows.sort((a, b) => (b.last ?? 0) - (a.last ?? 0));
+}
 
 export function editorsOf(): Editor[] {
   const v = view();

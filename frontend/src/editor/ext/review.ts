@@ -150,10 +150,9 @@ export function register(reg: CommandRegistry, e: DocEditor): void {
   add('review.previousChange', 'Previous change', 'Select the previous tracked change.', [], () => { const c = moveToChange(-1); if (!c) throw new Error('There are no tracked changes.'); return c.key; });
   add('review.acceptAll', 'Accept all changes', 'Accept every tracked change in the open tab.', [], () => applyChanges(collectChanges(view().state.doc), true));
   add('review.rejectAll', 'Reject all changes', 'Reject every tracked change in the open tab.', [], () => applyChanges(collectChanges(view().state.doc), false));
-  add('review.showEditors', 'Show editors', 'Show who typed, deleted or commented on the selected text (the whole tab when nothing is selected).', [], () => {
+  add('review.showEditors', 'Show editors', 'Show who edited the selected paragraphs and when (from version history), and who typed, deleted or commented on the selected text (the whole tab when nothing is selected).', [], async () => {
     showPanel('changes');
-    showEditors();
-    return editorsOf();
+    return showEditors();
   });
 
   const compare = (mode: 'compare' | 'suggest' | 'combine') => (p: Record<string, unknown>): unknown => {
