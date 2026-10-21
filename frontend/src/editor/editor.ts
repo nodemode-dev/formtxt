@@ -4,7 +4,7 @@ import { gapCursor } from 'prosemirror-gapcursor';
 import { history, redo, undo } from 'prosemirror-history';
 import { keymap } from 'prosemirror-keymap';
 import type { Mark } from 'prosemirror-model';
-import { type Command, EditorState, NodeSelection, TextSelection } from 'prosemirror-state';
+import { type Command, EditorState, NodeSelection, TextSelection, type Transaction } from 'prosemirror-state';
 import { EditorView } from 'prosemirror-view';
 import type { FtxtDocument, ParaProps, RunProps } from '../engine/model';
 import { Dialog } from '../ui/dialog';
@@ -139,13 +139,14 @@ ${TB('list.bullet', 'listBullet', 'Bulleted list', 'Ctrl+Shift+8')}${TB('list.nu
 ${TB('format.painter', 'painter', 'Format Painter', 'Ctrl+Shift+C')}${TB('format.paragraph', 'paragraph', 'Paragraph settings')}${TB('format.styles', 'styles', 'Styles')}${TB('format.styleSet', 'styleSet', 'Style sets')}${SEP}
 ${TB('insert.link', 'link', 'Link', 'Ctrl+K')}${TB('insert.codeBlock', 'code', 'Code block')}${TB('insert.pageBreak', 'pageBreak', 'Page break', 'Ctrl+Enter')}${TB('insert.sectionBreak', 'sectionBreak', 'Section break (next page)')}${TB('format.clear', 'clearFormat', 'Clear formatting', 'Ctrl+\\')}${SEP}
 ${TB('insert.picture', 'image', 'Insert picture (or paste or drop one)')}${TB('insert.stockImage', 'stock', 'Stock images (Openverse, Pexels)')}${TB('insert.table', 'table', 'Insert table')}${TB('insert.chart', 'chart', 'Insert chart')}${TB('insert.diagram', 'diagram', 'Diagram (SmartArt)')}${TB('insert.mermaid', 'mermaid', 'Mermaid diagram from text')}${TB('insert.shape', 'shapes', 'Shapes, text box and WordArt')}${TB('insert.icon', 'iconLibrary', 'Icons')}${TB('view.draw', 'pen', 'Draw with ink (Esc stops)')}${TB('insert.equation', 'equation', 'Equation', 'Alt+=')}${TB('insert.symbol', 'omega', 'Symbol')}${TB('insert.emoji', 'smile', 'Emoji')}${TB('insert.chip', 'chip', 'Smart chip: date, person, dropdown or document (or type @)')}${TB('insert.block', 'blocks', 'Building blocks: meeting notes, email draft and your own')}<span class="ft-tb-group" data-group="table">${TB('table.properties', 'tableProps', 'Table properties (right-click a cell for rows, columns and merging)')}${TB('insert.formula', 'sigma', 'Formula (F9 updates)')}</span><span class="ft-tb-group" data-group="shape">${TB('shape.connect', 'connector', 'Connect to another shape')}${TB('shape.link', 'linkBoxes', 'Link text boxes: text continues in the next box')}${TB('shape.unlink', 'unlinkBoxes', 'Break the link to the next text box')}</span>${SEP}
-${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', 'outline', 'Outline')}${SEP}
+${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', 'outline', 'Outline')}${TB('view.split', 'split', 'Split window', 'Ctrl+Alt+S')}${SEP}
 ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 'pageSetup', 'Page setup')}${TB('insert.headerFooter', 'headerFooter', 'Header and footer')}${TB('view.pageless', 'pageless', 'Pageless')}
 <select class="ft-tb-select ft-tb-zoom" data-cmd="view.zoom" aria-label="Zoom">${[50, 75, 90, 100, 110, 125, 150, 200].map((z) => `<option value="${z}"${z === 100 ? ' selected' : ''}>${z}%</option>`).join('')}<option value="" disabled hidden></option></select>
 </div>
 <div class="ft-editor-body">
 <nav class="ft-outline" aria-label="Outline"><div class="ft-outline-title ft-tabs-head">Tabs<button type="button" class="ft-tb-btn sm" data-cmd="tabs.add" title="Add tab" aria-label="Add tab">${icon('plus', 14)}</button></div><div class="ft-tabs-list"></div><div class="ft-outline-title">Outline</div><div class="ft-outline-list"></div><p class="ft-outline-none">Headings you add appear here.</p></nav>
 <div class="ft-scroll"><div class="ft-pages"><article class="ft-page"><div class="ft-pm"></div></article></div></div>
+<div class="ft-split" hidden><div class="ft-split-bar"><span>Split window: the same text in draft view</span><button type="button" class="ft-tb-btn sm" data-cmd="view.split" title="Close the split (Ctrl+Alt+S)" aria-label="Close the split">${icon('close', 14)}</button></div><div class="ft-split-scroll"><article class="ft-page ft-split-page"><div class="ft-pm ft-split-pm"></div></article></div></div>
 <div class="ft-find" role="search" hidden>
 <div class="ft-find-row"><input class="ft-input ft-find-q" type="search" placeholder="Find" spellcheck="false" aria-label="Find"><span class="ft-find-count"></span>
 <button type="button" class="ft-tb-btn" data-find="prev" title="Previous (Shift+Enter)">${icon('chevronUp', 16)}</button><button type="button" class="ft-tb-btn" data-find="next" title="Next (Enter)">${icon('chevronDown', 16)}</button><button type="button" class="ft-tb-btn" data-find="close" title="Close (Esc)">${icon('close', 16)}</button></div>
@@ -217,6 +218,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
         'Mod-b': mark('bold'), 'Mod-i': mark('italic'), 'Mod-u': mark('underline'), 'Shift-Mod-x': mark('strike'),
         'Mod-.': mark('superscript'), 'Mod-,': mark('subscript'),
         'Mod-Alt-0': setStyle('Normal'), 'Mod-Alt-1': setStyle('Heading1'), 'Mod-Alt-2': setStyle('Heading2'), 'Mod-Alt-3': setStyle('Heading3'),
+        'Mod-Alt-s': () => { this.toggleSplit(); return true; },
         'Mod-Alt-4': setStyle('Heading4'), 'Mod-Alt-5': setStyle('Heading5'), 'Mod-Alt-6': setStyle('Heading6'),
         'Shift-Mod-7': toggleList('number'), 'Shift-Mod-8': toggleList('bullet'), 'Shift-Mod-9': toggleList('check'),
         'Shift-Mod-l': setAlign('left'), 'Shift-Mod-e': setAlign('center'), 'Shift-Mod-r': setAlign('right'), 'Shift-Mod-j': setAlign('justify'),
@@ -264,7 +266,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
       this.view = new EditorView(this.mount, {
         state,
         attributes: { class: 'ft-pm-root', spellcheck: 'true', 'aria-label': 'Document' },
-        nodeViews: { image: (node, view, getPos) => new PictureView(node, view, getPos), chart: (node) => new ChartView(node), shape: (node, view, getPos) => new ShapeView(node, view, getPos), math: (node) => new MathView(node), mermaid: (node, view, getPos) => new MermaidView(node, view, getPos, () => this.bodyWidth()), diagram: (node) => new DiagramView(node, () => this.accent()) },
+        nodeViews: this.nodeViews(),
         handlePaste: (_view, e) => {
           const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/'));
           if (!files.length) return false;
@@ -281,17 +283,19 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
         },
         dispatchTransaction: (tr) => {
           if (!this.view) return;
-          const next = this.view.state.apply(tr);
+          const { state: next, transactions } = this.view.state.applyTransaction(tr);
           this.view.updateState(next);
+          if (this.split) this.forwardToSplit(transactions, tr);
           this.states.set(this.activeTab, next);
           this.syncToolbar();
-          if (tr.docChanged) { this.emitChange(); this.scheduleOutline(); if (!tr.getMeta(pagesKey)) this.paginator.schedule(); if (tr.getMeta('paste') || tr.getMeta('uiEvent') === 'drop') this.adoptForeignMedia(); if (!tr.getMeta('fields') && !tr.getMeta(pagesKey)) this.scheduleFields(); }
+          if (tr.docChanged) { this.emitChange(); this.scheduleOutline(); if (!tr.getMeta(pagesKey)) { if (next.doc === tr.doc) this.paginator.scheduleEdit(tr); else this.paginator.schedule(); } if (tr.getMeta('paste') || tr.getMeta('uiEvent') === 'drop') this.adoptForeignMedia(); if (!tr.getMeta('fields') && !tr.getMeta(pagesKey)) this.scheduleFields(); }
           if (tr.getMeta(findKey) || tr.docChanged) this.syncFind();
         },
       });
     } else {
       this.view.updateState(state);
     }
+    this.reseedSplit();
     this.sectionKey = '';
     this.applyGeometry();
     this.syncToolbar();
@@ -565,6 +569,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     let state = this.states.get(id);
     if (!state) { state = this.makeState(index); this.states.set(id, state); }
     this.view.updateState(state);
+    this.reseedSplit();
     this.sectionKey = '';
     this.applyGeometry();
     this.paginator.layoutNow();
@@ -906,6 +911,62 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     setHidden(this.outlinePane, hide);
     setClass(this.root.querySelector('[data-cmd="view.outline"]'), 'is-on', !hide);
     return !hide;
+  }
+
+  private split: EditorView | null = null;
+
+  private nodeViews(): NonNullable<ConstructorParameters<typeof EditorView>[1]>['nodeViews'] {
+    return { image: (node, view, getPos) => new PictureView(node, view, getPos), chart: (node) => new ChartView(node), shape: (node, view, getPos) => new ShapeView(node, view, getPos), math: (node) => new MathView(node), mermaid: (node, view, getPos) => new MermaidView(node, view, getPos, () => this.bodyWidth()), diagram: (node) => new DiagramView(node, () => this.accent()) };
+  }
+
+  private splitState(): EditorState {
+    const mv = this.view!;
+    const viaMain = (cmd: Command): Command => () => cmd(mv.state, mv.dispatch);
+    return EditorState.create({ doc: mv.state.doc, plugins: [keymap({ 'Mod-z': viaMain(undo), 'Mod-y': viaMain(redo), 'Shift-Mod-z': viaMain(redo), 'Mod-b': mark('bold'), 'Mod-i': mark('italic'), 'Mod-u': mark('underline'), 'Mod-Alt-s': () => { this.toggleSplit(); return true; } }), keymap(baseKeymap), dropCursor(), gapCursor(), ...tablePlugins()] });
+  }
+
+  private reseedSplit(): void {
+    if (this.split && this.view) this.split.updateState(this.splitState());
+  }
+
+  private splitDispatch(tr: Transaction): void {
+    const sv = this.split, mv = this.view;
+    if (!sv || !mv) return;
+    const { state, transactions } = sv.state.applyTransaction(tr);
+    sv.updateState(state);
+    const mtr = mv.state.tr;
+    for (const t of transactions) for (const s of t.steps) if (mtr.maybeStep(s).failed) { this.reseedSplit(); return; }
+    if (mtr.docChanged) mv.dispatch(mtr.setMeta('fromSplit', true));
+  }
+
+  private forwardToSplit(trs: readonly Transaction[], origin: Transaction): void {
+    const sv = this.split;
+    if (!sv) return;
+    const str = sv.state.tr;
+    for (const t of trs) {
+      if (t === origin && t.getMeta('fromSplit')) continue;
+      for (const s of t.steps) if (str.maybeStep(s).failed) { this.reseedSplit(); return; }
+    }
+    if (str.docChanged) sv.updateState(sv.state.apply(str.setMeta('addToHistory', false)));
+  }
+
+  splitOpen(): boolean { return !!this.split; }
+
+  toggleSplit(): boolean {
+    if (!this.view) throw new Error('Open a document first.');
+    const pane = this.root.querySelector('.ft-split') as HTMLElement;
+    const on = !this.split;
+    if (on) {
+      pane.style.setProperty('--split-w', `${Math.round(this.bodyWidth())}px`);
+      this.split = new EditorView(pane.querySelector('.ft-split-pm') as HTMLElement, { state: this.splitState(), attributes: { class: 'ft-pm-root ft-split-root', spellcheck: 'true', 'aria-label': 'Document, split window' }, nodeViews: this.nodeViews(), dispatchTransaction: (tr) => this.splitDispatch(tr) });
+    } else {
+      this.split?.destroy();
+      this.split = null;
+    }
+    setHidden(pane, !on);
+    setClass(this.root.querySelector('.ft-toolbar [data-cmd="view.split"]'), 'is-on', on);
+    (on ? this.split! : this.view).focus();
+    return on;
   }
 
   private goTo(pos: number): void {

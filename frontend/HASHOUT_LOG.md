@@ -512,6 +512,18 @@ frontend/
 - logged: v0.23.0 · 2026-10-21
 - The editable flow is one column sized to the first section's body, centred in the widest page. A later section whose body width or left edge differs gets node decorations on its top-level blocks: `position: relative; left` moves the block to its page's left margin and a `margin-right` adjustment (on top of the paragraph's own right indent) sets its width, which leaves paragraph indents, list markers and alignment untouched. The decorations are rebuilt only when the document or the section geometry changes, so pagination passes never add or remove them. Known gap: centred figures and charts in a different-width section line up from the left edge of the new width; the ruler still shows the first section.
 
+### pages · layout fast path
+- refers-to: src/editor/pages.ts :: scheduleEdit(), unchanged(), remember(); src/editor/editor.ts :: dispatchTransaction
+- kind: rationale
+- logged: v0.24.0 · 2026-10-21
+- A full pagination pass clears the spacer decorations, measures every block and places them again, which costs about 85 to 137 ms per keystroke on the 28-page document at 4x CPU. Most keystrokes change no block's height. An edit now records which top-level blocks its steps touched; the next frame skips the pass when the block count is the same and every touched block is still the same element, holds no spacer, repeated header row or split-table mask, and has the height cached at the end of the last full pass (within half a pixel). The spacer decorations need no work in that case because the pages plugin maps them through the edit. Anything else (a structural change, a height change, a transaction a plugin appended to, a call to `schedule()` from geometry, zoom or tab changes) runs the full pass. Keystroke to second frame dropped to about 21 to 34 ms at 4x CPU, and the spacers after a run of fast-path edits match a forced full pass exactly.
+
+### editor · split window
+- refers-to: src/editor/editor.ts :: toggleSplit(), splitState(), splitDispatch(), forwardToSplit(), reseedSplit(), nodeViews()
+- kind: rationale
+- logged: v0.24.0 · 2026-10-21
+- The lower pane is a second EditorView with its own state (own selection and scroll) over the same document, shown as draft view without pagination. The two docs are kept identical by forwarding steps: an edit in the pane is applied there (with anything its table plugins append), then its steps are dispatched to the main view marked `fromSplit`, so history, saving, fields and pagination all run in one place; every transaction the main view applies, including appended ones such as new block ids, is forwarded back except the one that came from the pane. A step that fails to apply reseeds the pane from the main doc, as do loading a document and switching tabs. Undo and redo in the pane run the main view's history. The pane has no chip menu, collapse or find plugins, so those stay main-pane features. Main paragraphs are patched, not recreated, while typing in the pane (0 block removals under 4x CPU).
+
 ## index.html {#index}
 
 ### index · theme before first paint

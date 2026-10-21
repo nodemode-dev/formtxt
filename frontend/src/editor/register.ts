@@ -78,6 +78,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   add('insert.codeBlock', 'Code block', 'Insert', 'Turn the paragraph into a code block, or back.', () => ed.codeBlock());
   add('insert.pageBreak', 'Page break', 'Insert', 'Insert a page break.', () => ed.pageBreak(), [], ['Ctrl+Enter']);
   add('view.outline', 'Outline', 'View', 'Show or hide the outline of headings.', () => ed.toggleOutline());
+  add('view.split', 'Split window', 'View', 'Split the window to see and edit two parts of the document at once; the lower pane shows the same text in draft view.', () => ed.toggleSplit(), [], ['Ctrl+Alt+S']);
   add('view.collapseHeading', 'Collapse or expand heading', 'View', 'Fold or unfold the content under the heading at the cursor (or click left of a heading).', () => ed.collapse());
 
   add('format.painter', 'Format Painter', 'Format', 'Copy the formatting at the cursor; the next selection receives it.', () => ed.togglePainter(), [], ['Ctrl+Shift+C']);

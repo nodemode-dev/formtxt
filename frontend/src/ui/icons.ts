@@ -77,6 +77,7 @@ export const ICONS: Record<string, string> = {
   tableProps: L('<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M9.5 9.5v10"/><circle cx="15" cy="14.5" r="2"/>'),
   chevronUp: L('<path d="M6 15l6-6 6 6"/>'),
   chevronDown: L('<path d="M6 9l6 6 6-6"/>'),
+  split: L('<rect x="4.5" y="3.5" width="15" height="17" rx="1.5"/><path d="M4.5 12h15M8 7h8M8 16h6"/>'),
 };
 
 export function icon(name: string, size = 16): string {
