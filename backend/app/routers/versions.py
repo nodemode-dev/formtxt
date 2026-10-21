@@ -20,6 +20,8 @@ class Secret(BaseModel):
 
 class Cloud(BaseModel):
     folder: str = ""
+    user: str = Field("", max_length=200)
+    password: str = Field("", max_length=400)
 
 
 class Envelope(BaseModel):
@@ -69,9 +71,34 @@ def cloud_get() -> dict:
 @router.post("/cloud")
 def cloud_set(body: Cloud) -> dict:
     try:
-        return {"folder": versions.set_cloud_folder(body.folder)}
+        return {"folder": versions.set_cloud_folder(body.folder, body.user, body.password)}
     except ValueError as exc:
         raise HTTPException(422, str(exc))
+
+
+@router.get("/cloud/files")
+def cloud_files() -> dict:
+    try:
+        return {"files": versions.dav_list()}
+    except (ValueError, OSError) as exc:
+        raise HTTPException(422, str(exc))
+
+
+@router.post("/cloud/open")
+def cloud_open(body: Name) -> dict:
+    try:
+        data = versions.dav_fetch(body.name)
+        doc, media = vault.unpack(data)
+    except (ValueError, OSError) as exc:
+        raise HTTPException(422, str(exc))
+    try:
+        mine, _ = store.load(str(doc.get("id", "")))
+        if versions.content_hash(mine) == versions.content_hash(doc):
+            return {"id": mine["id"], "copy": False}
+    except (store.NotFound, ValueError, KeyError):
+        pass
+    fresh = store.adopt(doc, media)
+    return {"id": fresh["id"], "copy": True}
 
 
 @router.post("/merge")

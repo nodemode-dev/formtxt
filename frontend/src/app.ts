@@ -172,8 +172,12 @@ export async function startApp(): Promise<void> {
     d.body.appendChild(networkPreference());
     const pexels = el<HTMLInputElement>('<input class="ft-input" type="password" autocomplete="off" spellcheck="false" placeholder="Paste a key to add or replace it">');
     d.field('Pexels API key (free at pexels.com/api)', pexels);
-    const cloud = el<HTMLInputElement>('<input class="ft-input" type="text" autocomplete="off" spellcheck="false" placeholder="Leave empty to keep documents only in the library">');
-    d.field('Also save a copy to a folder (a synced Dropbox or OneDrive folder, for example)', cloud);
+    const cloud = el<HTMLInputElement>('<input class="ft-input" type="text" autocomplete="off" spellcheck="false" placeholder="https://cloud.example.com/remote.php/dav/files/you/FormTxt/ or a folder">');
+    d.field('Cloud storage: a WebDAV address (Nextcloud, ownCloud, Box, a NAS) or a synced folder such as Dropbox or OneDrive', cloud);
+    const davUser = el<HTMLInputElement>('<input class="ft-input" type="text" autocomplete="off" spellcheck="false" placeholder="User name (WebDAV only)">');
+    const davPass = el<HTMLInputElement>('<input class="ft-input" type="password" autocomplete="off" placeholder="Password or app password (WebDAV only)">');
+    d.field('Cloud user name', davUser);
+    d.field('Cloud password', davPass);
     let cloudWas = '';
     void vx.cloud().then((c) => { cloud.value = c.folder; cloudWas = c.folder; }).catch(() => undefined);
     void api.get<Record<string, unknown>>('/settings').then((s) => {
@@ -187,7 +191,7 @@ export async function startApp(): Promise<void> {
       const patch: Record<string, unknown> = { author: author.value.trim(), stockImages: stock.checked };
       if (pexels.value.trim()) patch.pexelsKey = pexels.value.trim();
       void api.post('/settings', patch).then(() => toast('Preferences saved.'));
-      if (cloud.value.trim() !== cloudWas) void vx.setCloud(cloud.value.trim()).then(() => toast(cloud.value.trim() ? 'Every save is also copied to that folder.' : 'Copies to a folder are off.')).catch((e: Error) => toast(e.message, 'error'));
+      if (cloud.value.trim() !== cloudWas || davPass.value) void vx.setCloud(cloud.value.trim(), davUser.value.trim(), davPass.value).then(() => toast(cloud.value.trim() ? 'Every save also goes to cloud storage.' : 'Cloud storage is off.')).catch((e: Error) => toast(e.message, 'error'));
     });
     d.open(author);
   };

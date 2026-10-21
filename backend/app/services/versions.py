@@ -2,6 +2,7 @@ import difflib
 import hashlib
 import io
 import json
+import os
 import re
 import shutil
 import threading
@@ -319,8 +320,100 @@ def cloud_folder() -> str:
     return str(config.read_settings().get("cloudFolder") or "")
 
 
-def set_cloud_folder(folder: str) -> str:
+def _cloud_secret_path() -> Path:
+    return config.data_dir() / "cloud.json"
+
+
+def _cloud_auth() -> tuple[str, str]:
+    try:
+        raw = json.loads(_cloud_secret_path().read_text(encoding="utf-8"))
+        return str(raw.get("user", "")), str(raw.get("password", ""))
+    except (OSError, ValueError):
+        return "", ""
+
+
+def _dav_request(method: str, url: str, data: bytes | None = None, headers: dict | None = None, timeout: float = 20) -> tuple[int, bytes]:
+    import base64
+    import urllib.error
+    import urllib.request
+    req = urllib.request.Request(url, data=data, method=method, headers=headers or {})
+    user, password = _cloud_auth()
+    if user or password:
+        req.add_header("Authorization", "Basic " + base64.b64encode(f"{user}:{password}".encode()).decode())
+    try:
+        with urllib.request.urlopen(req, timeout=timeout) as res:
+            return res.status, res.read(64 * 1024 * 1024)
+    except urllib.error.HTTPError as exc:
+        return exc.code, b""
+
+
+def is_dav(folder: str) -> bool:
+    return folder.startswith(("http://", "https://"))
+
+
+def _dav_name(doc: dict) -> str:
+    import urllib.parse
+    name = "".join(c for c in str(doc.get("title", "")) if c.isalnum() or c in " -_").strip() or "document"
+    return urllib.parse.quote(f"{name} ({doc['id'][2:8]}).ftxt")
+
+
+def dav_list() -> list[dict]:
+    import urllib.parse
+    from xml.etree import ElementTree
+    folder = cloud_folder()
+    if not is_dav(folder):
+        raise ValueError("Cloud storage is not set to a WebDAV address.")
+    status, body = _dav_request("PROPFIND", folder, b'<?xml version="1.0"?><d:propfind xmlns:d="DAV:"><d:prop><d:getlastmodified/><d:getcontentlength/></d:prop></d:propfind>', {"Depth": "1", "Content-Type": "application/xml"})
+    if status not in (200, 207):
+        raise ValueError(f"The cloud folder answered {status}.")
+    out = []
+    for resp in ElementTree.fromstring(body).iter("{DAV:}response"):
+        href = resp.findtext("{DAV:}href") or ""
+        name = urllib.parse.unquote(href.rstrip("/").rsplit("/", 1)[-1])
+        if not name.endswith(".ftxt"):
+            continue
+        out.append({"name": name, "href": href, "modified": resp.findtext(".//{DAV:}getlastmodified") or "", "bytes": int(resp.findtext(".//{DAV:}getcontentlength") or 0)})
+    return out
+
+
+def dav_fetch(name: str) -> bytes:
+    import urllib.parse
+    folder = cloud_folder()
+    if not is_dav(folder) or "/" in name or not name.endswith(".ftxt"):
+        raise ValueError("Choose a .ftxt file from the cloud folder.")
+    status, body = _dav_request("GET", folder.rstrip("/") + "/" + urllib.parse.quote(name))
+    if status != 200 or not body:
+        raise ValueError(f"The cloud folder answered {status}.")
+    return body
+
+
+def set_cloud_folder(folder: str, user: str = "", password: str = "") -> str:
     folder = folder.strip()
+    if is_dav(folder):
+        import urllib.parse
+        parts = urllib.parse.urlsplit(folder)
+        if parts.username or parts.password:
+            user, password = urllib.parse.unquote(parts.username or ""), urllib.parse.unquote(parts.password or "")
+            folder = urllib.parse.urlunsplit((parts.scheme, parts.hostname + (f":{parts.port}" if parts.port else ""), parts.path, "", ""))
+        if not folder.endswith("/"):
+            folder += "/"
+        if user or password:
+            path = _cloud_secret_path()
+            path.write_text(json.dumps({"user": user, "password": password}), encoding="utf-8")
+            try:
+                os.chmod(path, 0o600)
+            except OSError:
+                pass
+        try:
+            status, _ = _dav_request("PROPFIND", folder, None, {"Depth": "0"}, timeout=10)
+        except OSError as exc:
+            raise ValueError(f"Could not reach that address ({exc}).") from exc
+        if status == 401:
+            raise ValueError("The cloud folder refused the user name or password.")
+        if status not in (200, 207):
+            raise ValueError(f"That address is not a WebDAV folder (it answered {status}).")
+        config.write_settings({"cloudFolder": folder})
+        return folder
     if folder:
         path = Path(folder).expanduser()
         if not path.is_dir():
@@ -338,6 +431,17 @@ def set_cloud_folder(folder: str) -> str:
 
 def copy_out(doc: dict, data: bytes) -> None:
     folder = cloud_folder()
+    if is_dav(folder):
+        url = folder.rstrip("/") + "/" + _dav_name(doc)
+
+        def push() -> None:
+            try:
+                status, _ = _dav_request("PUT", url, data, {"Content-Type": "application/zip"})
+                log(doc["id"], "cloud", doc=doc, detail="Saved to cloud storage" if status in (200, 201, 204) else f"Cloud save failed ({status})")
+            except OSError as exc:
+                log(doc["id"], "cloud", doc=doc, detail=f"Cloud save failed ({exc})")
+        threading.Thread(target=push, daemon=True).start()
+        return
     if not folder or not Path(folder).is_dir():
         return
     name = "".join(c for c in str(doc.get("title", "")) if c.isalnum() or c in " -_").strip() or "document"

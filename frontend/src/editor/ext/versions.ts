@@ -4,6 +4,7 @@ import type { DocEditor } from '../editor';
 import { addPlugin, onDocumentLoaded } from './plugins';
 import { addMenuItems, panelOpen, togglePanel } from './ui';
 import { vx } from './versions/api';
+import { pickCloudFile } from './versions/cloud';
 import { bindControlDblClick, bindPopClose, controlDialog, controlPlugin, controlSites, controlValue, fillControl, insertControl } from './versions/controls';
 import { type Loose, ask, requireView } from './versions/core';
 import { bindFieldClicks, fieldDialog, infoPlugin, insertInfoField, listInfoFields, updateInfoFields } from './versions/fields';
@@ -173,9 +174,23 @@ export function register(reg: CommandRegistry, ed: DocEditor): void {
   add('signature.request', 'Sign in FormPDF', 'File', 'Export the document to PDF and open it in FormPDF to collect a signature. Says plainly if FormPDF is not running.', () => requestSignature(ed));
 
   add('cloud.get', 'Get cloud copy folder', 'File', 'The folder that also receives a copy of every save, or empty.', async () => (await vx.cloud()).folder);
-  add('cloud.set', 'Set cloud copy folder', 'File', 'Also save a copy of each document to a folder, such as a synced Dropbox or OneDrive folder; empty turns it off.', async (p) => (await vx.setCloud(String(p.folder ?? ''))).folder, [{ name: 'folder', type: 'string', description: 'Folder path on this computer' }]);
+  add('cloud.set', 'Set cloud storage', 'File', 'Also save every document to cloud storage: a WebDAV address (Nextcloud, ownCloud, Box, a NAS) with a user name and password, or a synced folder on this computer such as Dropbox or OneDrive; empty turns it off.', async (p) => (await vx.setCloud(String(p.folder ?? ''), String(p.user ?? ''), String(p.password ?? ''))).folder, [{ name: 'folder', type: 'string', description: 'WebDAV address (https://...) or a folder path on this computer' }, { name: 'user', type: 'string', description: 'WebDAV user name' }, { name: 'password', type: 'string', description: 'WebDAV password or app password' }]);
+  add('cloud.files', 'List documents in cloud storage', 'File', 'List the FormTxt documents in the WebDAV cloud storage.', async () => (await vx.cloudFiles()).files);
+  add('cloud.open', 'Open from cloud storage', 'File', 'Open a document saved in the WebDAV cloud storage; a version that differs from the library copy opens as a copy.', async (p) => {
+    let name = String(p.name ?? '');
+    if (!name) {
+      const files = (await vx.cloudFiles()).files;
+      if (!files.length) throw new Error('There are no FormTxt documents in the cloud storage yet.');
+      name = await pickCloudFile(files.map((f) => f.name));
+      if (!name) return false;
+    }
+    const r = await vx.cloudOpen(name);
+    await reg.run('file.open', { id: r.id });
+    return r;
+  }, [{ name: 'name', type: 'string', description: 'File name from cloud.files; omit to choose' }]);
 
   addMenuItems('File', [
+    { cmd: 'cloud.open', label: 'Open from cloud storage...' },
     { cmd: 'versions.panel', label: 'Version history' },
     { cmd: 'versions.name', label: 'Name this version...' },
     { cmd: 'activity.show', label: 'Activity...' },
