@@ -2,6 +2,7 @@ import { NodeSelection, Plugin, PluginKey, type EditorState, type Transaction } 
 import type { EditorView } from 'prosemirror-view';
 import type { Node as PMNode } from 'prosemirror-model';
 import { api } from '../io/api';
+import { builtInBlocks, insertBlock } from './blocks';
 import { el, patchList, setClass, setHidden, setText } from '../ui/dom';
 import { type ChipAttrs, type ChipOption, chipLabel, cleanChip, formatChipDate, isoDate, parseIsoDate, schema } from './schema';
 
@@ -15,6 +16,7 @@ export const DROPDOWN_PRESETS: Array<{ id: string; name: string; options: ChipOp
 
 export interface ChipHost {
   docId: () => string;
+  bodyWidth: () => number;
   openDoc: (id: string) => void;
   dialog: (kind: string, current: { node: PMNode; pos: number } | null) => void;
 }
@@ -113,7 +115,46 @@ function mentionItems(view: EditorView, query: string): Item[] {
     out.push({ key: `o:${p.id}`, group: 'Dropdowns', label: p.name, hint: p.options.map((o) => o.label).join(', '), run: (v) => put(v, { kind: 'dropdown', options: p.options, value: p.options[0].label }) });
   }
   if (has('dropdown')) out.push({ key: 'o:new', group: 'Dropdowns', label: 'New dropdown...', run: (v) => viaDialog(v, 'dropdown') });
+  for (const b of builtInBlocks(host?.bodyWidth() ?? 468).filter((b) => has(b.name, 'building block', 'template')).slice(0, q ? 4 : 2)) {
+    out.push({ key: `b:${b.id}`, group: 'Building blocks', label: b.name, hint: b.description, run: (v) => {
+      const st = chipKey.getState(v.state);
+      if (!st?.active) return;
+      v.dispatch(v.state.tr.delete(st.from, v.state.selection.from).setMeta(chipKey, { close: true }));
+      insertBlock(b)(v.state, v.dispatch);
+      v.focus();
+    } });
+  }
+  const named = placeholderNames(view.state.doc);
+  for (const n of named.filter((n) => has(n)).slice(0, 4)) out.push({ key: `h:${n}`, group: 'Placeholders', label: n, hint: 'Placeholder', run: (v) => put(v, { kind: 'placeholder', name: n }) });
+  const typedName = query.trim();
+  if (typedName && !named.some((n) => n.toLowerCase() === typedName.toLowerCase())) out.push({ key: `h:new:${typedName}`, group: 'Placeholders', label: `Placeholder: ${typedName}`, run: (v) => put(v, { kind: 'placeholder', name: typedName }) });
+  if (has('placeholder')) out.push({ key: 'h:add', group: 'Placeholders', label: 'Placeholder...', run: (v) => viaDialog(v, 'placeholder') });
   return out;
+}
+
+export function placeholderNames(doc: PMNode): string[] {
+  const names: string[] = [];
+  doc.descendants((n) => {
+    if (n.type === schema.nodes.chip && n.attrs.kind === 'placeholder' && n.attrs.name && !names.includes(String(n.attrs.name))) names.push(String(n.attrs.name));
+    return true;
+  });
+  return names;
+}
+
+export function fillPlaceholders(state: EditorState, values: Record<string, string>): Transaction | null {
+  const hits: Array<{ pos: number; node: PMNode; value: string }> = [];
+  state.doc.descendants((n, pos) => {
+    if (n.type === schema.nodes.chip && n.attrs.kind === 'placeholder' && Object.prototype.hasOwnProperty.call(values, String(n.attrs.name))) hits.push({ pos, node: n, value: values[String(n.attrs.name)] });
+    return true;
+  });
+  if (!hits.length) return null;
+  const tr = state.tr;
+  for (const h of hits.reverse()) {
+    const marks = state.doc.resolve(h.pos).marks();
+    if (h.value) tr.replaceWith(h.pos, h.pos + h.node.nodeSize, schema.text(h.value, marks));
+    else tr.delete(h.pos, h.pos + h.node.nodeSize);
+  }
+  return tr;
 }
 
 function chipActions(view: EditorView, node: PMNode, pos: number): Item[] {
@@ -126,6 +167,9 @@ function chipActions(view: EditorView, node: PMNode, pos: number): Item[] {
   const edit = (v: EditorView): void => { v.dispatch(v.state.tr.setSelection(NodeSelection.create(v.state.doc, pos))); host?.dialog(String(node.attrs.kind), { node, pos }); };
   const remove = (v: EditorView): void => { v.dispatch(v.state.tr.delete(pos, pos + node.nodeSize)); v.focus(); };
   const a = node.attrs;
+  if (a.kind === 'placeholder') {
+    return [{ key: 'fill', group: '', label: 'Fill in...', hint: String(a.name), run: (v) => { v.dispatch(v.state.tr.setSelection(NodeSelection.create(v.state.doc, pos))); host?.dialog('fill', { node, pos }); } }, { key: 'edit', group: '', label: 'Rename...', run: edit }, { key: 'rm', group: '', label: 'Remove', run: remove }];
+  }
   if (a.kind === 'dropdown') {
     return [...(a.options as ChipOption[]).map((o): Item => ({ key: `v:${o.label}`, group: '', label: o.label, hint: o.label === a.value ? 'Current' : '', run: set({ value: o.label }) })), { key: 'edit', group: '', label: 'Edit options...', run: edit }, { key: 'rm', group: '', label: 'Remove', run: remove }];
   }

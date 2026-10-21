@@ -78,6 +78,7 @@ export interface FtxtDocument {
   notes: { footnotes: Record<string, unknown>; endnotes: Record<string, unknown> };
   comments: Record<string, unknown>;
   media: Record<string, unknown>;
+  variables?: Record<string, string>;
 }
 
 export interface DocSummary {

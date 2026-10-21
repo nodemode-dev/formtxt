@@ -66,6 +66,7 @@ export const ICONS: Record<string, string> = {
   listFormat: L('<path d="M10 6.5h10M10 12h10M10 17.5h10"/><path d="M4 5h1.5v4M4 9h3"/><path d="M4 15.2a1.5 1.5 0 0 1 2.9.4c0 1-2.9 2-2.9 3.4h3"/>'),
   styleSet: L('<path d="M4 6.5h9M4 11h6M4 15.5h4"/><path d="M15.5 13.5l2.5-7 2.5 7M16.3 11.3h3.4"/><path d="M12 19.5h8"/>'),
   chip: L('<circle cx="12" cy="12" r="3.5"/><path d="M15.5 12v1.5a2.5 2.5 0 0 0 5 0V12a8.5 8.5 0 1 0-3.3 6.7"/>'),
+  blocks: L('<rect x="4" y="4" width="7" height="7" rx="1.5"/><rect x="13" y="4" width="7" height="7" rx="1.5"/><rect x="4" y="13" width="7" height="7" rx="1.5"/><path d="M16.5 13.5v6M13.5 16.5h6"/>'),
   sigma: L('<path d="M17.5 6.5V4.5h-11l6 7.5-6 7.5h11v-2"/>'),
   tableProps: L('<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M9.5 9.5v10"/><circle cx="15" cy="14.5" r="2"/>'),
   chevronUp: L('<path d="M6 15l6-6 6 6"/>'),

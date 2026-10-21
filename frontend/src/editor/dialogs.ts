@@ -1,6 +1,6 @@
 import type { Style } from '../engine/model';
 import { Dialog } from '../ui/dialog';
-import { el, escapeHtml, setText } from '../ui/dom';
+import { el, escapeHtml, patchList, setText } from '../ui/dom';
 import { setCellAttr } from 'prosemirror-tables';
 import { type DocEditor, FONTS, fontStack } from './editor';
 import { selectedPicture, setPicture } from './picture';
@@ -9,7 +9,9 @@ import { CHART_KINDS } from './chart/types';
 import { SYMBOL_GROUPS } from './symbols';
 import { FORMAT_PRESETS, defaultFormula, evaluate, formulaSites, selectedField, updateFields } from './fields';
 import { type ChipAttrs, type ChipOption, type ListFmt, isoDate, schema } from './schema';
-import { CHIP_COLORS, DROPDOWN_PRESETS, chipNode, knownDocs, loadDocs } from './chips';
+import { CHIP_COLORS, DROPDOWN_PRESETS, chipNode, fillPlaceholders, knownDocs, loadDocs, placeholderNames } from './chips';
+import { insertVariable } from './fields';
+import { type BuildingBlock, allBlocks, deleteBlock, insertBlock, saveBlock, selectionBlocks } from './blocks';
 import type { Node as PMNode } from 'prosemirror-model';
 import { setListFormat } from './commands';
 import { STYLE_SETS, currentSetId, setFonts } from './stylesets';
@@ -94,8 +96,9 @@ export function paragraphDialog(ed: DocEditor): void {
 
 export async function chipDialog(ed: DocEditor, kind: string, current: { node: PMNode; pos: number } | null): Promise<void> {
   if (!ed.view) throw new Error('Open a document first.');
+  if (kind === 'fill') { placeholderFillDialog(ed, current ? String(current.node.attrs.name) : ''); return; }
   const a = (current?.node.attrs ?? {}) as Partial<ChipAttrs>;
-  const titles: Record<string, string> = { date: 'Date', person: 'Person', dropdown: 'Dropdown', doc: 'Link a document' };
+  const titles: Record<string, string> = { date: 'Date', person: 'Person', dropdown: 'Dropdown', doc: 'Link a document', placeholder: 'Placeholder' };
   if (!titles[kind]) throw new Error('kind must be date, person, dropdown or doc.');
   if (kind === 'doc') await loadDocs();
   const d = new Dialog(current ? `Edit ${titles[kind].toLowerCase()} chip` : titles[kind], 460);
@@ -125,6 +128,11 @@ export async function chipDialog(ed: DocEditor, kind: string, current: { node: P
     d.field('Options, one per line', text);
     grid(d, [['Chosen', value]]);
     read = () => { const options = parse(); return options.length ? { kind, options, value: value.value } : null; };
+  } else if (kind === 'placeholder') {
+    const name = input('text', String(a.name ?? ''), 'maxlength="60" spellcheck="false" placeholder="For example Client name"');
+    d.field('Name shown in the document', name);
+    d.body.appendChild(el('<p class="ft-note">Placeholders mark what someone fills in later, as in a template. Fill in placeholders replaces every placeholder with the same name at once.</p>'));
+    read = () => (name.value.trim() ? { kind, name: name.value.trim() } : null);
   } else {
     const self = ed.docId();
     const docs = knownDocs().filter((x) => x.id !== self);
@@ -147,6 +155,136 @@ export async function chipDialog(ed: DocEditor, kind: string, current: { node: P
     d.close();
   });
   d.open(d.body.querySelector<HTMLElement>('input, textarea, select') ?? undefined);
+}
+
+export async function buildingBlocksDialog(ed: DocEditor): Promise<void> {
+  if (!ed.view) throw new Error('Open a document first.');
+  const blocks = await allBlocks(ed.bodyWidth());
+  const d = new Dialog('Building blocks', 620);
+  let chosen = blocks[0]?.id ?? '';
+  const gallery = el('<div class="ft-blocks-grid" role="radiogroup" aria-label="Building blocks"></div>');
+  const render = (list: BuildingBlock[]): void => {
+    patchList(gallery, list, {
+      key: (b) => b.id,
+      create: (b) => {
+        const card = el<HTMLButtonElement>(`<button type="button" class="ft-block-card" role="radio"><span class="ft-block-name"></span><span class="ft-block-desc"></span><span class="ft-block-cat"></span>${b.builtIn ? '' : '<span class="ft-block-del" role="button" tabindex="0" title="Delete this building block">Delete</span>'}</button>`);
+        setText(card.querySelector('.ft-block-name'), b.name);
+        setText(card.querySelector('.ft-block-desc'), b.description ?? `${b.blocks.length} block${b.blocks.length === 1 ? '' : 's'}`);
+        setText(card.querySelector('.ft-block-cat'), b.category);
+        card.setAttribute('aria-checked', String(b.id === chosen));
+        return card;
+      },
+      update: (n, b) => n.setAttribute('aria-checked', String(b.id === chosen)),
+    });
+  };
+  let current = blocks;
+  render(current);
+  gallery.addEventListener('click', (e) => {
+    const card = (e.target as HTMLElement).closest<HTMLElement>('.ft-block-card');
+    if (!card) return;
+    const id = card.dataset.key ?? '';
+    if ((e.target as HTMLElement).closest('.ft-block-del')) {
+      void deleteBlock(id).then(() => { current = current.filter((b) => b.id !== id); if (chosen === id) chosen = current[0]?.id ?? ''; render(current); toast('Building block deleted.'); }).catch((err: Error) => toast(err.message, 'error'));
+      return;
+    }
+    chosen = id;
+    render(current);
+  });
+  gallery.addEventListener('dblclick', (e) => { if ((e.target as HTMLElement).closest('.ft-block-card') && !(e.target as HTMLElement).closest('.ft-block-del')) insert(); });
+  const insert = (): void => {
+    const b = current.find((x) => x.id === chosen);
+    if (!b) return;
+    ed.run(insertBlock(b));
+    d.close();
+  };
+  d.body.append(gallery, el('<p class="ft-note">Select content in the document and choose Save selection to keep it here for any document. Pictures are left out of saved blocks.</p>'));
+  d.button('Save selection...', '', () => {
+    if (!ed.view || ed.view.state.selection.empty) { toast('Select the content to save first.', 'error'); return; }
+    d.close();
+    saveBlockDialog(ed);
+  });
+  d.button('Cancel', 'ghost', () => d.close());
+  d.button('Insert', 'primary', insert);
+  d.open(gallery.querySelector<HTMLElement>('[aria-checked="true"]') ?? undefined);
+}
+
+export function saveBlockDialog(ed: DocEditor): void {
+  if (!ed.view) throw new Error('Open a document first.');
+  selectionBlocks(ed.view.state);
+  const d = new Dialog('Save as building block', 420);
+  const name = input('text', '', 'maxlength="80" spellcheck="true" placeholder="For example Weekly status"');
+  const category = input('text', 'Saved', 'maxlength="40" spellcheck="false"');
+  grid(d, [['Name', name], ['Category', category]]);
+  d.button('Cancel', 'ghost', () => d.close());
+  d.button('Save', 'primary', () => {
+    if (!name.value.trim() || !ed.view) { toast('Give the building block a name.', 'error'); return; }
+    void saveBlock(ed.view.state, name.value.trim(), category.value.trim() || 'Saved').then((b) => { toast(`Saved ${b.name}.`); d.close(); }).catch((err: Error) => toast(err.message, 'error'));
+  });
+  d.open(name);
+}
+
+export function placeholderFillDialog(ed: DocEditor, focusName = ''): void {
+  if (!ed.view) throw new Error('Open a document first.');
+  const names = placeholderNames(ed.view.state.doc);
+  if (!names.length) throw new Error('The document has no placeholders. Type @ and a name to add one.');
+  const d = new Dialog('Fill in placeholders', 480);
+  const inputs = names.map((n) => [n, input('text', '', `spellcheck="true" aria-label="${escapeHtml(n)}"`)] as [string, HTMLInputElement]);
+  grid(d, inputs.map(([n, i]) => [n, i] as [string, HTMLElement]));
+  d.body.appendChild(el('<p class="ft-note">Each value replaces every placeholder with that name. Leave a box empty to keep its placeholder.</p>'));
+  d.button('Cancel', 'ghost', () => d.close());
+  d.button('Fill in', 'primary', () => {
+    const values: Record<string, string> = {};
+    for (const [n, i] of inputs) if (i.value.trim()) values[n] = i.value.trim();
+    if (!Object.keys(values).length) { toast('Type a value for at least one placeholder.', 'error'); return; }
+    ed.run((state, dispatch) => { const tr = fillPlaceholders(state, values); if (tr && dispatch) dispatch(tr.scrollIntoView()); return !!tr; });
+    d.close();
+  });
+  d.open((inputs.find(([n]) => n === focusName) ?? inputs[0])[1]);
+}
+
+export function variablesDialog(ed: DocEditor): void {
+  if (!ed.view) throw new Error('Open a document first.');
+  const vars = { ...ed.variables() };
+  const d = new Dialog('Document variables', 520);
+  const list = el('<div class="ft-vars" role="list"></div>');
+  const name = input('text', '', 'maxlength="40" spellcheck="false" placeholder="Name, such as Client"');
+  const value = input('text', '', 'maxlength="500" placeholder="Value"');
+  const render = (): void => {
+    patchList(list, Object.keys(vars).sort(), {
+      key: (k) => k,
+      create: (k) => {
+        const row = el(`<div class="ft-vars-row" role="listitem"><span class="ft-vars-name"></span><input class="ft-input" type="text" maxlength="500"><button type="button" class="ft-btn ghost" data-act="insert">Insert</button><button type="button" class="ft-btn ghost" data-act="delete">Delete</button></div>`);
+        setText(row.firstElementChild, k);
+        const box = row.querySelector('input') as HTMLInputElement;
+        box.value = vars[k];
+        box.setAttribute('aria-label', `Value of ${k}`);
+        box.addEventListener('input', () => { vars[k] = box.value; });
+        row.addEventListener('click', (e) => {
+          const act = (e.target as HTMLElement).closest<HTMLElement>('[data-act]')?.dataset.act;
+          if (act === 'delete') { delete vars[k]; render(); }
+          if (act === 'insert') { ed.setVariables(vars); ed.run(insertVariable(k, vars[k])); d.close(); }
+        });
+        return row;
+      },
+      update: () => undefined,
+    });
+  };
+  render();
+  const add = el<HTMLButtonElement>('<button type="button" class="ft-btn">Add</button>');
+  add.addEventListener('click', () => {
+    const k = name.value.trim();
+    if (!/^[\p{L}\p{N}_ .-]{1,40}$/u.test(k)) { toast('Use letters, digits, spaces, dots, dashes or underscores for the name.', 'error'); return; }
+    vars[k] = value.value;
+    name.value = ''; value.value = '';
+    render();
+    name.focus();
+  });
+  const addRow = el('<div class="ft-vars-add"></div>');
+  addRow.append(name, value, add);
+  d.body.append(list, addRow, el('<p class="ft-note">A variable is a named value used anywhere in the document. Insert puts it at the cursor; changing the value here updates every place it is used.</p>'));
+  d.button('Cancel', 'ghost', () => d.close());
+  d.button('Save', 'primary', () => { ed.setVariables(vars); d.close(); });
+  d.open(name);
 }
 
 export async function styleSetDialog(ed: DocEditor): Promise<void> {

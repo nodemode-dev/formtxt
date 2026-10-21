@@ -25,7 +25,7 @@ import { MathView, loadMathFonts } from './math';
 import { ShapeView, placeConnectors, shapeEditing } from './shape';
 import { InkTool } from './ink';
 import { DiagramView } from './diagram';
-import { updateFields } from './fields';
+import { syncVariables, updateFields } from './fields';
 import { chipPlugin } from './chips';
 import { STYLE_SETS, applyStyleSet, setFonts } from './stylesets';
 import { api } from '../io/api';
@@ -136,7 +136,7 @@ ${TB('list.bullet', 'listBullet', 'Bulleted list', 'Ctrl+Shift+8')}${TB('list.nu
 <select class="ft-tb-select ft-tb-spacing" data-cmd="paragraph.lineSpacing" aria-label="Line spacing">${SPACINGS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>${SEP}
 ${TB('format.painter', 'painter', 'Format Painter', 'Ctrl+Shift+C')}${TB('format.paragraph', 'paragraph', 'Paragraph settings')}${TB('format.styles', 'styles', 'Styles')}${TB('format.styleSet', 'styleSet', 'Style sets')}${SEP}
 ${TB('insert.link', 'link', 'Link', 'Ctrl+K')}${TB('insert.codeBlock', 'code', 'Code block')}${TB('insert.pageBreak', 'pageBreak', 'Page break', 'Ctrl+Enter')}${TB('insert.sectionBreak', 'sectionBreak', 'Section break (next page)')}${TB('format.clear', 'clearFormat', 'Clear formatting', 'Ctrl+\\')}${SEP}
-${TB('insert.picture', 'image', 'Insert picture (or paste or drop one)')}${TB('insert.table', 'table', 'Insert table')}${TB('insert.chart', 'chart', 'Insert chart')}${TB('insert.diagram', 'diagram', 'Diagram (SmartArt)')}${TB('insert.shape', 'shapes', 'Shapes, text box and WordArt')}${TB('insert.icon', 'iconLibrary', 'Icons')}${TB('view.draw', 'pen', 'Draw with ink (Esc stops)')}${TB('insert.equation', 'equation', 'Equation', 'Alt+=')}${TB('insert.symbol', 'omega', 'Symbol')}${TB('insert.chip', 'chip', 'Smart chip: date, person, dropdown or document (or type @)')}<span class="ft-tb-group" data-group="table">${TB('table.properties', 'tableProps', 'Table properties (right-click a cell for rows, columns and merging)')}${TB('insert.formula', 'sigma', 'Formula (F9 updates)')}</span>${SEP}
+${TB('insert.picture', 'image', 'Insert picture (or paste or drop one)')}${TB('insert.table', 'table', 'Insert table')}${TB('insert.chart', 'chart', 'Insert chart')}${TB('insert.diagram', 'diagram', 'Diagram (SmartArt)')}${TB('insert.shape', 'shapes', 'Shapes, text box and WordArt')}${TB('insert.icon', 'iconLibrary', 'Icons')}${TB('view.draw', 'pen', 'Draw with ink (Esc stops)')}${TB('insert.equation', 'equation', 'Equation', 'Alt+=')}${TB('insert.symbol', 'omega', 'Symbol')}${TB('insert.chip', 'chip', 'Smart chip: date, person, dropdown or document (or type @)')}${TB('insert.block', 'blocks', 'Building blocks: meeting notes, email draft and your own')}<span class="ft-tb-group" data-group="table">${TB('table.properties', 'tableProps', 'Table properties (right-click a cell for rows, columns and merging)')}${TB('insert.formula', 'sigma', 'Formula (F9 updates)')}</span>${SEP}
 ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', 'outline', 'Outline')}${SEP}
 ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 'pageSetup', 'Page setup')}${TB('insert.headerFooter', 'headerFooter', 'Header and footer')}${TB('view.pageless', 'pageless', 'Pageless')}
 <select class="ft-tb-select ft-tb-zoom" data-cmd="view.zoom" aria-label="Zoom">${[50, 75, 90, 100, 110, 125, 150, 200].map((z) => `<option value="${z}"${z === 100 ? ' selected' : ''}>${z}%</option>`).join('')}<option value="" disabled hidden></option></select>
@@ -342,9 +342,10 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     window.clearTimeout(this.fieldTimer);
     this.fieldTimer = window.setTimeout(() => {
       if (!this.view) return;
-      let any = false;
-      this.view.state.doc.descendants((n) => { if (n.type === schema.nodes.field) any = true; return !any; });
-      if (any) void updateFields(this.view).catch(() => undefined);
+      let formulas = false, vars = false;
+      this.view.state.doc.descendants((n) => { if (n.type === schema.nodes.field) { if (n.attrs.kind === 'variable') vars = true; else formulas = true; } return !(formulas && vars); });
+      if (vars) syncVariables(this.view, this.variables());
+      if (formulas) void updateFields(this.view).catch(() => undefined);
     }, delay);
   }
 
@@ -613,6 +614,20 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
   async preloadFonts(families: string[]): Promise<void> { await loadFonts(families); }
 
   docId(): string { return this.doc?.id ?? ''; }
+
+  variables(): Record<string, string> {
+    const v = this.doc?.variables;
+    return v && typeof v === 'object' ? { ...v } : {};
+  }
+
+  setVariables(vars: Record<string, string>): void {
+    if (!this.doc) throw new Error('Open a document first.');
+    const clean: Record<string, string> = {};
+    for (const [k, v] of Object.entries(vars).slice(0, 500)) if (k.trim()) clean[k.trim().slice(0, 40)] = String(v ?? '').slice(0, 500);
+    this.doc = { ...this.doc, variables: clean };
+    if (this.view) syncVariables(this.view, clean);
+    this.emitChange();
+  }
 
   paraProps(props: Record<string, unknown>): boolean { return this.run(setParaProps(props)); }
   recase(mode: CaseMode): boolean { return this.run(changeCase(mode)); }

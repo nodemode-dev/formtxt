@@ -428,6 +428,30 @@ frontend/
 - logged: v0.18.0 · 2026-10-21
 - Clicking a chip selects it and opens the same menu in actions mode at the chip: options for a dropdown, Today, Change date or Turn into text for a date, Email and Copy email for a person, Open document for a document chip. Edits replace the chip's attrs in one transaction, so Undo restores the previous value.
 
+### fields · class name
+- refers-to: src/editor/schema.ts :: field toDOM
+- kind: gotcha
+- logged: v0.19.0 · 2026-10-21
+- The in-document field is `.ft-docfield`. From 0.16.0 to 0.18.0 it was `.ft-field`, which the dialogs' form rows own in `components.css` (`display: grid` and a top margin), so formula results drew as blocks; variables made it obvious. Like `.ft-smart-chip`, document node classes avoid names the chrome already uses.
+
+### fields · variables
+- refers-to: src/editor/fields.ts :: syncVariables(), insertVariable(); src/editor/editor.ts :: setVariables()
+- kind: rationale
+- logged: v0.19.0 · 2026-10-21
+- Variables live on the document (`variables`) and are shown by `field` runs of kind `variable`; the value is copied into the run's `result` so other readers show it. Changing a value rewrites the affected fields in one transaction outside the undo history, like formula results; inserting a variable writes its value straight into the new field so it never appears empty first. A field naming a missing variable shows `!name` in the error colour.
+
+### chips · placeholders
+- refers-to: src/editor/chips.ts :: fillPlaceholders(), placeholderNames()
+- kind: explainer
+- logged: v0.19.0 · 2026-10-21
+- A placeholder is a chip kind whose only data is a name. Typing @ and any text offers "Placeholder: text"; names already in the document are listed first. Filling replaces each matching chip with plain text carrying the marks at its position, in one undoable transaction, last match first so positions stay valid.
+
+### blocks · building blocks
+- refers-to: src/editor/blocks.ts :: builtInBlocks(), insertBlock(), selectionBlocks()
+- kind: rationale
+- logged: v0.19.0 · 2026-10-21
+- Built-in blocks are written as `.ftxt` block JSON and go through the same `blocksToNodes` as an opened document, so they use chips, placeholders, lists and tables exactly as saved files do; table columns are sized from the current body width when inserted. Saved blocks are the selection's blocks with ids and sections stripped (so inserting one twice cannot duplicate ids) and pictures removed by the engine, since media belongs to one document's package. Inserting into an empty paragraph replaces it rather than leaving a blank line above. Built-in blocks also appear in the @ menu, as in Google Docs.
+
 ## index.html {#index}
 
 ### index · theme before first paint

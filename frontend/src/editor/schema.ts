@@ -15,7 +15,7 @@ function safeJson(s: string): unknown { try { return JSON.parse(s); } catch { re
 
 const cssString = (s: string): string => `"${s.replace(/[\u0000-\u001f\u007f]/g, '').replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 
-export const CHIP_KINDS = ['date', 'person', 'dropdown', 'doc'] as const;
+export const CHIP_KINDS = ['date', 'person', 'dropdown', 'doc', 'placeholder'] as const;
 export const DATE_FORMATS = ['short', 'long', 'numeric', 'iso'] as const;
 export interface ChipOption { label: string; color: string }
 export interface ChipAttrs { kind: string; date: string; format: string; name: string; email: string; options: ChipOption[]; value: string; doc: string; title: string }
@@ -49,6 +49,7 @@ export function chipLabel(a: Record<string, unknown>): string {
   if (a.kind === 'person') return String(a.name || a.email || 'Person');
   if (a.kind === 'dropdown') return String(a.value || 'Choose');
   if (a.kind === 'doc') return String(a.title || 'Document');
+  if (a.kind === 'placeholder') return String(a.name || 'Placeholder');
   return '';
 }
 
@@ -56,6 +57,7 @@ function chipTitle(a: Record<string, unknown>): string {
   if (a.kind === 'person') return [a.name, a.email].filter(Boolean).join(' ') || 'Person';
   if (a.kind === 'date') return String(a.date || '');
   if (a.kind === 'dropdown') return (a.options as ChipOption[]).map((o) => o.label).join(', ');
+  if (a.kind === 'placeholder') return `Placeholder: click to fill in ${String(a.name)}`;
   return `Open ${String(a.title || 'document')}`;
 }
 
@@ -63,6 +65,7 @@ function chipData(a: Record<string, unknown>): Partial<ChipAttrs> {
   if (a.kind === 'date') return { kind: 'date', date: String(a.date), format: String(a.format) };
   if (a.kind === 'person') return { kind: 'person', name: String(a.name), email: String(a.email) };
   if (a.kind === 'dropdown') return { kind: 'dropdown', options: a.options as ChipOption[], value: String(a.value) };
+  if (a.kind === 'placeholder') return { kind: 'placeholder', name: String(a.name) };
   return { kind: 'doc', doc: String(a.doc), title: String(a.title) };
 }
 
@@ -78,6 +81,7 @@ export function cleanChip(v: unknown): Partial<ChipAttrs> | null {
     const options = (Array.isArray(o.options) ? o.options : []).slice(0, 30).map((x) => ({ label: String((x as ChipOption)?.label ?? '').slice(0, 60), color: /^#[0-9a-f]{6}$/i.test(String((x as ChipOption)?.color)) ? String((x as ChipOption).color) : '' })).filter((x) => x.label);
     return { kind, options, value: options.some((x) => x.label === s('value')) ? s('value') : '' };
   }
+  if (kind === 'placeholder') return s('name', 60).trim() ? { kind, name: s('name', 60).trim() } : null;
   return { kind, doc: s('doc', 80), title: s('title') };
 }
 
@@ -326,8 +330,8 @@ const nodes: Record<string, NodeSpec> = {
     atom: true,
     selectable: true,
     attrs: { kind: { default: 'formula' }, code: { default: '' }, format: { default: '' }, result: { default: '' }, error: { default: '' } },
-    parseDOM: [{ tag: 'span.ft-field', getAttrs: (dom: HTMLElement) => ({ kind: dom.dataset.kind || 'formula', code: dom.dataset.code || '', format: dom.dataset.format || '', result: dom.textContent || '', error: dom.dataset.error || '' }) }],
-    toDOM: (n) => ['span', { class: 'ft-field', contenteditable: 'false', 'data-kind': String(n.attrs.kind), 'data-code': String(n.attrs.code), 'data-format': String(n.attrs.format), ...(n.attrs.error ? { 'data-error': String(n.attrs.error), title: String(n.attrs.error) } : { title: `${String(n.attrs.code)}${n.attrs.format ? ` \\# "${String(n.attrs.format)}"` : ''}` }) }, String(n.attrs.result || (n.attrs.error ? '!Error' : ''))],
+    parseDOM: [{ tag: 'span.ft-docfield', getAttrs: (dom: HTMLElement) => ({ kind: dom.dataset.kind || 'formula', code: dom.dataset.code || '', format: dom.dataset.format || '', result: dom.textContent || '', error: dom.dataset.error || '' }) }],
+    toDOM: (n) => ['span', { class: 'ft-docfield', contenteditable: 'false', 'data-kind': String(n.attrs.kind), 'data-code': String(n.attrs.code), 'data-format': String(n.attrs.format), ...(n.attrs.error ? { 'data-error': String(n.attrs.error), title: String(n.attrs.error) } : { title: `${String(n.attrs.code)}${n.attrs.format ? ` \\# "${String(n.attrs.format)}"` : ''}` }) }, String(n.attrs.result || (n.attrs.error ? '!Error' : ''))],
   },
   math: {
     inline: true,

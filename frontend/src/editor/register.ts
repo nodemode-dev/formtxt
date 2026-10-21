@@ -8,8 +8,10 @@ import { CHART_KINDS } from './chart/types';
 import { CellSelection, addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow, deleteTable, isInTable, mergeCells, setCellAttr, splitCell, toggleHeaderColumn, toggleHeaderRow } from 'prosemirror-tables';
 import { el, setHidden, setText } from '../ui/dom';
 import { toast } from '../ui/toast';
+import { buildingBlocksDialog, placeholderFillDialog, saveBlockDialog, variablesDialog } from './dialogs';
+import { allBlocks, deleteBlock, insertBlock, saveBlock } from './blocks';
 import { cellBordersDialog, chipDialog, listFormatDialog, styleSetDialog, chartDialog, diagramDialog, equationDialog, formulaDialog, shapeGalleryDialog, shapePropertiesDialog, symbolDialog } from './dialogs';
-import { formulaSites, selectedField, updateFields } from './fields';
+import { formulaSites, insertVariable, selectedField, updateFields } from './fields';
 import { SHAPES, SHAPE_WRAPS, WORDART, insertShape, newShapeId, selectedShape, setShape, shapeDefaults } from './shape';
 import { putMath, selectedMath } from './math';
 import { findIcon, iconAttrs, iconsDialog } from './icons-dialog';
@@ -17,7 +19,7 @@ import { DIAGRAM_COLORS, DIAGRAM_LAYOUTS, DIAGRAM_STYLES, type DiagramItem, inse
 import { headerFooterDialog, insertTableDialog, pageGeometry, pageSetupDialog, paragraphDialog, parseTabs, picturePropertiesDialog, stylesDialog, tablePropertiesDialog, wordCountDialog } from './dialogs';
 import { type DocEditor, FONTS } from './editor';
 import { CHIP_KINDS, type ChipAttrs, type ChipOption, DATE_FORMATS, NUMBER_FORMATS, TABLE_LOOKS, chipLabel, cleanChip, isoDate, parseIsoDate, schema } from './schema';
-import { CHIP_COLORS, DROPDOWN_PRESETS, chipKey, chipNode, knownDocs, loadAuthor, loadDocs, selectedChip, setChipHost } from './chips';
+import { CHIP_COLORS, DROPDOWN_PRESETS, chipKey, chipNode, fillPlaceholders, knownDocs, loadAuthor, loadDocs, placeholderNames, selectedChip, setChipHost } from './chips';
 import type { Node as PMNode } from 'prosemirror-model';
 import { setListFormat } from './commands';
 import { STYLE_SETS } from './stylesets';
@@ -463,6 +465,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   ed.onEquationKey = () => equationDialog(ed);
   setChipHost({
     docId: () => ed.docId(),
+    bodyWidth: () => ed.bodyWidth(),
     openDoc: (id) => { void reg.run('file.open', { id }).catch((err: Error) => toast(err.message, 'error')); },
     dialog: (kind, current) => { void chipDialog(ed, kind, current).catch((err: Error) => toast(err.message, 'error')); },
   });
@@ -544,14 +547,66 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   add('field.info', 'Field at cursor', 'Fields', 'Code, format and result of the selected formula field.', () => { const f = ed.view ? selectedField(ed.view.state) : null; return f ? { ...f.node.attrs, pos: f.pos } : null; });
   add('fields.list', 'List fields', 'Fields', 'Every formula field with its code, result and table cell.', () => (ed.view ? formulaSites(ed.view.state.doc).map((s) => ({ pos: s.pos, code: s.node.attrs.code, format: s.node.attrs.format, result: s.node.attrs.result, error: s.node.attrs.error, row: s.item.row, col: s.item.col })) : []));
   ed.root.addEventListener('dblclick', (e) => {
-    const span = (e.target as HTMLElement).closest<HTMLElement>('.ft-pm-root .ft-field');
+    const span = (e.target as HTMLElement).closest<HTMLElement>('.ft-pm-root .ft-docfield');
     if (!span || !ed.view || !ed.view.editable) return;
     e.preventDefault();
     const pos = ed.view.posAtDOM(span, 0);
     const at = ed.view.state.doc.resolve(pos).nodeAfter?.type === schema.nodes.field ? pos : pos - 1;
     ed.view.dispatch(ed.view.state.tr.setSelection(NodeSelection.create(ed.view.state.doc, at)));
-    formulaDialog(ed);
+    if (span.dataset.kind === 'variable') variablesDialog(ed); else formulaDialog(ed);
   });
+  add('variables.set', 'Set document variable', 'Fields', 'Create or change a document variable; every place it is used updates. With no name, opens the variables dialog.', (p) => {
+    if (p.name === undefined) { variablesDialog(ed); return true; }
+    const name = String(p.name).trim();
+    if (!/^[\p{L}\p{N}_ .-]{1,40}$/u.test(name)) throw new Error('name takes letters, digits, spaces, dots, dashes or underscores (up to 40).');
+    ed.setVariables({ ...ed.variables(), [name]: String(p.value ?? '') });
+    return { [name]: String(p.value ?? '') };
+  }, [{ name: 'name', type: 'string', description: 'Variable name' }, { name: 'value', type: 'string', description: 'Value' }]);
+  add('variables.delete', 'Delete document variable', 'Fields', 'Delete a variable; places that use it show !name until it is set again.', (p) => {
+    const vars = ed.variables();
+    const name = String(p.name ?? '');
+    if (!(name in vars)) throw new Error(`No variable is named ${name}.`);
+    delete vars[name];
+    ed.setVariables(vars);
+    return true;
+  }, [{ name: 'name', type: 'string', description: 'Variable name' }]);
+  add('variables.list', 'List document variables', 'Fields', 'Every document variable and its value.', () => ed.variables());
+  add('insert.variable', 'Variable', 'Insert', 'Insert a document variable at the cursor; with no name, opens the variables dialog.', (p) => {
+    if (p.name === undefined) { variablesDialog(ed); return true; }
+    const name = String(p.name);
+    const vars = ed.variables();
+    if (p.value !== undefined) { vars[name] = String(p.value); ed.setVariables(vars); }
+    if (!(name in vars)) throw new Error(`No variable is named ${name}. Pass value to create it.`);
+    return ed.run(insertVariable(name, vars[name]));
+  }, [{ name: 'name', type: 'string', description: 'Variable name' }, { name: 'value', type: 'string', description: 'Create or change it with this value' }]);
+  add('insert.placeholder', 'Placeholder', 'Insert', 'Insert a placeholder chip that someone fills in later; with no name, opens a dialog.', async (p) => {
+    if (p.name === undefined) { await chipDialog(ed, 'placeholder', null); return true; }
+    const name = String(p.name).trim();
+    if (!name) throw new Error('name cannot be empty.');
+    return ed.run((state, dispatch) => { if (dispatch) dispatch(state.tr.replaceSelectionWith(chipNode({ kind: 'placeholder', name }), false).scrollIntoView()); return true; });
+  }, [{ name: 'name', type: 'string', description: 'What to fill in, such as Client name' }]);
+  add('placeholders.list', 'List placeholders', 'Fields', 'The names of the placeholders in the document.', () => (ed.view ? placeholderNames(ed.view.state.doc) : []));
+  add('placeholders.fill', 'Fill in placeholders', 'Fields', 'Replace every placeholder with a name by text; with no name, opens a dialog with a box per placeholder.', (p) => {
+    if (p.name === undefined) { placeholderFillDialog(ed); return true; }
+    const done = ed.run((state, dispatch) => { const tr = fillPlaceholders(state, { [String(p.name)]: String(p.value ?? '') }); if (tr && dispatch) dispatch(tr); return !!tr; });
+    if (!done) throw new Error(`No placeholder is named ${String(p.name)}.`);
+    return true;
+  }, [{ name: 'name', type: 'string', description: 'Placeholder name' }, { name: 'value', type: 'string', description: 'Text to put in its place (empty removes it)' }]);
+  add('insert.block', 'Building block', 'Insert', 'Insert a building block (meeting-notes, email-draft, project-tracker, decision-record, or a saved block id); with no id, opens the gallery.', async (p) => {
+    if (p.id === undefined) { await buildingBlocksDialog(ed); return true; }
+    const all = await allBlocks(ed.bodyWidth());
+    const b = all.find((x) => x.id === String(p.id) || x.name.toLowerCase() === String(p.id).toLowerCase());
+    if (!b) throw new Error(`No building block is called ${String(p.id)}. Ids: ${all.map((x) => x.id).join(', ')}.`);
+    return ed.run(insertBlock(b));
+  }, [{ name: 'id', type: 'string', description: 'Building block id or name' }]);
+  add('blocks.list', 'List building blocks', 'Insert', 'Built-in and saved building blocks.', async () => (await allBlocks(ed.bodyWidth())).map((b) => ({ id: b.id, name: b.name, category: b.category, builtIn: !!b.builtIn })));
+  add('blocks.save', 'Save as building block', 'Insert', 'Save the selected content as a building block for any document; with no name, opens a dialog.', async (p) => {
+    if (!ed.view) throw new Error('Open a document first.');
+    if (p.name === undefined) { saveBlockDialog(ed); return true; }
+    const b = await saveBlock(ed.view.state, String(p.name), p.category === undefined ? 'Saved' : String(p.category));
+    return { id: b.id, name: b.name };
+  }, [{ name: 'name', type: 'string', description: 'Name' }, { name: 'category', type: 'string', description: 'Category, Saved by default' }]);
+  add('blocks.delete', 'Delete building block', 'Insert', 'Delete a saved building block by id.', async (p) => { await deleteBlock(String(p.id ?? '')); return true; }, [{ name: 'id', type: 'string', description: 'Saved block id' }]);
   const layoutOf = (v: unknown): string => {
     const id = String(v ?? '');
     if (!DIAGRAM_LAYOUTS.some((l) => l.id === id)) throw new Error(`layout must be one of ${DIAGRAM_LAYOUTS.map((l) => l.id).join(', ')}.`);

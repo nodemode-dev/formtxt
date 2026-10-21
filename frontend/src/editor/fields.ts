@@ -1,5 +1,5 @@
 import type { Node as PMNode } from 'prosemirror-model';
-import { type EditorState, NodeSelection } from 'prosemirror-state';
+import { type Command, type EditorState, NodeSelection } from 'prosemirror-state';
 import type { EditorView } from 'prosemirror-view';
 import { TableMap } from 'prosemirror-tables';
 import { api } from '../io/api';
@@ -74,6 +74,30 @@ export async function updateFields(view: EditorView, passes = 3): Promise<number
     view.dispatch(tr.setMeta('addToHistory', false).setMeta('fields', true));
   }
   return changed;
+}
+
+export function insertVariable(name: string, value: string | undefined): Command {
+  return (state, dispatch) => {
+    const attrs = value === undefined ? { kind: 'variable', code: name, result: `!${name}`, error: `No variable is named ${name}` } : { kind: 'variable', code: name, result: value, error: '' };
+    if (dispatch) dispatch(state.tr.replaceSelectionWith(schema.nodes.field.create(attrs), false).scrollIntoView());
+    return true;
+  };
+}
+
+export function syncVariables(view: EditorView, vars: Record<string, string>): number {
+  const tr = view.state.tr;
+  let n = 0;
+  view.state.doc.descendants((node, pos) => {
+    if (node.type !== schema.nodes.field || node.attrs.kind !== 'variable') return true;
+    const name = String(node.attrs.code);
+    const has = Object.prototype.hasOwnProperty.call(vars, name);
+    const result = has ? vars[name] : `!${name}`;
+    const error = has ? '' : `No variable is named ${name}`;
+    if (node.attrs.result !== result || node.attrs.error !== error) { tr.setNodeMarkup(pos, undefined, { ...node.attrs, result, error }); n++; }
+    return false;
+  });
+  if (n) view.dispatch(tr.setMeta('addToHistory', false).setMeta('fields', true));
+  return n;
 }
 
 export function selectedField(state: EditorState): { node: PMNode; pos: number } | null {
