@@ -202,3 +202,11 @@ backend/
 - kind: rationale
 - logged: v0.16.0 · 2026-10-21
 - The editor sends every formula in the document in one batch with its table grid, so one round trip recalculates the lot; capped at 2,000 items and 2,000 grid rows. The engine stays the single calculator so the CLI, the window and later exporters agree.
+
+## app/routers/blocks.py {#blocks}
+
+### blocks · library storage
+- refers-to: app/routers/blocks.py :: save_block(), _strip_media()
+- kind: rationale
+- logged: v0.19.0 · 2026-10-21
+- Saved building blocks are library-wide, so they live in `blocks.json` beside `settings.json` rather than in any document, written through a temp file and rename like settings. Up to 200 blocks of 2 MB each; saving a name that already exists (ignoring case) replaces that block. Image runs are dropped on save because their media files live inside one document's package.
