@@ -11,6 +11,7 @@ import { SHAPES, SHAPE_LABELS, WORDART, insertShape, selectedShape, setShape, sh
 import { MATH_SNIPPETS, loadMathFonts, putMath, renderMath, selectedMath } from './math';
 import { DIAGRAM_CATEGORIES, DIAGRAM_LAYOUTS, type DiagramItem, insertDiagram, itemsToText, renderDiagram, sampleItems, selectedDiagram, setDiagram, textToItems } from './diagram';
 import { api } from '../io/api';
+import { commands } from '../engine/registry';
 import { toast } from '../ui/toast';
 import { distributeColumns, insertTable, setCellShading, setTableAttr, sortTable, tableInfo } from './table';
 
@@ -287,6 +288,7 @@ export function picturePropertiesDialog(ed: DocEditor): void {
   const borderWidth = input('number', String(a.borderWidth ?? 0), 'min="0" max="24" step="0.25"');
   const radius = input('number', String(a.radius ?? 0), 'min="0" max="200" step="1"');
   const shadow = input('checkbox', String(!!a.shadow));
+  const relative = select([['paragraph', 'Its paragraph (moves with text)'], ['page', 'The page (stays put)']], String(a.relative ?? 'paragraph'));
   const ratio = Number(a.height) / Math.max(1, Number(a.width));
   width.addEventListener('input', () => { if (lock.checked) height.value = String(Math.round(Number(width.value) * ratio * 100) / 100); });
   height.addEventListener('input', () => { if (lock.checked) width.value = String(Math.round((Number(height.value) / ratio) * 100) / 100); });
@@ -295,7 +297,8 @@ export function picturePropertiesDialog(ed: DocEditor): void {
     ['Crop top (%)', ct], ['Crop bottom (%)', cb], ['Crop left (%)', cl], ['Crop right (%)', cr],
     ['Brightness', bright], ['Contrast', contrast], ['Saturation (0 is greyscale)', sat], ['Transparency', transp],
     ['Border colour', border], ['Border width (pt, 0 for none)', borderWidth], ['Rounded corners (pt)', radius], ['Shadow', shadow],
-    ['Offset from paragraph, left (pt, behind or in front)', x], ['Offset from paragraph, top (pt)', y]]);
+    ['Offset left (pt, behind or in front)', x], ['Offset top (pt)', y], ['Position relative to', relative]]);
+  d.button('Crop on the picture', '', () => { d.close(); void commands.run('picture.cropTool'); });
   d.button('Reset picture', '', () => { ed.run(setPicture({ crop: null, rotate: 0, brightness: 100, contrast: 100, saturation: 100, transparency: 0 })); d.close(); });
   d.button('Cancel', 'ghost', () => d.close());
   d.button('Apply', 'primary', () => {
@@ -308,7 +311,7 @@ export function picturePropertiesDialog(ed: DocEditor): void {
       rotate: Number(rotate.value) || 0, crop: c.t || c.r || c.b || c.l ? c : null,
       brightness: Number(bright.value), contrast: Number(contrast.value), saturation: Number(sat.value), transparency: Number(transp.value),
       x: Number(x.value) || 0, y: Number(y.value) || 0,
-      border: Number(borderWidth.value) > 0 ? border.value : '', borderWidth: Math.max(0, Number(borderWidth.value) || 0), radius: Math.max(0, Number(radius.value) || 0), shadow: shadow.checked,
+      border: Number(borderWidth.value) > 0 ? border.value : '', borderWidth: Math.max(0, Number(borderWidth.value) || 0), radius: Math.max(0, Number(radius.value) || 0), shadow: shadow.checked, relative: relative.value,
     }));
     d.close();
   });
@@ -456,12 +459,16 @@ export function shapePropertiesDialog(ed: DocEditor): void {
   const height = input('number', String(a.height), 'min="3" step="1"');
   const rotate = input('number', String(a.rotate ?? 0), 'min="-360" max="360" step="1"');
   const x = input('number', String(a.x ?? 0), 'step="1"'), y = input('number', String(a.y ?? 0), 'step="1"');
+  const relative = select([['paragraph', 'Its paragraph (moves with text)'], ['page', 'The page (stays put)']], String(a.relative ?? 'paragraph'));
+  const arrowStart = input('checkbox', String(!!a.arrowStart));
+  const arrowEnd = input('checkbox', String(!!a.arrowEnd));
   fill.addEventListener('input', () => { noFill.checked = false; });
   stroke.addEventListener('input', () => { noStroke.checked = false; });
   d.field('Text', text);
   grid(d, [['Shape', kind], ['Fill', fill], ['No fill', noFill], ['Gradient to', gradient], ['Gradient fill', useGradient], ['Shadow', shadow], ['Outline', stroke], ['No outline', noStroke], ['Outline width (pt)', strokeWidth],
     ['Text colour', color], ['Text size (pt)', size], ['Bold', bold], ['Font', font], ['Text alignment', align], ['Vertical alignment', valign], ['WordArt style', wordart],
-    ['Wrapping', wrap], ['Side', side], ['Width (pt)', width], ['Height (pt)', height], ['Rotation (degrees)', rotate], ['Offset left (pt, behind or in front)', x], ['Offset top (pt)', y]]);
+    ['Wrapping', wrap], ['Side', side], ['Width (pt)', width], ['Height (pt)', height], ['Rotation (degrees)', rotate], ['Offset left (pt, behind or in front)', x], ['Offset top (pt)', y], ['Position relative to', relative],
+    ...(a.kind === 'line' ? [['Arrow at start', arrowStart], ['Arrow at end', arrowEnd]] as Array<[string, HTMLElement]> : [])]);
   d.button('Cancel', 'ghost', () => d.close());
   d.button('Apply', 'primary', () => {
     ed.run(setShape({
@@ -469,6 +476,7 @@ export function shapePropertiesDialog(ed: DocEditor): void {
       text: text.value, color: color.value, size: Math.max(4, Number(size.value) || 11), bold: bold.checked, font: font.value, align: align.value, valign: valign.value,
       wordart: kind.value === 'wordArt' ? wordart.value : String(a.wordart ?? ''), wrap: wrap.value, side: side.value,
       width: Math.max(6, Number(width.value) || Number(a.width)), height: Math.max(3, Number(height.value) || Number(a.height)), rotate: Number(rotate.value) || 0, x: Number(x.value) || 0, y: Number(y.value) || 0,
+      relative: relative.value, arrowStart: a.kind === 'line' ? arrowStart.checked : a.arrowStart, arrowEnd: a.kind === 'line' ? arrowEnd.checked : a.arrowEnd,
     }));
     d.close();
   });

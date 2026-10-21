@@ -5,7 +5,7 @@ import { schema } from './schema';
 
 const FLAG_MARKS = ['bold', 'italic', 'strike', 'superscript', 'subscript', 'smallCaps', 'allCaps', 'code'] as const;
 const PROPS = ['align', 'indent', 'indentRight', 'indentFirst', 'spaceBefore', 'spaceAfter', 'lineSpacing', 'keepNext', 'keepLines', 'widowControl', 'border', 'shading', 'tabs', 'collapsed'] as const;
-const PIC_KEYS = ['media', 'alt', 'width', 'height', 'crop', 'rotate', 'brightness', 'contrast', 'saturation', 'transparency', 'wrap', 'side', 'x', 'y', 'border', 'borderWidth', 'radius', 'shadow'] as const;
+const PIC_KEYS = ['media', 'alt', 'width', 'height', 'crop', 'rotate', 'brightness', 'contrast', 'saturation', 'transparency', 'wrap', 'side', 'x', 'y', 'border', 'borderWidth', 'radius', 'shadow', 'relative'] as const;
 const PROP_DEFAULTS: Record<string, unknown> ={ align: '', indent: 0, indentRight: 0, indentFirst: 0, spaceBefore: null, spaceAfter: null, lineSpacing: null, keepNext: false, keepLines: false, widowControl: true, border: '', shading: '', tabs: null, collapsed: false };
 
 function newId(prefix = 'p_'): string {

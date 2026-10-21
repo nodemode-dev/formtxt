@@ -29,6 +29,8 @@ function set(n: HTMLElement, prop: string, value: string): void {
   if (n.style.getPropertyValue(prop) !== value) { if (value) n.style.setProperty(prop, value); else n.style.removeProperty(prop); }
 }
 
+export const pictureViews = new WeakMap<HTMLElement, PictureView>();
+
 export class PictureView implements NodeView {
   dom: HTMLElement;
   private readonly frame: HTMLElement;
@@ -52,10 +54,12 @@ export class PictureView implements NodeView {
       if (h === 'rot') n.title = 'Drag to rotate (Shift snaps to 15 degrees)';
     }
     this.dom.addEventListener('pointerdown', (e) => this.down(e));
+    pictureViews.set(this.dom, this);
     this.apply();
   }
 
   private apply(): void {
+    if (this.cropState) return;
     const a = this.node.attrs;
     const w = Number(a.width) * PX, h = Number(a.height) * PX;
     const crop = cropOf(a.crop);
@@ -82,8 +86,10 @@ export class PictureView implements NodeView {
     set(this.frame, 'border-radius', Number(a.radius) ? `${(Number(a.radius) * PX).toFixed(2)}px` : '');
     set(this.frame, 'filter', a.shadow ? 'drop-shadow(0 3px 5px rgba(0, 0, 0, 0.3))' : '');
     const free = wrap === 'behind' || wrap === 'front';
-    set(this.dom, 'left', free ? `${(Number(a.x) * PX).toFixed(2)}px` : '');
-    set(this.dom, 'top', free ? `${(Number(a.y) * PX).toFixed(2)}px` : '');
+    const page = free && a.relative === 'page';
+    if ((this.dom.dataset.rel ?? '') !== (page ? 'page' : '')) { if (page) this.dom.dataset.rel = 'page'; else { delete this.dom.dataset.rel; delete this.dom.dataset.ox; delete this.dom.dataset.oy; } }
+    set(this.dom, 'left', free ? `${(Number(a.x) * PX + (page ? Number(this.dom.dataset.ox) || 0 : 0)).toFixed(2)}px` : '');
+    set(this.dom, 'top', free ? `${(Number(a.y) * PX + (page ? Number(this.dom.dataset.oy) || 0 : 0)).toFixed(2)}px` : '');
     const tight = wrap === 'tight' && !Number(a.rotate) && !crop.t && !crop.r && !crop.b && !crop.l;
     set(this.dom, 'shape-outside', tight && src ? `url("${src}")` : '');
   }
@@ -96,9 +102,114 @@ export class PictureView implements NodeView {
   }
 
   selectNode(): void { this.dom.classList.add('is-selected'); }
-  deselectNode(): void { this.dom.classList.remove('is-selected'); }
-  stopEvent(e: Event): boolean { return !!this.drag || (e.target instanceof HTMLElement && e.target.classList.contains('ft-pic-handle')); }
+  deselectNode(): void { this.dom.classList.remove('is-selected'); if (this.cropState) this.cropMode(false, true); }
+  stopEvent(e: Event): boolean { return !!this.drag || !!this.cropState || (e.target instanceof HTMLElement && e.target.classList.contains('ft-pic-handle')); }
   ignoreMutation(): boolean { return true; }
+  destroy(): void { if (this.cropState) this.endCropListeners(); }
+
+  private cropState: { c: Crop; start: Crop; iw: number; ih: number; box: HTMLElement; win: HTMLElement } | null = null;
+  private readonly onCropKey = (e: KeyboardEvent): void => {
+    if (!this.cropState) return;
+    if (e.key === 'Enter') { e.preventDefault(); e.stopPropagation(); this.cropMode(false, true); }
+    else if (e.key === 'Escape') { e.preventDefault(); e.stopPropagation(); this.cropMode(false, false); }
+  };
+  private readonly onCropOutside = (e: PointerEvent): void => { if (this.cropState && !this.dom.contains(e.target as Node)) this.cropMode(false, true); };
+
+  private endCropListeners(): void {
+    document.removeEventListener('keydown', this.onCropKey, true);
+    document.removeEventListener('pointerdown', this.onCropOutside, true);
+  }
+
+  cropMode(on: boolean, apply = true): boolean {
+    if (on === !!this.cropState) return on;
+    if (on) {
+      const c = cropOf(this.node.attrs.crop);
+      const w = this.frame.offsetWidth, h = this.frame.offsetHeight;
+      const iw = w / (1 - c.l - c.r), ih = h / (1 - c.t - c.b);
+      const box = this.frame.appendChild(document.createElement('span'));
+      box.className = 'ft-crop-box';
+      const win = box.appendChild(document.createElement('span'));
+      win.className = 'ft-crop-win';
+      for (const k of HANDLES) { const n = win.appendChild(document.createElement('span')); n.className = 'ft-crop-handle'; n.dataset.c = k; }
+      win.addEventListener('pointerdown', (e) => this.cropDown(e));
+      this.cropState = { c: { ...c }, start: { ...c }, iw, ih, box, win };
+      this.dom.classList.add('is-cropping');
+      this.paintCrop();
+      document.addEventListener('keydown', this.onCropKey, true);
+      document.addEventListener('pointerdown', this.onCropOutside, true);
+      return true;
+    }
+    const st = this.cropState!;
+    this.cropState = null;
+    this.endCropListeners();
+    st.box.remove();
+    this.dom.classList.remove('is-cropping');
+    const changed = ['l', 't', 'r', 'b'].some((k) => Math.abs(st.c[k as keyof Crop] - st.start[k as keyof Crop]) > 0.0005);
+    const pos = this.getPos();
+    if (!apply || !changed || pos === undefined) { this.apply(); return false; }
+    const c = st.c;
+    const crop = c.l || c.t || c.r || c.b ? { t: round(c.t * 1000) / 1000, r: round(c.r * 1000) / 1000, b: round(c.b * 1000) / 1000, l: round(c.l * 1000) / 1000 } : null;
+    const width = round((st.iw * (1 - c.l - c.r)) / PX), height = round((st.ih * (1 - c.t - c.b)) / PX);
+    const tr = this.view.state.tr.setNodeMarkup(pos, undefined, { ...this.node.attrs, crop, width, height });
+    tr.setSelection(NodeSelection.create(tr.doc, pos));
+    this.view.dispatch(tr);
+    return false;
+  }
+
+  private paintCrop(): void {
+    const st = this.cropState;
+    if (!st) return;
+    const { c, iw, ih } = st;
+    const s0 = st.start;
+    set(st.box, 'left', `${(-s0.l * iw).toFixed(2)}px`);
+    set(st.box, 'top', `${(-s0.t * ih).toFixed(2)}px`);
+    set(st.box, 'width', `${iw.toFixed(2)}px`);
+    set(st.box, 'height', `${ih.toFixed(2)}px`);
+    set(st.win, 'left', `${(c.l * iw).toFixed(2)}px`);
+    set(st.win, 'top', `${(c.t * ih).toFixed(2)}px`);
+    set(st.win, 'width', `${((1 - c.l - c.r) * iw).toFixed(2)}px`);
+    set(st.win, 'height', `${((1 - c.t - c.b) * ih).toFixed(2)}px`);
+  }
+
+  private cropDown(e: PointerEvent): void {
+    const st = this.cropState;
+    const k = (e.target as HTMLElement).closest<HTMLElement>('.ft-crop-handle')?.dataset.c ?? 'move';
+    if (!st || e.button !== 0) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const rect = this.dom.getBoundingClientRect();
+    const ratio = rect.width && this.dom.offsetWidth ? rect.width / this.dom.offsetWidth : 1;
+    const ang = (-(Number(this.node.attrs.rotate) || 0) * Math.PI) / 180;
+    const x0 = e.clientX, y0 = e.clientY, from = { ...st.c };
+    st.win.setPointerCapture(e.pointerId);
+    const move = (ev: PointerEvent): void => {
+      const sx = (ev.clientX - x0) / ratio, sy = (ev.clientY - y0) / ratio;
+      const dx = (sx * Math.cos(ang) - sy * Math.sin(ang)) / st.iw, dy = (sx * Math.sin(ang) + sy * Math.cos(ang)) / st.ih;
+      const c = { ...from };
+      const min = 0.05;
+      if (k === 'move') {
+        const mx = Math.max(-from.l, Math.min(from.r, dx)), my = Math.max(-from.t, Math.min(from.b, dy));
+        c.l = from.l + mx; c.r = from.r - mx; c.t = from.t + my; c.b = from.b - my;
+      } else {
+        if (k.includes('w')) c.l = Math.max(0, Math.min(1 - from.r - min, from.l + dx));
+        if (k.includes('e')) c.r = Math.max(0, Math.min(1 - from.l - min, from.r - dx));
+        if (k.startsWith('n')) c.t = Math.max(0, Math.min(1 - from.b - min, from.t + dy));
+        if (k.includes('s')) c.b = Math.max(0, Math.min(1 - from.t - min, from.b - dy));
+      }
+      if (c.l + c.r > 0.9) { if (k.includes('w')) c.l = 0.9 - c.r; else c.r = 0.9 - c.l; }
+      if (c.t + c.b > 0.9) { if (k.startsWith('n')) c.t = 0.9 - c.b; else c.b = 0.9 - c.t; }
+      st.c = c;
+      this.paintCrop();
+    };
+    const up = (): void => {
+      st.win.removeEventListener('pointermove', move);
+      st.win.removeEventListener('pointerup', up);
+      st.win.removeEventListener('pointercancel', up);
+    };
+    st.win.addEventListener('pointermove', move);
+    st.win.addEventListener('pointerup', up);
+    st.win.addEventListener('pointercancel', up);
+  }
 
   private down(e: PointerEvent): void {
     if (e.button !== 0 || !this.view.editable) return;
@@ -165,7 +276,7 @@ export class PictureView implements NodeView {
     const pos = this.getPos();
     if (Math.abs(ev.clientX - d.x) < 1 && Math.abs(ev.clientY - d.y) < 1) { this.drag = null; this.apply(); return; }
     let patch: Record<string, unknown>;
-    if (d.kind === 'move') patch = { x: round((d.ox + (ev.clientX - d.x) / d.ratio) / PX), y: round((d.oy + (ev.clientY - d.y) / d.ratio) / PX) };
+    if (d.kind === 'move') patch = { x: round((d.ox + (ev.clientX - d.x) / d.ratio - (Number(this.dom.dataset.ox) || 0)) / PX), y: round((d.oy + (ev.clientY - d.y) / d.ratio - (Number(this.dom.dataset.oy) || 0)) / PX) };
     else if (d.kind === 'rot') patch = { rotate: angleOf(d, ev) };
     else { const { w, h } = this.size(ev); patch = { width: round(w / PX), height: round(h / PX) }; }
     this.drag = null;

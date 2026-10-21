@@ -14,7 +14,7 @@ import { type CaseMode, changeCase, clearFormatting, insertPageBreak, mark, setA
 import { fromPM, toPM } from './convert';
 import { collapsePlugin, findKey, findPlugin, rules, uniqueIds } from './plugins';
 import type { DocTab, Section, Style } from '../engine/model';
-import { Paginator, pagesKey, pagesPlugin } from './pages';
+import { GAP, Paginator, pagesKey, pagesPlugin } from './pages';
 import { Ruler } from './ruler';
 import { layoutTabs } from './tabs';
 import { addRowAfter, goToNextCell, isInTable } from 'prosemirror-tables';
@@ -151,7 +151,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     this.page = this.root.querySelector('.ft-page') as HTMLElement;
     this.pagesEl = this.root.querySelector('.ft-pages') as HTMLElement;
     this.paginator = new Paginator(() => this.view, this.pagesEl, () => this.doc?.sections[0] ?? null, () => { const st = (this.doc?.settings ?? {}) as unknown as Record<string, unknown>; return this.viewMode === 'draft' ? { ...st, pageless: true } : st; }, () => this.zoom);
-    this.paginator.onLayout = () => this.hooks.status(this.words());
+    this.paginator.onLayout = () => { this.placePageAnchored(); this.hooks.status(this.words()); };
     this.paginator.beforeMeasure = layoutTabs;
     this.paginator.sectionsOf = () => this.doc?.sections ?? [];
     this.ink = new InkTool(this, () => this.pagesEl, (on) => setClass(this.root.querySelector('[data-cmd="view.draw"]'), 'is-on', on));
@@ -331,6 +331,32 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
   }
 
   onEquationKey: (() => void) | null = null;
+
+  placePageAnchored(): void {
+    if (!this.view) return;
+    const items = Array.from((this.view.dom as HTMLElement).querySelectorAll<HTMLElement>('.ft-pic[data-rel="page"], .ft-shape[data-rel="page"]'));
+    if (!items.length) return;
+    const s = this.doc?.sections[0];
+    if (!s) return;
+    const pageless = !!(this.doc?.settings as unknown as { pageless?: boolean }).pageless || this.viewMode === 'draft';
+    const stride = s.page.height * PX + GAP;
+    const box = this.pagesEl.getBoundingClientRect();
+    const ratio = box.width && this.pagesEl.offsetWidth ? box.width / this.pagesEl.offsetWidth : 1;
+    for (const n of items) {
+      const p = n.offsetParent as HTMLElement | null;
+      if (!p) continue;
+      const r = p.getBoundingClientRect();
+      const left = (r.left - box.left) / ratio, top = (r.top - box.top) / ratio;
+      const page = pageless ? 0 : Math.max(0, Math.floor(top / stride));
+      const ox = (-left).toFixed(2), oy = (page * stride - top).toFixed(2);
+      if (n.dataset.ox === ox && n.dataset.oy === oy) continue;
+      const x = parseFloat(n.style.left) - (Number(n.dataset.ox) || 0), y = parseFloat(n.style.top) - (Number(n.dataset.oy) || 0);
+      n.dataset.ox = ox;
+      n.dataset.oy = oy;
+      n.style.left = `${(x + Number(ox)).toFixed(2)}px`;
+      n.style.top = `${(y + Number(oy)).toFixed(2)}px`;
+    }
+  }
 
   accent(): string {
     const a = (this.doc?.settings as unknown as { template?: { accent?: string } } | undefined)?.template?.accent;

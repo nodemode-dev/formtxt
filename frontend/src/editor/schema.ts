@@ -144,7 +144,7 @@ const nodes: Record<string, NodeSpec> = {
       media: { default: '' }, alt: { default: '' }, width: { default: 144 }, height: { default: 108 },
       crop: { default: null }, rotate: { default: 0 }, brightness: { default: 100 }, contrast: { default: 100 }, saturation: { default: 100 }, transparency: { default: 0 },
       wrap: { default: 'inline' }, side: { default: 'left' }, x: { default: 0 }, y: { default: 0 }, from: { default: '' },
-      border: { default: '' }, borderWidth: { default: 0 }, radius: { default: 0 }, shadow: { default: false },
+      border: { default: '' }, borderWidth: { default: 0 }, radius: { default: 0 }, shadow: { default: false }, relative: { default: 'paragraph' },
     },
     parseDOM: [{ tag: 'span.ft-pic', getAttrs: (dom: HTMLElement) => {
       let rest: Record<string, unknown> = {};
@@ -154,8 +154,8 @@ const nodes: Record<string, NodeSpec> = {
       return { ...rest, media: dom.dataset.media || '', alt: dom.querySelector('img')?.getAttribute('alt') ?? '', width: Number(dom.dataset.w) || 144, height: Number(dom.dataset.h) || 108, wrap: dom.dataset.wrap || 'inline', side: dom.dataset.side || 'left', from: decodeURIComponent(from) };
     } }],
     toDOM: (n) => {
-      const { crop, rotate, brightness, contrast, saturation, transparency, x, y, border, borderWidth, radius, shadow } = n.attrs;
-      return ['span', { class: 'ft-pic', 'data-media': String(n.attrs.media), 'data-w': String(n.attrs.width), 'data-h': String(n.attrs.height), 'data-wrap': String(n.attrs.wrap), 'data-side': String(n.attrs.side), 'data-pic': JSON.stringify({ crop, rotate, brightness, contrast, saturation, transparency, x, y, border, borderWidth, radius, shadow }) }, ['img', { src: mediaUrl(String(n.attrs.media), String(n.attrs.from || '')), alt: String(n.attrs.alt), width: String(Math.round(Number(n.attrs.width) * 96 / 72)) }]];
+      const { crop, rotate, brightness, contrast, saturation, transparency, x, y, border, borderWidth, radius, shadow, relative } = n.attrs;
+      return ['span', { class: 'ft-pic', 'data-media': String(n.attrs.media), 'data-w': String(n.attrs.width), 'data-h': String(n.attrs.height), 'data-wrap': String(n.attrs.wrap), 'data-side': String(n.attrs.side), 'data-pic': JSON.stringify({ crop, rotate, brightness, contrast, saturation, transparency, x, y, border, borderWidth, radius, shadow, relative }) }, ['img', { src: mediaUrl(String(n.attrs.media), String(n.attrs.from || '')), alt: String(n.attrs.alt), width: String(Math.round(Number(n.attrs.width) * 96 / 72)) }]];
     },
   },
   shape: {
@@ -168,7 +168,8 @@ const nodes: Record<string, NodeSpec> = {
       kind: { default: 'rect' }, width: { default: 96 }, height: { default: 96 }, fill: { default: '#f97316' }, stroke: { default: '' }, strokeWidth: { default: 1 },
       rotate: { default: 0 }, text: { default: '' }, color: { default: '' }, size: { default: 11 }, bold: { default: false }, font: { default: '' },
       align: { default: 'center' }, valign: { default: 'middle' }, wordart: { default: '' }, wrap: { default: 'front' }, side: { default: 'left' }, x: { default: 0 }, y: { default: 0 },
-      shadow: { default: false }, gradient: { default: '' }, path: { default: '' }, box: { default: null }, alt: { default: '' },
+      shadow: { default: false }, gradient: { default: '' }, path: { default: '' }, box: { default: null }, alt: { default: '' }, relative: { default: 'paragraph' },
+      arrowStart: { default: false }, arrowEnd: { default: false },
     },
     parseDOM: [{ tag: 'span.ft-shape', getAttrs: (dom: HTMLElement) => { try { return JSON.parse(dom.dataset.shape ?? '{}') as Record<string, unknown>; } catch { return {}; } } }],
     toDOM: (n) => ['span', { class: 'ft-shape', 'data-shape': JSON.stringify(n.attrs) }, String(n.attrs.text ?? '')],

@@ -114,11 +114,12 @@ export class ShapeView implements NodeView {
     const grad = !custom && kind !== 'line' && a.gradient && a.fill ? String(a.gradient) : '';
     if (grad) {
       let defs = this.svg.querySelector('defs');
-      if (!defs) { defs = document.createElementNS(NS, 'defs'); defs.innerHTML = `<linearGradient id="${this.gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0"/><stop offset="1"/></linearGradient>`; this.svg.prepend(defs); }
-      const stops = defs.querySelectorAll('stop');
+      if (!defs) { defs = document.createElementNS(NS, 'defs'); this.svg.prepend(defs); }
+      if (!defs.querySelector('linearGradient')) defs.insertAdjacentHTML('beforeend', `<linearGradient id="${this.gid}" x1="0" y1="0" x2="0" y2="1"><stop offset="0"/><stop offset="1"/></linearGradient>`);
+      const stops = defs.querySelectorAll('linearGradient stop');
       attr(stops[0], 'stop-color', String(a.fill));
       attr(stops[1], 'stop-color', grad);
-    } else this.svg.querySelector('defs')?.remove();
+    } else this.svg.querySelector('linearGradient')?.remove();
     const fill = kind === 'line' || kind === 'ink' ? 'none' : grad ? `url(#${this.gid})` : String(a.fill || 'none');
     attr(this.path, 'fill', fill);
     attr(this.path, 'fill-rule', kind === 'icon' && a.fill ? 'evenodd' : null);
@@ -134,8 +135,18 @@ export class ShapeView implements NodeView {
     attr(this.svg, 'aria-label', kind === 'icon' && a.alt ? String(a.alt) : null);
     attr(this.svg, 'aria-hidden', kind === 'icon' && a.alt ? null : 'true');
     const free = wrap === 'behind' || wrap === 'front';
-    set(this.dom, 'left', free ? `${(Number(a.x) * PX).toFixed(2)}px` : '');
-    set(this.dom, 'top', free ? `${(Number(a.y) * PX).toFixed(2)}px` : '');
+    const page = free && a.relative === 'page';
+    if ((this.dom.dataset.rel ?? '') !== (page ? 'page' : '')) { if (page) this.dom.dataset.rel = 'page'; else { delete this.dom.dataset.rel; delete this.dom.dataset.ox; delete this.dom.dataset.oy; } }
+    set(this.dom, 'left', free ? `${(Number(a.x) * PX + (page ? Number(this.dom.dataset.ox) || 0 : 0)).toFixed(2)}px` : '');
+    set(this.dom, 'top', free ? `${(Number(a.y) * PX + (page ? Number(this.dom.dataset.oy) || 0 : 0)).toFixed(2)}px` : '');
+    const arrows = kind === 'line' && (a.arrowStart || a.arrowEnd);
+    if (arrows && !this.svg.querySelector('marker')) {
+      const defs = this.svg.querySelector('defs') ?? this.svg.insertBefore(document.createElementNS(NS, 'defs'), this.svg.firstChild);
+      defs.insertAdjacentHTML('beforeend', `<marker id="${this.gid}s" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M10,0L0,5L10,10z"/></marker><marker id="${this.gid}e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0L10,5L0,10z"/></marker>`);
+    }
+    if (arrows) for (const m of Array.from(this.svg.querySelectorAll('marker path'))) attr(m, 'fill', stroke);
+    attr(this.path, 'marker-start', kind === 'line' && a.arrowStart ? `url(#${this.gid}s)` : null);
+    attr(this.path, 'marker-end', kind === 'line' && a.arrowEnd ? `url(#${this.gid}e)` : null);
     if (!this.editing && this.text.textContent !== String(a.text ?? '')) this.text.textContent = String(a.text ?? '');
     set(this.text, 'color', kind === 'wordArt' ? '' : String(a.color || ''));
     set(this.text, 'font-size', `${(Number(a.size) || 11) * PX}px`);
@@ -243,7 +254,7 @@ export class ShapeView implements NodeView {
     const pos = this.getPos();
     if (Math.abs(ev.clientX - d.x) < 1 && Math.abs(ev.clientY - d.y) < 1) { this.drag = null; this.apply(); return; }
     let patch: Record<string, unknown>;
-    if (d.kind === 'move') patch = { x: round((d.ox + (ev.clientX - d.x) / d.ratio) / PX), y: round((d.oy + (ev.clientY - d.y) / d.ratio) / PX) };
+    if (d.kind === 'move') patch = { x: round((d.ox + (ev.clientX - d.x) / d.ratio - (Number(this.dom.dataset.ox) || 0)) / PX), y: round((d.oy + (ev.clientY - d.y) / d.ratio - (Number(this.dom.dataset.oy) || 0)) / PX) };
     else if (d.kind === 'rot') patch = { rotate: angleOf(d, ev) };
     else { const { w, h } = this.size(ev); patch = { width: round(w / PX), height: round(h / PX) }; }
     this.drag = null;

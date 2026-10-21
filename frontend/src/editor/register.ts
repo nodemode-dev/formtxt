@@ -1,7 +1,7 @@
 import type { CommandRegistry } from '../engine/registry';
 import type { Section } from '../engine/model';
 import { type Command, NodeSelection, TextSelection } from 'prosemirror-state';
-import { WRAPS, insertPicture, selectedPicture, setPicture } from './picture';
+import { WRAPS, insertPicture, pictureViews, selectedPicture, setPicture } from './picture';
 import { CHART_FNS, SAMPLE, insertChart, parseGrid, selectedChart, setChart } from './chart/chart';
 import { exportChart } from './chart/chartdraw';
 import { CHART_KINDS } from './chart/types';
@@ -221,7 +221,14 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
     return { brightness: r(p.brightness, a.brightness, 200), contrast: r(p.contrast, a.contrast, 200), saturation: r(p.saturation, a.saturation, 200), transparency: r(p.transparency, a.transparency, 100) };
   }), [{ name: 'brightness', type: 'number', description: '0 to 200' }, { name: 'contrast', type: 'number', description: '0 to 200' }, { name: 'saturation', type: 'number', description: '0 to 200; 0 is greyscale' }, { name: 'transparency', type: 'number', description: '0 to 100' }]);
   add('picture.alt', 'Alt text', 'Picture', 'Set the alt text read by screen readers and exported to Word and HTML.', needPic((_a, p) => ({ alt: String(p.text ?? '').trim() })), [{ name: 'text', type: 'string', description: 'Description' }]);
-  add('picture.position', 'Picture position', 'Picture', 'Offset a picture behind or in front of text from the top left of its paragraph, in points.', needPic((_a, p) => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 })), [{ name: 'x', type: 'number', description: 'Points from the left' }, { name: 'y', type: 'number', description: 'Points from the top' }]);
+  add('picture.position', 'Picture position', 'Picture', 'Offset a picture behind or in front of text from the top left of its paragraph, or of the page with relative=page, in points.', needPic((a, p) => ({ x: p.x === undefined ? a.x : Number(p.x) || 0, y: p.y === undefined ? a.y : Number(p.y) || 0, relative: p.relative === undefined ? a.relative : p.relative === 'page' ? 'page' : 'paragraph' })), [{ name: 'x', type: 'number', description: 'Points from the left' }, { name: 'y', type: 'number', description: 'Points from the top' }, { name: 'relative', type: 'string', description: 'paragraph or page' }]);
+  add('picture.cropTool', 'Crop on the picture', 'Picture', 'Show the whole picture with crop handles: drag an edge or corner to crop, drag inside to move the frame; Enter or clicking elsewhere applies, Esc cancels.', (p) => {
+    const pic = ed.view ? selectedPicture(ed.view.state) : null;
+    if (!pic || !ed.view) throw new Error('Click a picture first.');
+    const pv = pictureViews.get(ed.view.nodeDOM(pic.pos) as HTMLElement);
+    if (!pv) throw new Error('The picture is not on screen.');
+    return pv.cropMode(p.on === undefined ? true : !!p.on, p.apply === undefined ? true : !!p.apply);
+  }, [{ name: 'on', type: 'boolean', description: 'Start (default) or finish cropping' }, { name: 'apply', type: 'boolean', description: 'When finishing, keep the new crop (default) or discard it' }]);
   add('picture.reset', 'Reset picture', 'Picture', 'Remove crop, rotation and adjustments.', needPic(() => ({ crop: null, rotate: 0, brightness: 100, contrast: 100, saturation: 100, transparency: 0 })));
   add('picture.info', 'Picture at cursor', 'Picture', 'Properties of the selected picture.', () => {
     const pic = ed.view ? selectedPicture(ed.view.state) : null;
@@ -357,7 +364,11 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
     if (!(SHAPE_WRAPS as readonly string[]).includes(wrap)) throw new Error(`wrap must be one of ${SHAPE_WRAPS.join(', ')}.`);
     return { wrap, ...(p.side ? { side: ['left', 'center', 'right'].includes(String(p.side)) ? String(p.side) : 'left' } : {}) };
   }), [{ name: 'wrap', type: 'string', description: SHAPE_WRAPS.join(', ') }, { name: 'side', type: 'string', description: 'left, center or right' }]);
-  add('shape.position', 'Shape position', 'Shape', 'Offset a shape behind or in front of text from the top left of its paragraph, in points.', needShape((_a, p) => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 })), [{ name: 'x', type: 'number', description: 'Points' }, { name: 'y', type: 'number', description: 'Points' }]);
+  add('shape.position', 'Shape position', 'Shape', 'Offset a shape behind or in front of text from the top left of its paragraph, or of the page with relative=page, in points.', needShape((a, p) => ({ x: p.x === undefined ? a.x : Number(p.x) || 0, y: p.y === undefined ? a.y : Number(p.y) || 0, relative: p.relative === undefined ? a.relative : p.relative === 'page' ? 'page' : 'paragraph' })), [{ name: 'x', type: 'number', description: 'Points' }, { name: 'y', type: 'number', description: 'Points' }, { name: 'relative', type: 'string', description: 'paragraph or page' }]);
+  add('shape.arrows', 'Line arrows', 'Shape', 'Arrowheads at the start and end of a line.', needShape((a, p) => {
+    if (a.kind !== 'line') throw new Error('Arrowheads apply to lines; insert one with insert.shape kind=line.');
+    return { arrowStart: p.start === undefined ? a.arrowStart : !!p.start, arrowEnd: p.end === undefined ? a.arrowEnd : !!p.end };
+  }), [{ name: 'start', type: 'boolean', description: 'Arrowhead at the start' }, { name: 'end', type: 'boolean', description: 'Arrowhead at the end' }]);
   add('shape.info', 'Shape at cursor', 'Shape', 'Properties of the selected shape.', () => { const s = ed.view ? selectedShape(ed.view.state) : null; return s ? { ...s.node.attrs, pos: s.pos } : null; });
   add('shape.select', 'Select shape', 'Shape', 'Select the first shape, or the next one after the selection.', () => {
     if (!ed.view) throw new Error('Open a document first.');
