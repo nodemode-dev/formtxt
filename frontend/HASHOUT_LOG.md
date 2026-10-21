@@ -211,11 +211,29 @@ frontend/
 - logged: v0.6.0 · 2026-10-21
 - The ruler is sticky above the pages and patched from the selection (ticks rebuilt only when page width, margins or zoom change); dragging a marker sets the paragraph's indent, first-line indent or right indent on release, snapped to 4.5 pt. Views are not saved: Draft lays out like pageless with no sheets, Read mode turns editing off, Focus hides the chrome; Esc returns to Print layout. Line numbers are measured after pagination and drawn on the sheets, so they never affect the flow.
 
+### tabs · widths set before pagination
+- refers-to: src/editor/tabs.ts :: layoutTabs(); src/editor/pages.ts :: beforeMeasure
+- kind: rationale
+- logged: v0.7.0 · 2026-10-21
+- A tab is an atom span whose width is set from the paragraph's stops. Widths change line wrapping, so the paginator calls `layoutTabs` after clearing its spacers and before measuring; every tab is reset to zero first and measured left to right from the page margin. Right, centre and decimal stops measure the text up to the next tab (decimal up to the first `.`). Past the last custom stop it falls back to the default stop every 36 pt, as Word does.
+
+### sections · one geometry, many sections
+- refers-to: src/editor/pages.ts :: sectionStarts, paint() plan; src/editor/editor.ts :: insertSectionBreak(), updateSectionById()
+- kind: warning-context
+- logged: v0.7.0 · 2026-10-21
+- A section break forces a new page and records which page its section starts on; painting then picks each sheet's section, its first, even or default header and footer, and its page number (restarting where `pageNumberStart` is set, continuing otherwise). Page size, orientation, margins and columns still come from the first section, because the whole tab is one flow with one width. Mixed orientation and columns need blocks positioned per page, which is a later phase. Deleting a break leaves its section entry in `sections`; it is harmless and dropped by nothing yet.
+
+### header and footer · typed on the page
+- refers-to: src/editor/register.ts :: dblclick handler
+- kind: explainer
+- logged: v0.7.0 · 2026-10-21
+- Double-click turns the sheet's header or footer `contenteditable="plaintext-only"`; Enter or leaving it saves through `updateSectionById` for that sheet's section and which part (first, even or default), Esc puts the text back. Painting skips a header that is being edited so a relayout never overwrites typing.
+
 ### pages · cost
 - refers-to: src/editor/pages.ts :: layout()
 - kind: todo
 - logged: v0.5.0 · 2026-10-21
-- Every layout measures the whole tab, so very long documents cost a forced layout per change. Phase 3b should start from the first changed page.
+- Every layout measures the whole tab, so very long documents cost a forced layout per change (26 pages stays smooth under 4x CPU throttling). Starting from the first changed page moves to a later phase.
 
 ### toolbar · focus
 - refers-to: src/editor/register.ts :: registerEditorCommands() mousedown
