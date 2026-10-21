@@ -1,0 +1,22 @@
+:root[data-theme="light"] {
+  color-scheme: light;
+  --bg-primary: #ecebe6;
+  --bg-secondary: #f7f6f1;
+  --bg-tertiary: #e2e0d8;
+  --bg-node: #f4f3ed;
+  --border-color: #d1cdc1;
+  --border-light: #beb9aa;
+  --text-primary: #26241d;
+  --text-secondary: #4c4a40;
+  --text-muted: #6f6c60;
+  --canvas-bg: #e7e5dd;
+  --bg-input: var(--bg-secondary);
+  --bg-hover: rgba(0, 0, 0, 0.06);
+  --bg-scrim: rgba(40, 36, 28, 0.45);
+  --border-soft: rgba(0, 0, 0, 0.1);
+  --cta-bg: var(--text-primary);
+  --cta-bg-hover: color-mix(in srgb, var(--text-primary) 85%, var(--bg-primary));
+  --cta-text: var(--bg-secondary);
+  --page-shadow: 0 6px 22px rgba(96, 90, 70, 0.22);
+  --shadow-lg: 0 4px 14px rgba(96, 90, 70, 0.16);
+}

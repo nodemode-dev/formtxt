@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="dark light">
+  <meta name="theme-color" content="#111111">
+  <title>FormTxt</title>
+  <link rel="icon" href="/favicon.svg" type="image/svg+xml">
+  <link rel="preload" href="/node_modules/@fontsource/inter/files/inter-latin-400-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/node_modules/@fontsource/inter/files/inter-latin-500-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="/node_modules/@fontsource/inter/files/inter-latin-600-normal.woff2" as="font" type="font/woff2" crossorigin>
+  <style>
+    html, body { background: #111111; margin: 0; padding: 0; height: 100%; overflow: hidden; }
+    html[data-theme="light"], html[data-theme="light"] body { background: #ecebe6; }
+    #app { visibility: hidden; }
+    body.app-ready #app { visibility: visible; }
+  </style>
+  <script>
+(function () {
+  var theme = 'dark';
+  try { var saved = localStorage.getItem('formtxt.theme'); if (saved === 'light' || saved === 'dark') theme = saved; } catch (e) {}
+  document.documentElement.setAttribute('data-theme', theme);
+  var tc = document.querySelector('meta[name="theme-color"]');
+  if (tc) tc.setAttribute('content', theme === 'light' ? '#ecebe6' : '#111111');
+})();
+  </script>
+  <link rel="stylesheet" href="/src/styles/fonts.css">
+  <link rel="stylesheet" href="/src/styles/tokens.css">
+  <link rel="stylesheet" href="/src/styles/light-mode.css">
+  <link rel="stylesheet" href="/src/styles/shell.css">
+</head>
+<body>
+  <div id="app"></div>
+  <div id="overlay-root"></div>
+  <div id="toast-root"></div>
+  <script type="module" src="/src/main.ts"></script>
+</body>
+</html>

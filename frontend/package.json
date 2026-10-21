@@ -1,0 +1,26 @@
+{
+  "name": "formtxt",
+  "private": true,
+  "version": "0.1.0",
+  "description": "FormTxt: documents in the form family, an open alternative to Word and Google Docs",
+  "license": "Apache-2.0",
+  "type": "module",
+  "engines": {
+    "node": ">=20.19"
+  },
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc --noEmit && vite build",
+    "preview": "vite preview",
+    "typecheck": "tsc --noEmit",
+    "tauri": "tauri"
+  },
+  "dependencies": {
+    "@fontsource/inter": "5.3.0"
+  },
+  "devDependencies": {
+    "@tauri-apps/cli": "2.12.1",
+    "typescript": "7.0.2",
+    "vite": "8.3.0"
+  }
+}
