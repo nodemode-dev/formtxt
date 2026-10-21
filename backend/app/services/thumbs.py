@@ -1,5 +1,7 @@
 from html import escape
 
+from app.services import model
+
 W, H = 612.0, 792.0
 GREY = "#c9c6bf"
 DARK = "#4a4740"
@@ -46,6 +48,26 @@ def render(doc: dict) -> str:
     for block in (doc.get("tabs") or [{}])[0].get("body", []):
         if y > bottom:
             break
+        if block.get("type") == "table":
+            rows = block.get("rows") or []
+            cols = max((len((r or {}).get("cells") or []) for r in rows), default=1) or 1
+            row_h = 11.0 * scale * 1.9
+            shown = rows[: max(1, int((bottom - y) / row_h))]
+            cell_w = (right - left) / cols
+            for i, row in enumerate(shown):
+                header = any((c or {}).get("header") for c in (row or {}).get("cells") or [])
+                if header:
+                    out.append(f'<rect x="{left:.1f}" y="{y:.1f}" width="{right - left:.1f}" height="{row_h:.1f}" fill="#eceae4"/>')
+                for c, cell in enumerate((row or {}).get("cells") or []):
+                    text = "".join(str(r.get("text", "")) for r in model.iter_runs((cell or {}).get("body") or []) if r.get("type") == "text")
+                    if text:
+                        frac = min(0.85, 0.2 + len(text) / 40)
+                        out.append(f'<rect x="{left + c * cell_w + 4:.1f}" y="{y + row_h * 0.3:.1f}" width="{(cell_w - 8) * frac:.1f}" height="{row_h * 0.38:.1f}" rx="1" fill="{DARK if header else GREY}"/>')
+                out.append(f'<line x1="{left:.1f}" y1="{y:.1f}" x2="{right:.1f}" y2="{y:.1f}" stroke="#b9b6ae" stroke-width="0.8"/>')
+                y += row_h
+            out.append(f'<line x1="{left:.1f}" y1="{y:.1f}" x2="{right:.1f}" y2="{y:.1f}" stroke="#b9b6ae" stroke-width="0.8"/>')
+            y += 8 * scale
+            continue
         run, para = _resolve(doc, block.get("style") or "Normal")
         size = float(run.get("size", 11.0)) * scale
         text = _text(block)

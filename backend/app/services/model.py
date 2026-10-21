@@ -1,4 +1,5 @@
 import time
+from collections.abc import Iterator
 from copy import deepcopy
 
 from app.core.ids import new_id
@@ -85,13 +86,26 @@ def validate(doc: dict) -> dict:
     return doc
 
 
+def iter_runs(blocks: list) -> Iterator[dict]:
+    for block in blocks or []:
+        if not isinstance(block, dict):
+            continue
+        if block.get("type") == "table":
+            for row in block.get("rows") or []:
+                for cell in (row or {}).get("cells") or []:
+                    yield from iter_runs((cell or {}).get("body") or [])
+            continue
+        for run in block.get("content", []) or []:
+            if isinstance(run, dict):
+                yield run
+
+
 def summary(doc: dict, size: int = 0) -> dict:
     words = 0
     for tab in doc.get("tabs", []):
-        for block in tab.get("body", []):
-            for run in block.get("content", []) or []:
-                if isinstance(run, dict) and run.get("type") == "text":
-                    words += len(str(run.get("text", "")).split())
+        for run in iter_runs(tab.get("body", [])):
+            if run.get("type") == "text":
+                words += len(str(run.get("text", "")).split())
     return {"id": doc["id"], "title": doc["title"], "modified": doc.get("meta", {}).get("modified", 0),
             "created": doc.get("meta", {}).get("created", 0), "words": words, "bytes": size,
             "page": doc["sections"][0]["page"]}
