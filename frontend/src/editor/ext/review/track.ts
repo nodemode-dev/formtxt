@@ -11,6 +11,15 @@ const REUSE_SECONDS = 600;
 
 let mode: Mode = 'editing';
 let modeListener: (m: Mode) => void = () => undefined;
+let asAuthor = '';
+
+export function suggestAs<T>(author: string, fn: () => T): T {
+  const was = asAuthor;
+  asAuthor = author.trim() || 'Agent';
+  try { return fn(); } finally { asAuthor = was; }
+}
+
+const who = (): string => asAuthor || me();
 
 export function currentMode(): Mode { return mode; }
 export function onMode(fn: (m: Mode) => void): void { modeListener = fn; }
@@ -74,19 +83,19 @@ export function collectChanges(doc: PMNode): Change[] {
 }
 
 function attrsFor(doc: PMNode, from: number, to: number, kind: ChangeKind): { id: string; author: string; time: number } {
-  const who = me();
+  const name = who();
   const t = nowSec();
   const near = [doc.resolve(from).nodeBefore, doc.resolve(to).nodeAfter];
   for (const n of near) {
     const m = n ? markOf(n, kind) : undefined;
-    if (m && sameName(String(m.attrs.author), who) && t - Number(m.attrs.time) < REUSE_SECONDS) return { id: String(m.attrs.id), author: who, time: Number(m.attrs.time) };
+    if (m && sameName(String(m.attrs.author), name) && t - Number(m.attrs.time) < REUSE_SECONDS) return { id: String(m.attrs.id), author: name, time: Number(m.attrs.time) };
   }
-  return { id: newId('r_'), author: who, time: t };
+  return { id: newId('r_'), author: name, time: t };
 }
 
 function isMine(node: PMNode): boolean {
   const m = markOf(node, 'ins');
-  return !!m && sameName(String(m.attrs.author), me());
+  return !!m && sameName(String(m.attrs.author), who());
 }
 
 function flat(content: Fragment): boolean {
@@ -158,7 +167,7 @@ export function trackPlugin(): Plugin {
   return new Plugin({
     key: trackKey,
     appendTransaction(trs, oldState, newState) {
-      if (mode !== 'suggesting') return null;
+      if (mode !== 'suggesting' && !asAuthor) return null;
       return track(trs, oldState, newState);
     },
   });

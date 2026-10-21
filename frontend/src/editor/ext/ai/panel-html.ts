@@ -57,7 +57,7 @@ export const PANEL_HTML = `<div class="ft-ai">
 <section class="ft-ai-view" data-view="document" role="tabpanel" hidden>
   <div class="ft-ai-sub">Edit the whole document</div>
   <textarea class="ft-input ft-ai-text" data-q="reviseInput" rows="3" placeholder="For example: use British spelling, or make every heading a question." aria-label="Instruction for the whole document"></textarea>
-  <div class="ft-ai-row"><button type="button" class="ft-btn sm primary" data-ai data-act="revise">Propose changes</button><span class="ft-ai-grow"></span><button type="button" class="ft-btn sm" data-q="acceptAll" disabled>Accept all</button><button type="button" class="ft-btn sm ghost" data-q="rejectAll" disabled>Reject all</button></div>
+  <div class="ft-ai-row"><button type="button" class="ft-btn sm primary" data-ai data-act="revise">Propose changes</button><span class="ft-ai-grow"></span><button type="button" class="ft-btn sm" data-q="acceptAll" disabled>Accept all</button><button type="button" class="ft-btn sm" data-q="suggestAll" disabled title="Add every proposal as a tracked suggestion by AI">Suggest all</button><button type="button" class="ft-btn sm ghost" data-q="rejectAll" disabled>Reject all</button></div>
   <p class="ft-ai-note" data-q="reviseNote" aria-live="polite">Proposed changes appear here, paragraph by paragraph.</p>
   <div class="ft-ai-props" data-q="props"></div>
   <div class="ft-ai-sub">Translate</div>

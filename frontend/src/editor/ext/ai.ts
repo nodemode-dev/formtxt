@@ -93,6 +93,7 @@ export function register(reg: CommandRegistry, ed: DocEditor): void {
     return get().revise(String(p.instruction));
   }, [S('instruction', 'What to change throughout the document')]);
   add('ai.acceptChanges', 'Accept AI changes', 'Accept one proposed paragraph change by its key, or all of them.', (p) => get().acceptProposal(String(p.id ?? 'all')), [S('id', 'Proposal key (r0, r1...) or all')]);
+  add('ai.suggestChanges', 'Add AI changes as suggestions', 'Turn one proposed paragraph change, or all of them, into tracked suggestions by AI that Review accepts or rejects word by word.', (p) => get().suggestProposal(String(p.id ?? 'all')), [S('id', 'Proposal key (r0, r1...) or all')]);
   add('ai.rejectChanges', 'Reject AI changes', 'Reject one proposed paragraph change by its key, or all of them.', (p) => get().rejectProposal(String(p.id ?? 'all')), [S('id', 'Proposal key (r0, r1...) or all')]);
   add('ai.listChanges', 'List AI changes', 'List the proposed paragraph changes waiting for review.', () => get().proposalList());
 

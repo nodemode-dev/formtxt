@@ -12,6 +12,7 @@ import { stripMarkdown } from './markdown';
 import { LANGUAGES, PANEL_HTML } from './panel-html';
 import { attachPicker } from './picker';
 import { openSettings } from './settings-dialog';
+import { suggestAs } from '../review/track';
 import { ask, cached, loadStatus, onStatus, requireOn, saveSettings, type AIStatus, type SourceRef } from './state';
 
 interface ChatMsg { id: string; role: 'user' | 'assistant'; text: string; src?: string; pending?: boolean; error?: boolean }
@@ -63,6 +64,7 @@ export class AIPanel {
     this.q('pvDiscard').addEventListener('click', () => this.setPreview(null));
     this.q('acceptAll').addEventListener('click', () => this.acceptProposal('all'));
     this.q('rejectAll').addEventListener('click', () => this.rejectProposal('all'));
+    this.q('suggestAll').addEventListener('click', () => this.suggestProposal('all'));
     this.q('sumInsert').addEventListener('click', () => { if (this.summary) this.say(`Inserted ${insertAtCaret(this.ed, this.summary)} words at the caret.`); });
     this.q('sumBlock').addEventListener('click', () => { if (this.summary) this.say(`Summary block ${setSummary(this.ed, this.summary)} at the top.`); this.syncSummaryLabel(); });
     this.q('rsInsert').addEventListener('click', () => { if (this.answer) this.say(`Inserted ${insertAtCaret(this.ed, this.answer)} words at the caret.`); });
@@ -71,7 +73,7 @@ export class AIPanel {
     this.q('log').addEventListener('click', (e) => this.logClick(e.target as HTMLElement));
     this.q('props').addEventListener('click', (e) => {
       const b = (e.target as HTMLElement).closest<HTMLElement>('[data-p]');
-      if (b?.dataset.p) { if (b.dataset.do === 'accept') this.acceptProposal(b.dataset.p); else this.rejectProposal(b.dataset.p); }
+      if (b?.dataset.p) { if (b.dataset.do === 'accept') this.acceptProposal(b.dataset.p); else if (b.dataset.do === 'suggest') this.suggestProposal(b.dataset.p); else this.rejectProposal(b.dataset.p); }
     });
     this.q('results').addEventListener('click', (e) => this.resultClick(e.target as HTMLElement));
     this.q('wordSyn').addEventListener('click', (e) => {
@@ -510,7 +512,7 @@ export class AIPanel {
     patchList(this.q('props'), this.proposals, {
       key: (p) => p.key,
       create: (p) => {
-        const n = el('<div class="ft-ai-prop"><div class="ft-ai-prop-old"></div><div class="ft-ai-prop-new"></div><div class="ft-ai-row"><button type="button" class="ft-btn sm primary" data-do="accept">Accept</button><button type="button" class="ft-btn sm ghost" data-do="reject">Reject</button></div></div>');
+        const n = el('<div class="ft-ai-prop"><div class="ft-ai-prop-old"></div><div class="ft-ai-prop-new"></div><div class="ft-ai-row"><button type="button" class="ft-btn sm primary" data-do="accept">Accept</button><button type="button" class="ft-btn sm" data-do="suggest">Suggest</button><button type="button" class="ft-btn sm ghost" data-do="reject">Reject</button></div></div>');
         for (const b of Array.from(n.querySelectorAll<HTMLElement>('[data-do]'))) b.dataset.p = p.key;
         setText(n.querySelector('.ft-ai-prop-old'), p.old);
         setText(n.querySelector('.ft-ai-prop-new'), p.text);
@@ -521,6 +523,7 @@ export class AIPanel {
     const none = this.proposals.length === 0;
     (this.q<HTMLButtonElement>('acceptAll')).disabled = none;
     (this.q<HTMLButtonElement>('rejectAll')).disabled = none;
+    (this.q<HTMLButtonElement>('suggestAll')).disabled = none;
     setText(this.q('reviseNote'), none ? 'Proposed changes appear here, paragraph by paragraph.' : `${this.proposals.length} proposed changes. Accept or reject each, or all at once.`);
   }
 
@@ -534,6 +537,19 @@ export class AIPanel {
     }
     this.renderProposals();
     if (applied) this.say(`Accepted ${applied} change${applied === 1 ? '' : 's'}. Undo takes them back one by one.`);
+    return applied;
+  }
+
+  suggestProposal(key: string): number {
+    const list = key === 'all' ? [...this.proposals] : this.proposals.filter((p) => p.key === key);
+    let applied = 0;
+    for (const p of list) {
+      if (suggestAs('AI', () => applyParagraphText(this.view(), p.id, p.old, p.text))) applied++;
+      else this.say('A paragraph changed since the proposal; it was skipped.', true);
+      this.proposals = this.proposals.filter((x) => x.key !== p.key);
+    }
+    this.renderProposals();
+    if (applied) this.say(`Added ${applied} suggestion${applied === 1 ? '' : 's'} by AI. Review them in Review > Show comments and changes.`);
     return applied;
   }
 
