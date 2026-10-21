@@ -26,7 +26,9 @@
     "@fontsource/source-serif-4": "5.3.1",
     "@fontsource/space-grotesk": "5.3.0",
     "@fontsource/work-sans": "5.3.0",
+    "emojibase-data": "17.0.0",
     "katex": "0.19.0",
+    "mermaid": "12.1.0",
     "prosemirror-commands": "1.7.2",
     "prosemirror-dropcursor": "1.8.4",
     "prosemirror-gapcursor": "1.4.1",
@@ -43,5 +45,10 @@
     "@tauri-apps/cli": "2.12.1",
     "typescript": "7.0.2",
     "vite": "8.3.0"
+  },
+  "overrides": {
+    "mermaid": {
+      "katex": "0.19.0"
+    }
   }
 }

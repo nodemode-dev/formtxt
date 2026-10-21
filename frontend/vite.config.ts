@@ -20,6 +20,9 @@ export default defineConfig({
     strictPort: true,
     proxy: { '/api': engine, '/mcp': engine },
   },
+  optimizeDeps: {
+    include: ['mermaid'],
+  },
   build: {
     outDir: 'dist',
     sourcemap: true,
