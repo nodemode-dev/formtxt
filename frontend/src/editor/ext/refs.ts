@@ -18,6 +18,7 @@ import { headings, jump, saveSources, saveStyle, sourcesOf } from './refs/util';
 import { addMenuItems } from './ui';
 import { addPlugin, onDocumentLoaded } from './plugins';
 import { linkCardPlugin } from './refs/card';
+import { pageFootnotes } from './refs/footnotes';
 import type { CommandParam } from '../../engine/registry';
 
 const P = (name: string, type: CommandParam['type'], description: string): CommandParam => ({ name, type, description });
@@ -32,7 +33,8 @@ function hasRefs(view: EditorView): boolean {
 const jumpTarget = (kind: string, target: string): string => (kind === 'bookmark' ? `bm:${target}` : kind === 'note' ? `note:${target}` : target);
 
 export function register(reg: CommandRegistry, ed: DocEditor): void {
-  const add = (id: string, label: string, description: string, run: (p: Record<string, unknown>) => unknown, params: CommandParam[] = [], keys: string[] = []): void =>
+  pageFootnotes(ed);
+  const add =(id: string, label: string, description: string, run: (p: Record<string, unknown>) => unknown, params: CommandParam[] = [], keys: string[] = []): void =>
     reg.register({ id, label, group: 'References', description, params, keys, run });
   const fail = (msg: string): never => { throw new Error(msg); };
   const has = (p: Record<string, unknown>, ...names: string[]): boolean => names.some((n) => p[n] !== undefined);

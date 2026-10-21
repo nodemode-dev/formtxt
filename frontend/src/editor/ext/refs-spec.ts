@@ -43,7 +43,7 @@ function block(kind: string, title: string): NodeSpec {
     parseDOM: [{ tag: `div.ft-refblock[data-kind="${kind}"]`, getAttrs: (dom: HTMLElement) => readRef(dom) }],
     toDOM: (n) => {
       const opts = n.attrs.opts as Record<string, unknown>;
-      return ['div', { class: 'ft-refblock', 'data-kind': kind, 'data-style': String(opts.style ?? ''), contenteditable: 'false', 'data-ref': JSON.stringify({ title: n.attrs.title, entries: n.attrs.entries, opts }) },
+      return ['div', { class: 'ft-refblock', 'data-kind': kind, 'data-which': String(opts.kind ?? ''), 'data-style': String(opts.style ?? ''), contenteditable: 'false', 'data-ref': JSON.stringify({ title: n.attrs.title, entries: n.attrs.entries, opts }) },
         ['div', { class: 'ft-refblock-head' }, ['span', { class: 'ft-refblock-title' }, String(n.attrs.title)], ['button', { type: 'button', class: 'ft-refblock-update', 'data-update': '1' }, 'Update']],
         ...(n.attrs.entries as RefEntry[]).map(entryDom)];
     },

@@ -192,6 +192,7 @@ export class Paginator {
   sectionsOf: (() => Section[]) | null = null;
   sectionStarts: Array<{ page: number; id: string }> = [];
   beforeMeasure: ((root: HTMLElement, ratio: number) => void) | null = null;
+  reserve: (page: number) => number = () => 0;
   private frame = 0;
   private readonly sheets: HTMLElement;
 
@@ -317,7 +318,7 @@ export class Paginator {
       return v;
     };
     const bodyTop = (p: number): number => pageTop(p) + geoOf(secAt(p)).top;
-    const bottomOf = (p: number): number => pageTop(p) + geoOf(secAt(p)).H - geoOf(secAt(p)).bottom;
+    const bottomOf = (p: number): number => pageTop(p) + geoOf(secAt(p)).H - geoOf(secAt(p)).bottom - this.reserve(p);
     const startAt = (p: number, id: string): void => { this.sectionStarts.push({ page: p, id }); tops0.length = Math.min(tops0.length, p + 1); };
     const posOf = (n: HTMLElement): number => {
       try {
