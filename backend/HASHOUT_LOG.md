@@ -176,3 +176,29 @@ backend/
 - kind: explainer
 - logged: v0.8.0 · 2026-10-21
 - Text now lives inside table cells as well as top-level paragraphs, so `iter_runs` walks cell bodies recursively; word counts use it and thumbnails draw a table as ruled rows with a shaded header row.
+
+## app/services/formula.py {#formula}
+
+### formula · port of Form.md's parser
+- refers-to: app/services/formula.py :: Lexer, Parser
+- kind: rationale
+- logged: v0.16.0 · 2026-10-21
+- The lexer and Pratt parser follow Form.md's `internal/collection/formula/parse.go` token for token, so the two products read the same expressions; additions are cell refs (`A1`), ranges (`A1:B3`), the four directions, `<>`, `&` for joining text and `;` as an argument separator, because Word table formulas use them. `%` stays the remainder operator as in Form.md, not a postfix percent.
+
+### formula · directions
+- refers-to: app/services/formula.py :: Table.direction()
+- kind: explainer
+- logged: v0.16.0 · 2026-10-21
+- `ABOVE` and the other directions collect the contiguous numbers next to the formula's cell, skipping a leading blank cell and stopping at the first text cell, which matches what Word sums for a totals row under a header.
+
+### formula · number pictures
+- refers-to: app/services/formula.py :: format_value()
+- kind: explainer
+- logged: v0.16.0 · 2026-10-21
+- Pictures read digits (`0` forced, `#` optional), `,` grouping, `.` decimals, a trailing `%` (value times 100) and any literal prefix or suffix. Rounding is half-up, as Word shows it, not Python's banker's rounding.
+
+### formula · eval route
+- refers-to: app/routers/formula.py :: eval_formulas()
+- kind: rationale
+- logged: v0.16.0 · 2026-10-21
+- The editor sends every formula in the document in one batch with its table grid, so one round trip recalculates the lot; capped at 2,000 items and 2,000 grid rows. The engine stays the single calculator so the CLI, the window and later exporters agree.
