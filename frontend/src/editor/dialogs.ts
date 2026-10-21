@@ -21,7 +21,7 @@ import { DIAGRAM_CATEGORIES, DIAGRAM_LAYOUTS, type DiagramItem, insertDiagram, i
 import { api } from '../io/api';
 import { commands } from '../engine/registry';
 import { toast } from '../ui/toast';
-import { distributeColumns, insertTable, setCellBorders, setCellShading, setTableAttr, sortTable, tableInfo } from './table';
+import { type TableStyleDef, applyTableStyle, captureTableStyle, currentTable, distributeColumns, insertTable, setCellBorders, setCellShading, setTableAttr, sortTable, tableInfo } from './table';
 
 function num(v: unknown, fallback = ''): string {
   return typeof v === 'number' && Number.isFinite(v) ? String(v) : fallback;
@@ -460,30 +460,71 @@ export function insertTableDialog(ed: DocEditor): void {
   d.open(rows);
 }
 
+export function saveTableStyleDialog(ed: DocEditor): void {
+  if (!ed.view || !currentTable(ed.view.state)) throw new Error('Put the cursor in a table first.');
+  const d = new Dialog('Save table style', 420);
+  const cur = String(currentTable(ed.view.state)?.node.attrs.tstyle ?? '');
+  const name = input('text', tableStyleList(ed).find((s) => s.id === cur)?.name ?? '', 'maxlength="60" spellcheck="true" placeholder="For example Finance table"');
+  d.field('Name', name);
+  d.body.appendChild(el('<p class="ft-note">Saves this table\'s look, alignment, header row, and the shading, borders and alignment of its header, first column, body and banded rows. Saving under an existing name updates every table that uses that style.</p>'));
+  d.button('Cancel', 'ghost', () => d.close());
+  d.button('Save', 'primary', () => {
+    try { const r = saveTableStyle(ed, name.value); toast(r.updated ? `Updated ${r.name} and the tables using it.` : `Saved ${r.name}.`); d.close(); } catch (e) { toast(e instanceof Error ? e.message : String(e), 'error'); }
+  });
+  d.open(name);
+}
+
+export function tableStyleList(ed: DocEditor): Array<{ id: string; name: string; def: TableStyleDef }> {
+  return Object.entries(ed.styles()).filter(([, s]) => s.type === 'table' && s.table).map(([id, s]) => ({ id, name: s.name, def: s.table as unknown as TableStyleDef }));
+}
+
+export function saveTableStyle(ed: DocEditor, rawName: string): { id: string; name: string; updated: boolean } {
+  if (!ed.view) throw new Error('Open a document first.');
+  const t = currentTable(ed.view.state);
+  if (!t) throw new Error('Put the cursor in a table first.');
+  const name = rawName.trim().slice(0, 60);
+  if (!name) throw new Error('Give the table style a name.');
+  const existing = tableStyleList(ed).find((s) => s.name.toLowerCase() === name.toLowerCase());
+  const id = existing?.id ?? `Table_${name.replace(/[^\p{L}\p{N}]+/gu, '_').slice(0, 40)}_${Date.now().toString(36).slice(-4)}`;
+  const def = captureTableStyle(t.node);
+  ed.setStyles({ ...ed.styles(), [id]: { type: 'table', name, basedOn: null, next: '', table: def as unknown as Record<string, unknown> } });
+  ed.run(applyTableStyle(def, id));
+  if (existing) ed.run(applyTableStyle(def, id, true));
+  return { id, name, updated: !!existing };
+}
+
 export function tablePropertiesDialog(ed: DocEditor): void {
   const info = ed.view ? tableInfo(ed.view.state) : null;
   if (!info) throw new Error('Put the cursor in a table first.');
   const d = new Dialog('Table properties', 520);
+  const current = ed.view ? String(currentTable(ed.view.state)?.node.attrs.tstyle ?? '') : '';
+  const styles = tableStyleList(ed);
+  const tstyle = select([['', styles.length ? 'Keep as is' : 'No saved styles yet'], ...styles.map((s) => [s.id, s.name] as [string, string])], styles.some((s) => s.id === current) ? current : '');
   const look = select([['grid', 'Grid'], ['plain', 'Plain'], ['rows', 'Rows only'], ['banded', 'Banded rows'], ['accent', 'Accent header']], info.look);
   const align = select([['', 'Left'], ['center', 'Centre']], info.align);
   const repeat = input('checkbox', String(info.repeatHeader));
+  const rowSplit = input('checkbox', String(info.rowSplit));
   const width = input('number', String(Math.round(ed.bodyWidth())), 'min="36" step="1"');
   const shade = input('color', info.shading || '#f3f4f6');
   const noShade = input('checkbox', String(!info.shading));
   const valign = select([['', 'Top'], ['middle', 'Middle'], ['bottom', 'Bottom']], info.valign);
   const sortCol = input('number', String(info.col + 1), `min="1" max="${info.cols}" step="1"`);
   const sortDir = select([['asc', 'A to Z, smallest first'], ['desc', 'Z to A, largest first']], 'asc');
-  grid(d, [['Look', look], ['Alignment on the page', align], ['Repeat header rows on each page', repeat], ['Table width when distributing (pt)', width],
+  grid(d, [['Table style', tstyle], ['Look', look], ['Alignment on the page', align], ['Repeat header rows on each page', repeat], ['Allow rows to break across pages', rowSplit], ['Table width when distributing (pt)', width],
     ['Cell shading', shade], ['Clear cell shading', noShade], ['Cell vertical alignment', valign], ['Sort by column', sortCol], ['Sort order', sortDir]]);
   d.body.appendChild(el(`<p class="ft-note">${info.rows} rows, ${info.cols} columns. Shading and vertical alignment apply to the selected cells.</p>`));
   d.button('Distribute columns', '', () => { ed.run(distributeColumns(Number(width.value) || ed.bodyWidth())); });
   d.button('Sort', '', () => { ed.run(sortTable(Number(sortCol.value) - 1, sortDir.value === 'desc')); });
   d.button('Borders...', '', () => { d.close(); cellBordersDialog(ed); });
+  d.button('Save style...', '', () => { d.close(); saveTableStyleDialog(ed); });
   d.button('Cancel', 'ghost', () => d.close());
   shade.addEventListener('input', () => { noShade.checked = false; });
   d.button('Apply', 'primary', () => {
+    const picked = styles.find((s) => s.id === tstyle.value);
+    if (picked && picked.id !== current) { ed.run(applyTableStyle(picked.def, picked.id)); d.close(); return; }
     if (look.value !== info.look) ed.run(setTableAttr('look', look.value));
     if (repeat.checked !== info.repeatHeader) ed.run(setTableAttr('repeatHeader', repeat.checked));
+    if (rowSplit.checked !== info.rowSplit) ed.run(setTableAttr('rowSplit', rowSplit.checked));
     if (align.value !== info.align) ed.run(setTableAttr('align', align.value));
     const shading = noShade.checked ? '' : shade.value;
     if (shading !== info.shading) ed.run(setCellShading(shading));

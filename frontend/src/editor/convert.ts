@@ -74,7 +74,7 @@ function cleanBorders(b: unknown): CellBorders | null {
   }
   return Object.keys(out).length ? out : null;
 }
-interface FtxtTable { id?: string; look?: string; repeatHeader?: boolean; align?: string; columns?: number[]; rows?: Array<{ cells?: FtxtCell[] }> }
+interface FtxtTable { id?: string; look?: string; style?: string; repeatHeader?: boolean; rowSplit?: boolean; align?: string; columns?: number[]; rows?: Array<{ cells?: FtxtCell[] }> }
 
 const PX = 96 / 72;
 
@@ -100,7 +100,7 @@ function tableToPM(t: FtxtTable): PMNode | null {
     if (cells.length) rows.push(schema.nodes.table_row.create(null, cells));
   }
   if (!rows.length) return null;
-  return schema.nodes.table.create({ id: t.id || newId('t_'), look: t.look || 'grid', repeatHeader: !!t.repeatHeader, align: t.align || '' }, rows);
+  return schema.nodes.table.create({ id: t.id || newId('t_'), look: t.look || 'grid', repeatHeader: !!t.repeatHeader, rowSplit: t.rowSplit !== false, align: t.align || '', tstyle: typeof t.style === 'string' ? t.style : '' }, rows);
 }
 
 function blocksToPM(body: Block[], top: boolean): PMNode[] {
@@ -226,6 +226,8 @@ function tableFromPM(node: PMNode, section: string): Record<string, unknown> {
   const a = node.attrs;
   const out: Record<string, unknown> = { type: 'table', id: a.id || newId('t_'), look: a.look || 'grid', columns, rows };
   if (a.repeatHeader) out.repeatHeader = true;
+  if (a.rowSplit === false) out.rowSplit = false;
+  if (a.tstyle) out.style = a.tstyle;
   if (a.align) out.align = a.align;
   return out;
 }

@@ -204,6 +204,7 @@ export function tableAttrs(n: PMNode): Record<string, string> {
   const out: Record<string, string> = { class: 'ft-table', 'data-look': String(n.attrs.look || 'grid') };
   if (n.attrs.id) out['data-id'] = String(n.attrs.id);
   if (n.attrs.repeatHeader) out['data-repeat'] = 'true';
+  if (n.attrs.rowSplit === false) out['data-row-split'] = 'off';
   if (n.attrs.align) out['data-align'] = String(n.attrs.align);
   return out;
 }
@@ -377,7 +378,7 @@ const nodes: Record<string, NodeSpec> = {
   },
   table: {
     ...tables.table,
-    attrs: { id: { default: null }, look: { default: 'grid' }, repeatHeader: { default: false }, align: { default: '' } },
+    attrs: { id: { default: null }, look: { default: 'grid' }, repeatHeader: { default: false }, align: { default: '' }, rowSplit: { default: true }, tstyle: { default: '' } },
     parseDOM: [{ tag: 'table', getAttrs: (dom: HTMLElement) => ({ look: (TABLE_LOOKS as readonly string[]).includes(dom.dataset.look ?? '') ? dom.dataset.look : 'grid', repeatHeader: dom.dataset.repeat === 'true', align: dom.dataset.align || '' }) }],
     toDOM: (n) => ['table', tableAttrs(n), ['tbody', 0]],
   },

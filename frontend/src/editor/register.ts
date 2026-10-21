@@ -23,6 +23,8 @@ import { CHIP_COLORS, DROPDOWN_PRESETS, chipKey, chipNode, fillPlaceholders, kno
 import type { Node as PMNode } from 'prosemirror-model';
 import { setListFormat } from './commands';
 import { STYLE_SETS } from './stylesets';
+import { type TableStyleDef, applyTableStyle } from './table';
+import { saveTableStyle, saveTableStyleDialog, tableStyleList } from './dialogs';
 import { BORDER_TARGETS, distributeColumns, insertTable, setCellBorders, setCellShading, setTableAttr, sortTable, tableInfo, tableToText, textToTable } from './table';
 
 const schemaTab = () => schema.nodes.tab.create();
@@ -184,6 +186,28 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
     if (!(TABLE_LOOKS as readonly string[]).includes(v)) throw new Error(`Look must be one of ${TABLE_LOOKS.join(', ')}.`);
     return inTable(setTableAttr('look', v))();
   }, [{ name: 'look', type: 'string', description: TABLE_LOOKS.join(', ') }]);
+  const tableStyles = (): Array<{ id: string; name: string; def: TableStyleDef }> => tableStyleList(ed);
+  add('table.saveStyle', 'Save table style', 'Table', 'Save the look of the table at the cursor (look, alignment, header row, shading, borders and vertical alignment of header, first column, body and banded rows) as a named table style; with no name, opens a dialog. Saving over an existing name updates every table using it.', (p) => {
+    if (p.name === undefined) { saveTableStyleDialog(ed); return true; }
+    return saveTableStyle(ed, String(p.name));
+  }, [{ name: 'name', type: 'string', description: 'Style name' }]);
+  add('table.applyStyle', 'Apply table style', 'Table', 'Apply a saved table style (by name or id) to the table at the cursor.', (p) => {
+    const want = String(p.style ?? '').toLowerCase();
+    const s = tableStyles().find((x) => x.id.toLowerCase() === want || x.name.toLowerCase() === want);
+    if (!s) throw new Error(`No table style is called ${String(p.style ?? '')}. Styles: ${tableStyles().map((x) => x.name).join(', ') || 'none yet (save one with table.saveStyle)'}.`);
+    return inTable(applyTableStyle(s.def, s.id))();
+  }, [{ name: 'style', type: 'string', description: 'Table style name or id' }]);
+  add('table.styles', 'List table styles', 'Table', 'The table styles saved in this document.', () => tableStyles().map((s) => ({ id: s.id, name: s.name, look: s.def.look })));
+  add('table.deleteStyle', 'Delete table style', 'Table', 'Delete a saved table style; tables keep their current formatting.', (p) => {
+    const want = String(p.style ?? '').toLowerCase();
+    const s = tableStyles().find((x) => x.id.toLowerCase() === want || x.name.toLowerCase() === want);
+    if (!s) throw new Error(`No table style is called ${String(p.style ?? '')}.`);
+    const next = { ...ed.styles() };
+    delete next[s.id];
+    ed.setStyles(next);
+    return true;
+  }, [{ name: 'style', type: 'string', description: 'Table style name or id' }]);
+  add('table.rowSplit', 'Rows break across pages', 'Table', 'Let a row taller than the space left on a page continue on the next page (on by default), or keep each row on one page.', (p) => inTable(setTableAttr('rowSplit', p.on === undefined ? true : !!p.on))(), [{ name: 'on', type: 'boolean', description: 'Default true' }]);
   add('table.repeatHeader', 'Repeat header rows', 'Table', 'Repeat the header rows at the top of each page the table continues on.', (p) => inTable(setTableAttr('repeatHeader', p.on === undefined ? true : !!p.on))(), [{ name: 'on', type: 'boolean', description: 'Default true' }]);
   add('table.align', 'Table alignment', 'Table', 'Place the table at the left or centre of the page body.', (p) => inTable(setTableAttr('align', p.align === 'center' ? 'center' : ''))(), [{ name: 'align', type: 'string', description: 'left or center' }]);
   add('table.shading', 'Cell shading', 'Table', 'Shade the selected cells; empty removes shading.', (p) => inTable(setCellShading(String(p.value ?? '')))(), [{ name: 'value', type: 'string', description: '#rrggbb or empty' }]);

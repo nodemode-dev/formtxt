@@ -24,7 +24,34 @@ export const pagesPlugin = new Plugin<DecorationSet>({
 export interface HeaderPart { text: string; align: string }
 export interface PageInfo { index: number; number: number }
 
-interface Break { pos: number; fill: number; inline: boolean; target?: number; row?: { cols: number; heads: HTMLTableRowElement[] } }
+interface Break { pos: number; fill: number; inline: boolean; target?: number; row?: { cols: number; heads: HTMLTableRowElement[] }; cellSplit?: boolean }
+
+const CELL_PAD = 6;
+
+function maskSplitTables(root: HTMLElement, tables: Set<HTMLTableElement>, ratio: number, stride: number, bodyH: number): void {
+  for (const t of Array.from(root.querySelectorAll<HTMLTableElement>('table.ft-table[data-masked]'))) {
+    if (tables.has(t)) continue;
+    t.style.removeProperty('mask-image');
+    t.style.removeProperty('-webkit-mask-image');
+    t.removeAttribute('data-masked');
+  }
+  const top0 = root.getBoundingClientRect().top;
+  for (const t of tables) {
+    const r = t.getBoundingClientRect();
+    const tTop = (r.top - top0) / ratio, tBottom = (r.bottom - top0) / ratio;
+    const stops: string[] = [];
+    for (let p = Math.max(0, Math.floor(tTop / stride)); p * stride + bodyH < tBottom; p++) {
+      const a = Math.max(0, p * stride + bodyH - tTop), b = Math.max(a, (p + 1) * stride - tTop);
+      stops.push(`#000 ${a.toFixed(1)}px`, `transparent ${a.toFixed(1)}px`, `transparent ${b.toFixed(1)}px`, `#000 ${b.toFixed(1)}px`);
+    }
+    const css = stops.length ? `linear-gradient(to bottom, #000 0px, ${stops.join(', ')}, #000 100%)` : '';
+    if (t.style.getPropertyValue('mask-image') !== css) {
+      t.style.setProperty('mask-image', css);
+      t.style.setProperty('-webkit-mask-image', css);
+    }
+    if (!t.hasAttribute('data-masked')) t.setAttribute('data-masked', '');
+  }
+}
 
 function rowSpacer(fill: number, target: number, cols: number): HTMLElement {
   const tr = document.createElement('tr');
@@ -151,7 +178,7 @@ export class Paginator {
     if (empty && empty !== DecorationSet.empty) view.dispatch(view.state.tr.setMeta(pagesKey, DecorationSet.empty).setMeta('addToHistory', false));
     this.sectionStarts = [{ page: 0, id: this.section()!.id }];
     this.beforeMeasure?.(view.dom as HTMLElement, this.zoom());
-    if (pageless) { this.pages = 1; this.paint(g, true); this.onLayout?.(); return; }
+    if (pageless) { maskSplitTables(view.dom as HTMLElement, new Set(), 1, 1, 0); this.pages = 1; this.paint(g, true); this.onLayout?.(); return; }
     const root = view.dom as HTMLElement;
     const rootRect = root.getBoundingClientRect();
     const ratio = this.zoom();
@@ -159,6 +186,7 @@ export class Paginator {
     const kids = Array.from(root.children) as HTMLElement[];
     const tops = kids.map((k) => (k.getBoundingClientRect().top - rootRect.top) / ratio);
     const breaks: Break[] = [];
+    const splitTables = new Set<HTMLTableElement>();
     let off = 0;
     let page = 0;
     let force = false;
@@ -239,10 +267,57 @@ export class Paginator {
         let firstOnPage = 0;
         let split = false;
         let moveWhole = false;
+        const splitRow = (row: HTMLTableRowElement, at: number, pg0: number): { breaks: Break[]; cur: number; page: number } | null => {
+          const rowBox = row.getBoundingClientRect();
+          const rowBottom = (rowBox.bottom - rootRect.top) / ratio + at;
+          const found: Break[] = [];
+          let lastPage = pg0;
+          let grow = 0;
+          let fitsHere = false;
+          for (const cell of Array.from(row.cells)) {
+            const units: Array<{ top: number; bottom: number; pos: number; inline: boolean }> = [];
+            for (const child of Array.from(cell.children) as HTMLElement[]) {
+              if (child.classList.contains('column-resize-handle') || child.classList.contains('ft-pg-spacer')) continue;
+              const cpos = posOf(child);
+              const b = child.getBoundingClientRect();
+              const ls = child.nodeName === 'P' ? lineBoxes(child) : [];
+              if (!ls.length) { units.push({ top: (b.top - rootRect.top) / ratio + at, bottom: (b.bottom - rootRect.top) / ratio + at, pos: cpos, inline: false }); continue; }
+              ls.forEach((l, li) => {
+                const top = (l.top - rootRect.top) / ratio + at, bottom = (l.bottom - rootRect.top) / ratio + at;
+                const p = li === 0 ? cpos : lineStart(view, child, l.top);
+                if (p === null || (li > 0 && p <= cpos + 1)) { if (units.length) units[units.length - 1].bottom = bottom; return; }
+                units.push({ top, bottom, pos: p, inline: li > 0 });
+              });
+            }
+            if (units.length && units[0].bottom <= bottomOf(pg0) + 0.5) fitsHere = true;
+            let shift = 0, p = pg0;
+            for (let u = 0; u < units.length; u++) {
+              const un = units[u];
+              if (un.bottom + shift <= bottomOf(p) + 0.5) continue;
+              if (un.bottom - un.top > g.bodyH - CELL_PAD || un.pos < 0) continue;
+              const target = (p + 1) * stride + CELL_PAD;
+              const fill = target - (un.top + shift);
+              if (fill <= 0) continue;
+              found.push({ pos: un.pos, fill, inline: un.inline, target, cellSplit: true });
+              shift += fill;
+              p++;
+            }
+            const last = units[units.length - 1];
+            if (last) grow = Math.max(grow, last.bottom + shift - rowBottom + CELL_PAD);
+            lastPage = Math.max(lastPage, p);
+          }
+          if (!found.length || !fitsHere) return null;
+          splitTables.add(table);
+          return { breaks: found, cur: at + Math.max(0, grow), page: lastPage };
+        };
         for (let r = 0; r < rows.length; r++) {
           const box = rows[r].getBoundingClientRect();
           const rb = (box.bottom - rootRect.top) / ratio + cur;
           if (rb <= bottomOf(page) + 0.5) continue;
+          if (r >= heads && table.dataset.rowSplit !== 'off') {
+            const res = splitRow(rows[r], cur, page);
+            if (res) { breaks.push(...res.breaks); cur = res.cur; page = res.page; firstOnPage = r; split = true; continue; }
+          }
           if (r <= Math.max(firstOnPage, heads) && !split) { if (!atTop) moveWhole = true; break; }
           if (r === firstOnPage) continue;
           let pos = -1;
@@ -301,6 +376,7 @@ export class Paginator {
         if (Math.abs(delta) > 0.5) sp.style.height = `${Math.max(0, parseFloat(sp.style.height) + delta).toFixed(2)}px`;
       }
     }
+    maskSplitTables(root, splitTables, ratio, stride, g.bodyH);
     this.lineMarks = [];
     const numbering = String(this.settings().lineNumbers ?? '');
     if (numbering) {

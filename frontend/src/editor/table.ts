@@ -1,5 +1,5 @@
 import { Fragment, type Node as PMNode } from 'prosemirror-model';
-import { type Command, type EditorState, TextSelection } from 'prosemirror-state';
+import { type Command, type EditorState, TextSelection, type Transaction } from 'prosemirror-state';
 import { CellSelection, TableMap, TableView, columnResizing, findTable, isInTable, selectedRect, tableEditing } from 'prosemirror-tables';
 import { type BorderEdge, type CellBorders, schema, tableAttrs } from './schema';
 
@@ -17,7 +17,7 @@ class FtTableView extends TableView {
 
   private apply(node: PMNode): void {
     const attrs = tableAttrs(node);
-    for (const k of ['data-look', 'data-repeat', 'data-align', 'data-id']) {
+    for (const k of ['data-look', 'data-repeat', 'data-align', 'data-id', 'data-row-split']) {
       const v = attrs[k];
       if (v === undefined) { if (this.table.hasAttribute(k)) this.table.removeAttribute(k); }
       else if (this.table.getAttribute(k) !== v) this.table.setAttribute(k, v);
@@ -122,6 +122,67 @@ export function setCellShading(color: string): Command {
     return true;
   };
 }
+
+export interface CellFmt { shading: string; valign: string; borders: CellBorders | null }
+export interface TableStyleDef { look: string; align: string; repeatHeader: boolean; header: CellFmt | null; firstCol: CellFmt | null; body: CellFmt; band: CellFmt | null }
+
+const fmtOf = (cell: PMNode): CellFmt => ({ shading: String(cell.attrs.shading || ''), valign: String(cell.attrs.valign || ''), borders: (cell.attrs.borders as CellBorders | null) ?? null });
+const sameFmt = (a: CellFmt, b: CellFmt): boolean => JSON.stringify(a) === JSON.stringify(b);
+
+export function captureTableStyle(table: PMNode): TableStyleDef {
+  const map = TableMap.get(table);
+  const at = (r: number, c: number): PMNode => table.nodeAt(map.map[Math.min(map.height - 1, r) * map.width + Math.min(map.width - 1, c)])!;
+  const headerRow = table.firstChild?.firstChild?.type === schema.nodes.table_header;
+  const bodyRow = headerRow && map.height > 1 ? 1 : 0;
+  const bodyCol = map.width > 1 ? 1 : 0;
+  const body = fmtOf(at(bodyRow, bodyCol));
+  const first = fmtOf(at(bodyRow, 0));
+  const band = map.height > bodyRow + 1 ? fmtOf(at(bodyRow + 1, bodyCol)) : null;
+  return {
+    look: String(table.attrs.look || 'grid'), align: String(table.attrs.align || ''), repeatHeader: !!table.attrs.repeatHeader,
+    header: headerRow ? fmtOf(at(0, bodyCol)) : null,
+    firstCol: map.width > 1 && !sameFmt(first, body) ? first : null,
+    body,
+    band: band && !sameFmt(band, body) ? band : null,
+  };
+}
+
+function styleTableAt(tr: Transaction, tablePos: number, def: TableStyleDef, styleId: string): void {
+  const table = tr.doc.nodeAt(tablePos);
+  if (!table || table.type !== schema.nodes.table) return;
+  tr.setNodeMarkup(tablePos, undefined, { ...table.attrs, look: def.look, align: def.align, repeatHeader: def.repeatHeader, tstyle: styleId });
+  const map = TableMap.get(table);
+  const headerRow = table.firstChild?.firstChild?.type === schema.nodes.table_header;
+  const bodyRow = headerRow ? 1 : 0;
+  const seen = new Set<number>();
+  for (let r = 0; r < map.height; r++) {
+    for (let c = 0; c < map.width; c++) {
+      const off = map.map[r * map.width + c];
+      if (seen.has(off)) continue;
+      seen.add(off);
+      const cell = table.nodeAt(off)!;
+      const f = r === 0 && headerRow && def.header ? def.header : c === 0 && def.firstCol ? def.firstCol : def.band && r >= bodyRow && (r - bodyRow) % 2 === 1 ? def.band : def.body;
+      tr.setNodeMarkup(tablePos + 1 + off, undefined, { ...cell.attrs, shading: f.shading, valign: f.valign, borders: f.borders });
+    }
+  }
+}
+
+export function applyTableStyle(def: TableStyleDef, styleId: string, everywhere = false): Command {
+  return (state, dispatch) => {
+    const targets: number[] = [];
+    if (everywhere) state.doc.descendants((n, pos) => { if (n.type === schema.nodes.table && n.attrs.tstyle === styleId) targets.push(pos); return true; });
+    else { const t = tableAround(state); if (t) targets.push(t.pos); }
+    if (!targets.length) return false;
+    if (dispatch) {
+      const tr = state.tr;
+      for (const pos of targets) styleTableAt(tr, pos, def, styleId);
+      dispatch(tr);
+    }
+    return true;
+  };
+}
+
+export function currentTable(state: EditorState): { node: PMNode; pos: number } | null { return tableAround(state); }
 
 export const BORDER_TARGETS = ['all', 'outside', 'inside', 'top', 'bottom', 'left', 'right', 'insideH', 'insideV', 'none', 'clear'] as const;
 
@@ -248,9 +309,9 @@ export function tableToText(): Command {
   };
 }
 
-export function tableInfo(state: EditorState): { rows: number; cols: number; look: string; repeatHeader: boolean; align: string; row: number; col: number; shading: string; valign: string } | null {
+export function tableInfo(state: EditorState): { rows: number; cols: number; look: string; repeatHeader: boolean; rowSplit: boolean; align: string; row: number; col: number; shading: string; valign: string } | null {
   if (!isInTable(state)) return null;
   const rect = selectedRect(state);
   const cell = rect.table.nodeAt(rect.map.map[rect.top * rect.map.width + rect.left]);
-  return { rows: rect.map.height, cols: rect.map.width, look: String(rect.table.attrs.look), repeatHeader: !!rect.table.attrs.repeatHeader, align: String(rect.table.attrs.align || ''), row: rect.top, col: rect.left, shading: String(cell?.attrs.shading || ''), valign: String(cell?.attrs.valign || '') };
+  return { rows: rect.map.height, cols: rect.map.width, look: String(rect.table.attrs.look), repeatHeader: !!rect.table.attrs.repeatHeader, rowSplit: rect.table.attrs.rowSplit !== false, align: String(rect.table.attrs.align || ''), row: rect.top, col: rect.left, shading: String(cell?.attrs.shading || ''), valign: String(cell?.attrs.valign || '') };
 }

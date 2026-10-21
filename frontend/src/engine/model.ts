@@ -26,6 +26,7 @@ export interface Style {
   next: string;
   run?: RunProps;
   para?: ParaProps;
+  table?: Record<string, unknown>;
 }
 
 export interface TextRun {

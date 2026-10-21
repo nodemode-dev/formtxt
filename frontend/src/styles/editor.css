@@ -329,6 +329,9 @@ figure.ft-diagram.is-selected { outline: 2px solid var(--accent-color); outline-
 .ft-pages[data-mode="paged"] > .ft-page { background: transparent; box-shadow: none; margin: 0; }
 .ft-sheets { position: absolute; inset: 0; pointer-events: none; }
 .ft-pages[data-mode="pageless"] > .ft-sheets { display: none; }
+.ft-pages[data-mode="pageless"] .ft-pm .tableWrapper:has(> table.ft-table[data-repeat="true"]) { overflow: visible; }
+.ft-pages[data-mode="pageless"] .ft-pm table.ft-table[data-repeat="true"] > tbody > tr:first-child > th { position: sticky; top: 0; z-index: var(--z-raised); box-shadow: 0 1px 0 #8c8c8c; }
+.ft-pages[data-mode="pageless"] .ft-pm table.ft-table[data-repeat="true"][data-look="plain"] > tbody > tr:first-child > th, .ft-pages[data-mode="pageless"] .ft-pm table.ft-table[data-repeat="true"][data-look="rows"] > tbody > tr:first-child > th { background-color: var(--page-color, #ffffff); }
 .ft-sheet { position: absolute; left: 0; right: 0; background: var(--page-color, #ffffff); box-shadow: var(--page-shadow); overflow: hidden; }
 .ft-sheet-header, .ft-sheet-footer { position: absolute; left: var(--page-pad-x, 96px); right: var(--page-pad-xr, 96px); color: #5f5c55; font-family: 'Inter', system-ui, sans-serif; font-size: 12px; line-height: 16px; white-space: pre; overflow: hidden; }
 .ft-sheet-header { top: var(--page-pad-top, 48px); }

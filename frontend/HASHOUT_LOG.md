@@ -452,6 +452,24 @@ frontend/
 - logged: v0.19.0 · 2026-10-21
 - Built-in blocks are written as `.ftxt` block JSON and go through the same `blocksToNodes` as an opened document, so they use chips, placeholders, lists and tables exactly as saved files do; table columns are sized from the current body width when inserted. Saved blocks are the selection's blocks with ids and sections stripped (so inserting one twice cannot duplicate ids) and pictures removed by the engine, since media belongs to one document's package. Inserting into an empty paragraph replaces it rather than leaving a blank line above. Built-in blocks also appear in the @ menu, as in Google Docs.
 
+### pages · rows breaking across pages
+- refers-to: src/editor/pages.ts :: splitRow(), maskSplitTables()
+- kind: rationale
+- logged: v0.20.0 · 2026-10-21
+- A row that crosses the page bottom is split when at least one line of one cell fits on the current page; otherwise the row moves whole, as before. Each cell is cut independently: its paragraphs' lines (and any other blocks as whole units) are walked, and the first unit that crosses the body bottom gets the same spacer widget paragraphs use (inline between lines, a block before a paragraph or other block), sized to land on the next page body top plus 6 px of cell padding; the existing spacer correction pass then trims it to the pixel. The row grows by the largest cell's push, and later rows follow on from there. Header rows never split. The cells still draw borders and shading through the bottom margin, gap and next top margin, so a split table gets a CSS mask whose transparent bands cover body bottom to next body top on every page it crosses; the mask is cleared in pageless view and when the table no longer splits. Repeated header rows are not inserted inside a split row (Word does repeat them), and the split edges have no closing border line.
+
+### tables · styles
+- refers-to: src/editor/table.ts :: captureTableStyle(), applyTableStyle(); src/editor/dialogs.ts :: saveTableStyle()
+- kind: rationale
+- logged: v0.20.0 · 2026-10-21
+- A table style is a snapshot of four cell roles (header row, first column, body, banded body row) read from the table at the cursor, each kept only when it differs from body, plus the table's look, alignment and repeat-header flag. It lives in the document's `styles` with `type: table`, and styled tables carry its id in `tstyle`, so saving the same name again re-applies it to every table in the open tab that uses it. Like other style edits the definition is outside the undo history, while the cell changes are undoable.
+
+### tables · pinned header in pageless view
+- refers-to: src/styles/editor.css :: pageless sticky th
+- kind: gotcha
+- logged: v0.20.0 · 2026-10-21
+- The sticky header cells only stick once the table's `.tableWrapper` stops being a scroll container: its `overflow-x: auto` made it the sticky ancestor, so the header never moved. In pageless view a wrapper holding a repeating-header table gets `overflow: visible` (selected with `:has`), and plain and rows-only looks get the page colour behind the pinned cells so text does not show through.
+
 ## index.html {#index}
 
 ### index · theme before first paint
