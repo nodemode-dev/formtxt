@@ -836,11 +836,10 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
     if (!entry) throw new Error(`No icon is named ${String(p.name)}. Open the picker to search.`);
     return ed.run(insertShape(iconAttrs(entry, p.style === 'filled', color(p.color) || '#1a1a1a', Math.max(8, Number(p.size) || 36))));
   }, [{ name: 'name', type: 'string', description: 'Icon name such as chart-bar or phone' }, { name: 'style', type: 'string', description: 'outline or filled' }, { name: 'color', type: 'string', description: '#rrggbb' }, { name: 'size', type: 'number', description: 'Points' }]);
-  add('view.draw', 'Draw', 'View', 'Turn ink drawing on or off: drag on the page to draw, Esc stops. Each stroke becomes a drawing in front of the text.', (p) => {
-    if (p.color !== undefined) ed.ink.color = color(p.color) || ed.ink.color;
-    if (p.width !== undefined) ed.ink.width = Math.max(0.5, Math.min(24, Number(p.width) || 2));
-    return ed.ink.toggle(p.on === undefined ? !ed.ink.on : !!p.on);
-  }, [{ name: 'on', type: 'boolean', description: 'On or off; empty toggles' }, { name: 'color', type: 'string', description: 'Pen colour #rrggbb' }, { name: 'width', type: 'number', description: 'Pen width in points' }]);
+  add('view.draw', 'Draw', 'View', 'Turn ink drawing on or off: drag on the page to draw, Esc stops. The pen draws in front of the text, the highlighter behind it, and the eraser removes the ink strokes it touches.', (p) => {
+    ed.ink.setTool(typeof p.tool === 'string' ? p.tool : ed.ink.tool, p.color !== undefined ? color(p.color) : undefined, p.width !== undefined ? Number(p.width) || undefined : undefined);
+    return ed.ink.toggle(p.on === undefined ? (p.tool !== undefined && ed.ink.on ? true : !ed.ink.on) : !!p.on);
+  }, [{ name: 'on', type: 'boolean', description: 'On or off; empty toggles' }, { name: 'tool', type: 'string', description: 'pen, highlighter or eraser' }, { name: 'color', type: 'string', description: 'Colour #rrggbb for the pen or highlighter' }, { name: 'width', type: 'number', description: 'Width in points' }]);
   add('shape.effects', 'Shape effects', 'Shape', 'A soft shadow, and a gradient from the fill to a second colour.', needShape((a, p) => ({ shadow: p.shadow === undefined ? a.shadow : !!p.shadow, gradient: p.gradient === undefined ? a.gradient : color(p.gradient) })), [{ name: 'shadow', type: 'boolean', description: 'Soft shadow' }, { name: 'gradient', type: 'string', description: 'Second colour #rrggbb; empty removes it' }]);
   add('picture.style', 'Picture style', 'Picture', 'Border colour and width, rounded corners and a soft shadow.', needPic((a, p) => {
     const width = p.borderWidth === undefined ? Number(a.borderWidth) || 0 : Math.max(0, Number(p.borderWidth) || 0);

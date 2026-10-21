@@ -315,6 +315,7 @@ export class ShapeView implements NodeView {
     attr(this.path, 'stroke-linecap', custom ? 'round' : null);
     attr(this.path, 'stroke-linejoin', custom ? 'round' : null);
     attr(this.path, 'vector-effect', kind === 'ink' ? 'non-scaling-stroke' : null);
+    attr(this.svg, 'opacity', Number(a.opacity) > 0 && Number(a.opacity) < 1 ? String(Number(a.opacity)) : null);
     set(this.svg, 'filter', a.shadow ? 'drop-shadow(0 3px 4px rgba(0, 0, 0, 0.3))' : '');
     attr(this.svg, 'role', kind === 'icon' && a.alt ? 'img' : null);
     attr(this.svg, 'aria-label', kind === 'icon' && a.alt ? String(a.alt) : null);
