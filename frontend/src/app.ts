@@ -8,6 +8,9 @@ import { Home } from './ui/home';
 import { icon } from './ui/icons';
 import { DocEditor } from './editor/editor';
 import { registerEditorCommands } from './editor/register';
+import { connectBridge } from './automation/bridge';
+import { CommandPalette } from './ui/palette';
+import { Shortcuts } from './ui/shortcuts';
 import { toast } from './ui/toast';
 import { VERSION } from './version';
 
@@ -100,6 +103,16 @@ export async function startApp(): Promise<void> {
     status: (words) => setText(docStatus, `${words} word${words === 1 ? '' : 's'}${pending ? ' · Editing' : ''}`),
   });
   registerEditorCommands(commands, editor);
+  const shortcuts = new Shortcuts(commands);
+  const palette = new CommandPalette(commands);
+  commands.register({ id: 'edit.commandPalette', label: 'Find a command', group: 'Help', description: 'Search every command by name and run it.', keys: ['Ctrl+Shift+P'], run: () => { palette.open(); return true; } });
+  commands.register({ id: 'help.shortcuts', label: 'Keyboard shortcuts', group: 'Help', description: 'See and change keyboard shortcuts.', keys: ['Ctrl+/'], run: () => { shortcuts.open(); return true; } });
+  shortcuts.bindGlobal('Mod+Shift+P', 'edit.commandPalette');
+  shortcuts.bindGlobal('Mod+/', 'help.shortcuts');
+  shortcuts.bindGlobal('Mod+Shift+G', 'tools.wordCount');
+  shortcuts.bindGlobal('Mod+Shift+C', 'format.painter');
+  void shortcuts.load();
+  connectBridge(commands);
   window.addEventListener('beforeunload', () => { void flush(); });
 
   const openDocument = async (id: string): Promise<FtxtDocument> => {

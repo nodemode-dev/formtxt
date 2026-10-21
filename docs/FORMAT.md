@@ -31,7 +31,7 @@ Lengths are points (1/72 inch). Colours are `#rrggbb`. Ids are a prefix plus 4 t
 | `styles` | object | style id to style (below) |
 | `numbering` | object | list definitions, keyed by id (Phase 2) |
 | `sections` | array | at least one section (below) |
-| `tabs` | array | at least one document tab, each `id`, `title`, `parent` (tab id or null) and `body` |
+| `tabs` | array | at least one document tab, each `id`, `title`, `parent` (tab id or null) and `body`; every tab shares the document's styles and sections |
 | `notes` | object | `footnotes` and `endnotes`, keyed by id (Phase 5) |
 | `comments` | object | keyed by id (Phase 6) |
 | `media` | object | media name to metadata (Phase 4) |
@@ -50,8 +50,8 @@ Each body entry has `type` and `id`. Version 1 defines:
 
 | Block | Keys |
 | --- | --- |
-| `paragraph` | `style` (paragraph style id; headings are paragraphs styled `Heading1` to `Heading9`, as in Word), `section`, optional `props` (direct formatting: `align`, `indent` in points, `spaceBefore`, `spaceAfter`, `lineSpacing` as a multiple), optional `list` (`kind` of `bullet`, `number` or `check`, `level` 0 to 8, `checked` for checklists), and `content` |
+| `paragraph` | `style` (paragraph style id; headings are paragraphs styled `Heading1` to `Heading9`, as in Word), `section`, optional `props` (direct formatting: `align`, `indent`, `indentRight` and `indentFirst` in points with a negative first line hanging, `spaceBefore`, `spaceAfter`, `lineSpacing` as a multiple, `keepNext`, `keepLines`, `widowControl`, `border` of `box`, `top`, `bottom`, `left` or `right`, `shading` as `#rrggbb`, `tabs` as a list of `pos` in points, `align` of `left`, `center`, `right` or `decimal` and `leader` of `none`, `dot` or `dash`, and `collapsed` on a heading folded in the editor), optional `list` (`kind` of `bullet`, `number` or `check`, `level` 0 to 8, `checked` for checklists), and `content` |
 | `code` | `text`, the block's plain text |
 | `pageBreak` | nothing else |
 
-Inline nodes in `content` are `text` (`text`, optional `marks`) and `break` (a line break inside a paragraph). `marks` keys: `bold`, `italic`, `underline`, `strike`, `superscript`, `subscript`, `smallCaps`, `allCaps`, `code` (each `true`), `font` (family name), `size` (points), `color` and `highlight` (`#rrggbb`), and `link` (address). Later phases add tables, pictures and the rest as new block and inline types; readers keep unknown types intact on save.
+Inline nodes in `content` are `text` (`text`, optional `marks`) and `break` (a line break inside a paragraph). `marks` keys: `bold`, `italic`, `strike`, `superscript`, `subscript`, `smallCaps`, `allCaps`, `code` (each `true`), `underline` (`true` for single, or `double`, `dotted`, `dash`, `wavy`), `font` (family name), `size` (points), `spacing` (character spacing in points), `color` and `highlight` (`#rrggbb`), and `link` (address). Later phases add tables, pictures and the rest as new block and inline types; readers keep unknown types intact on save.

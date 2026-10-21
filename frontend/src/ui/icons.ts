@@ -46,6 +46,9 @@ export const ICONS: Record<string, string> = {
   pageBreak: L('<path d="M6 3.5v5h12v-5M6 20.5v-5h12v5M3.5 12h3M10.5 12h3M17.5 12h3"/>'),
   clearFormat: L('<path d="M6.5 4.5h11M12 4.5l-3 15M14 13.5l6 6M20 13.5l-6 6"/>'),
   outline: L('<path d="M4.5 6h4M4.5 12h4M4.5 18h4M11.5 6h8M13.5 12h6M13.5 18h6"/>'),
+  painter: L('<rect x="4.5" y="3.5" width="12" height="6" rx="1.5"/><path d="M16.5 6.5h2.5v5h-8v3"/><rect x="9.5" y="14.5" width="3" height="6" rx="1"/>'),
+  paragraph: L('<path d="M13 4.5v15M17 4.5v15M19.5 4.5H10a4 4 0 0 0 0 8h3"/>'),
+  styles: L('<path d="M4.5 18.5L9 5.5h1.5l4.5 13M6.2 13.5h7"/><path d="M16.5 10.5h3M16.5 14.5h3M16.5 18.5h3"/>'),
   chevronUp: L('<path d="M6 15l6-6 6 6"/>'),
   chevronDown: L('<path d="M6 9l6 6 6-6"/>'),
 };

@@ -2,8 +2,8 @@
 
 Living log of comment content, rationale and removed code for the frontend. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.3.0
-Last updated: 2026-10-21 · Phase 2 editor core
+Current build version: v0.4.0
+Last updated: 2026-10-21 · Phase 2b tabs, styles, paragraph settings, palette, shortcuts, bridge
 
 ---
 
@@ -31,6 +31,10 @@ frontend/
     ├── editor/plugins.ts    input rules, unique ids, find and replace
     ├── editor/editor.ts     DocEditor: toolbar, page, outline, find panel, autosave hooks
     ├── editor/register.ts   editor commands in the registry, toolbar wiring
+    ├── editor/dialogs.ts    paragraph settings, style editor, word count
+    ├── automation/bridge.ts WebSocket to /api/live so the CLI runs commands in the window
+    ├── ui/palette.ts        Find a Command
+    ├── ui/shortcuts.ts      custom and global shortcuts, the shortcuts dialog
     ├── ui/dialog.ts         modal dialog in #overlay-root
     ├── ui/toast.ts          toasts and the undo toast in #toast-root
     └── styles/              fonts, tokens (with the z scale), light mode, shell, components, home, reader
@@ -46,8 +50,29 @@ frontend/
 - [src/ui/home.ts](#home)
 - [src/ui/reader.ts](#reader)
 - [src/editor/](#editor)
+- [src/ui/palette.ts, shortcuts.ts, automation/bridge.ts](#commands-ui)
 
 ---
+
+## src/ui/palette.ts, src/ui/shortcuts.ts, src/automation/bridge.ts {#commands-ui}
+
+### palette · only commands without values
+- refers-to: src/ui/palette.ts :: render()
+- kind: rationale
+- logged: v0.4.0 · 2026-10-21
+- Find a Command lists commands that run without parameters; value commands (font, size, colour, style) stay on the toolbar and in the CLI, so the palette never runs one with a missing value.
+
+### shortcuts · custom keys first
+- refers-to: src/ui/shortcuts.ts :: constructor keydown capture
+- kind: rationale
+- logged: v0.4.0 · 2026-10-21
+- A capture-phase listener runs custom bindings (saved as `keys` in settings) and a few global ones (palette, shortcuts, word count, Format Painter) before ProseMirror sees the key, so a rebinding wins; the editor's built-in keymap still answers everything else.
+
+### bridge · the window runs commands for the CLI
+- refers-to: src/automation/bridge.ts :: connectBridge()
+- kind: explainer
+- logged: v0.4.0 · 2026-10-21
+- The window keeps a WebSocket to `/api/live` (reconnecting with backoff up to 10 s) and answers `run` messages with the registry's result, so `./formtxt cli run` and `POST /api/commands/<id>` act on exactly what the person sees.
 
 ## src/ui/home.ts {#home}
 
@@ -121,7 +146,37 @@ frontend/
 - logged: v0.3.0 · 2026-10-21
 - Saves 700 ms after the last change with a full PUT of the document, serialised through one promise chain so saves never overlap; leaving for Home, opening another document or closing the window flushes first.
 
-### editor · toolbar focus
+### editor · document tabs
+- refers-to: src/editor/editor.ts :: states, selectTab(), addTab(), current()
+- kind: rationale
+- logged: v0.4.0 · 2026-10-21
+- One EditorView, one EditorState per tab kept in a map, swapped with `updateState`, so each tab keeps its own undo history and switching never remounts the page. `current()` serialises every tab that has a state; untouched tabs pass through as loaded.
+
+### editor · collapsible headings
+- refers-to: src/editor/plugins.ts :: collapsePlugin; editor.ts mousedown left of a heading
+- kind: explainer
+- logged: v0.4.0 · 2026-10-21
+- `collapsed` is a paragraph attribute (saved, like Docs keeps the default per document); the plugin adds `ft-folded` node decorations from a folded heading to the next heading of the same or a higher level. The caret is the heading's ::after in the left margin, and a mousedown left of the heading box toggles it.
+
+### editor · Format Painter
+- refers-to: src/editor/editor.ts :: togglePainter(), applyPainter()
+- kind: explainer
+- logged: v0.4.0 · 2026-10-21
+- One-shot: copies the marks at the cursor and the paragraph's style and direct formatting; the next mouseup in the page applies them (marks only to a non-empty selection), as Word's single click does.
+
+### editor · styles outside undo
+- refers-to: src/editor/editor.ts :: setStyles(); src/editor/dialogs.ts :: stylesDialog()
+- kind: warning-context
+- logged: v0.4.0 · 2026-10-21
+- Style edits change `doc.styles` and rewrite the stylesheet; they are saved but not part of ProseMirror's undo history. Revisit when the engine owns operations with attributed turns.
+
+### editor · pagination options stored ahead of layout
+- refers-to: src/editor/dialogs.ts :: paragraphDialog()
+- kind: todo
+- logged: v0.4.0 · 2026-10-21
+- keepNext, keepLines, widowControl and tab stop positions are saved and shown in the dialog; they only change rendering once Phase 3 lays out pages. Tab stops today set the paragraph's `tab-size` from the first stop.
+
+### toolbar · focus
 - refers-to: src/editor/register.ts :: registerEditorCommands() mousedown
 - kind: rationale
 - logged: v0.3.0 · 2026-10-21

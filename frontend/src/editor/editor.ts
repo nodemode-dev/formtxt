@@ -10,9 +10,10 @@ import type { FtxtDocument, ParaProps, RunProps } from '../engine/model';
 import { Dialog } from '../ui/dialog';
 import { el, escapeHtml, patchList, setClass, setHidden, setText, setValue } from '../ui/dom';
 import { icon } from '../ui/icons';
-import { clearFormatting, insertPageBreak, mark, setAlign, setLineSpacing, setLink, setMarkValue, setStyle, shiftIndent, splitWithNextStyle, toggleChecked, toggleCodeBlock, toggleList } from './commands';
+import { type CaseMode, changeCase, clearFormatting, insertPageBreak, mark, setAlign, setLineSpacing, setLink, setMarkValue, setParaProps, setStyle, shiftIndent, splitWithNextStyle, toggleChecked, toggleCodeBlock, toggleCollapsed, toggleList } from './commands';
 import { fromPM, toPM } from './convert';
-import { findKey, findPlugin, rules, uniqueIds } from './plugins';
+import { collapsePlugin, findKey, findPlugin, rules, uniqueIds } from './plugins';
+import type { DocTab, Style } from '../engine/model';
 import { schema } from './schema';
 
 const PX = 96 / 72;
@@ -92,6 +93,10 @@ export class DocEditor {
   private readonly sizeSelect: HTMLSelectElement;
   private readonly spacingSelect: HTMLSelectElement;
   private outlineFrame = 0;
+  private readonly states = new Map<string, EditorState>();
+  activeTab = '';
+  private readonly tabsList: HTMLElement;
+  private painter: { marks: readonly Mark[]; para: Record<string, unknown> | null } | null = null;
 
   constructor(host: HTMLElement, private readonly hooks: EditorHooks) {
     this.root = el(`<div class="ft-editor" hidden>
@@ -106,11 +111,12 @@ ${TB('format.bold', 'bold', 'Bold', 'Ctrl+B')}${TB('format.italic', 'italic', 'I
 ${TB('paragraph.align.left', 'alignLeft', 'Align left', 'Ctrl+Shift+L')}${TB('paragraph.align.center', 'alignCenter', 'Center', 'Ctrl+Shift+E')}${TB('paragraph.align.right', 'alignRight', 'Align right', 'Ctrl+Shift+R')}${TB('paragraph.align.justify', 'alignJustify', 'Justify', 'Ctrl+Shift+J')}${SEP}
 ${TB('list.bullet', 'listBullet', 'Bulleted list', 'Ctrl+Shift+8')}${TB('list.number', 'listNumber', 'Numbered list', 'Ctrl+Shift+7')}${TB('list.check', 'listCheck', 'Checklist', 'Ctrl+Shift+9')}${TB('paragraph.outdent', 'outdent', 'Decrease indent', 'Shift+Tab')}${TB('paragraph.indent', 'indent', 'Increase indent', 'Tab')}
 <select class="ft-tb-select ft-tb-spacing" data-cmd="paragraph.lineSpacing" aria-label="Line spacing">${SPACINGS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>${SEP}
+${TB('format.painter', 'painter', 'Format Painter', 'Ctrl+Shift+C')}${TB('format.paragraph', 'paragraph', 'Paragraph settings')}${TB('format.styles', 'styles', 'Styles')}${SEP}
 ${TB('insert.link', 'link', 'Link', 'Ctrl+K')}${TB('insert.codeBlock', 'code', 'Code block')}${TB('insert.pageBreak', 'pageBreak', 'Page break', 'Ctrl+Enter')}${TB('format.clear', 'clearFormat', 'Clear formatting', 'Ctrl+\\')}${SEP}
 ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', 'outline', 'Outline')}
 </div>
 <div class="ft-editor-body">
-<nav class="ft-outline" aria-label="Outline"><div class="ft-outline-title">Outline</div><div class="ft-outline-list"></div><p class="ft-outline-none">Headings you add appear here.</p></nav>
+<nav class="ft-outline" aria-label="Outline"><div class="ft-outline-title ft-tabs-head">Tabs<button type="button" class="ft-tb-btn sm" data-cmd="tabs.add" title="Add tab" aria-label="Add tab">${icon('plus', 14)}</button></div><div class="ft-tabs-list"></div><div class="ft-outline-title">Outline</div><div class="ft-outline-list"></div><p class="ft-outline-none">Headings you add appear here.</p></nav>
 <div class="ft-scroll"><article class="ft-page"><div class="ft-pm"></div></article></div>
 <div class="ft-find" role="search" hidden>
 <div class="ft-find-row"><input class="ft-input ft-find-q" type="search" placeholder="Find" spellcheck="false" aria-label="Find"><span class="ft-find-count"></span>
@@ -136,6 +142,27 @@ ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', '
     this.outline.addEventListener('click', (e) => {
       const row = (e.target as HTMLElement).closest<HTMLElement>('[data-pos]');
       if (row && this.view) this.goTo(Number(row.dataset.pos));
+    });
+    this.tabsList = this.root.querySelector('.ft-tabs-list') as HTMLElement;
+    this.tabsList.addEventListener('click', (e) => {
+      const row = (e.target as HTMLElement).closest<HTMLElement>('[data-tab]');
+      if (row?.dataset.tab) this.selectTab(row.dataset.tab);
+    });
+    this.tabsList.addEventListener('dblclick', (e) => {
+      const row = (e.target as HTMLElement).closest<HTMLElement>('[data-tab]');
+      if (row?.dataset.tab) this.promptRenameTab(row.dataset.tab);
+    });
+    this.mount.addEventListener('mousedown', (e) => {
+      const h = (e.target as HTMLElement).closest<HTMLElement>('p[data-style^="Heading"]');
+      if (!h || !this.view || e.clientX >= h.getBoundingClientRect().left) return;
+      e.preventDefault();
+      const pos = this.view.posAtDOM(h, 0);
+      this.view.dispatch(this.view.state.tr.setSelection(TextSelection.create(this.view.state.doc, pos)));
+      this.run(toggleCollapsed);
+    });
+    this.mount.addEventListener('mouseup', () => {
+      if (!this.painter) return;
+      window.setTimeout(() => this.applyPainter(), 0);
     });
     this.mount.addEventListener('mousedown', (e) => {
       const p = (e.target as HTMLElement).closest<HTMLElement>('p[data-list="check"]');
@@ -181,7 +208,11 @@ ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', '
     this.page.dataset.layout = tpl?.layout ?? 'classic';
     this.page.style.setProperty('--doc-accent', tpl?.accent ?? '#f97316');
     this.syncStyleOptions();
-    const state = EditorState.create({ doc: toPM(doc), plugins: [rules, ...this.keys(), history(), dropCursor(), gapCursor(), uniqueIds, findPlugin] });
+    this.states.clear();
+    this.activeTab = doc.tabs[0].id;
+    const state = this.makeState(0);
+    this.states.set(this.activeTab, state);
+    this.renderTabs();
     if (!this.view) {
       this.view = new EditorView(this.mount, {
         state,
@@ -190,6 +221,7 @@ ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', '
           if (!this.view) return;
           const next = this.view.state.apply(tr);
           this.view.updateState(next);
+          this.states.set(this.activeTab, next);
           this.syncToolbar();
           if (tr.docChanged) { this.emitChange(); this.scheduleOutline(); }
           if (tr.getMeta(findKey) || tr.docChanged) this.syncFind();
@@ -212,8 +244,160 @@ ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', '
 
   current(): FtxtDocument | null {
     if (!this.doc || !this.view) return null;
-    const tabs = this.doc.tabs.map((t, i) => (i === 0 ? { ...t, body: fromPM(this.view!.state.doc, this.doc!.sections[0].id) } : t));
+    const section = this.doc.sections[0].id;
+    const tabs = this.doc.tabs.map((t) => { const s = this.states.get(t.id); return s ? { ...t, body: fromPM(s.doc, section) } : t; });
     return { ...this.doc, tabs };
+  }
+
+  private makeState(index: number): EditorState {
+    return EditorState.create({ doc: toPM(this.doc!, index), plugins: [rules, ...this.keys(), history(), dropCursor(), gapCursor(), uniqueIds, findPlugin, collapsePlugin] });
+  }
+
+  tabs(): DocTab[] { return this.doc?.tabs ?? []; }
+
+  selectTab(id: string): boolean {
+    if (!this.doc || !this.view) throw new Error('Open a document first.');
+    const index = this.doc.tabs.findIndex((t) => t.id === id);
+    if (index < 0) throw new Error(`No tab has the id ${id}.`);
+    if (id === this.activeTab) return true;
+    this.states.set(this.activeTab, this.view.state);
+    this.activeTab = id;
+    let state = this.states.get(id);
+    if (!state) { state = this.makeState(index); this.states.set(id, state); }
+    this.view.updateState(state);
+    this.renderTabs();
+    this.renderOutline();
+    this.syncToolbar();
+    this.hooks.status(this.words());
+    (this.root.querySelector('.ft-scroll') as HTMLElement).scrollTop = 0;
+    this.view.focus();
+    return true;
+  }
+
+  addTab(title = ''): string {
+    if (!this.doc) throw new Error('Open a document first.');
+    const id = `tab_${Math.random().toString(36).slice(2, 12)}`;
+    const name = title.trim() || `Tab ${this.doc.tabs.length + 1}`;
+    this.doc = { ...this.doc, tabs: [...this.doc.tabs, { id, title: name, parent: null, body: [] }] };
+    this.selectTab(id);
+    this.emitChange();
+    return id;
+  }
+
+  renameTab(id: string, title: string): boolean {
+    if (!this.doc) throw new Error('Open a document first.');
+    if (!title.trim()) throw new Error('A tab needs a name.');
+    this.doc = { ...this.doc, tabs: this.doc.tabs.map((t) => (t.id === id ? { ...t, title: title.trim().slice(0, 120) } : t)) };
+    this.renderTabs();
+    this.emitChange();
+    return true;
+  }
+
+  deleteTab(id: string): boolean {
+    if (!this.doc) throw new Error('Open a document first.');
+    if (this.doc.tabs.length < 2) throw new Error('A document keeps at least one tab.');
+    const rest = this.doc.tabs.filter((t) => t.id !== id);
+    if (id === this.activeTab) this.selectTab(rest[0].id);
+    this.doc = { ...this.doc, tabs: rest };
+    this.states.delete(id);
+    this.renderTabs();
+    this.emitChange();
+    return true;
+  }
+
+  private promptRenameTab(id: string): void {
+    const tab = this.doc?.tabs.find((t) => t.id === id);
+    if (!tab) return;
+    const d = new Dialog('Rename tab', 420);
+    const input = el<HTMLInputElement>('<input class="ft-input" type="text" spellcheck="false">');
+    input.value = tab.title;
+    d.field('Name', input);
+    if ((this.doc?.tabs.length ?? 0) > 1) d.button('Delete tab', 'ghost', () => { d.close(); this.deleteTab(id); });
+    d.button('Cancel', 'ghost', () => d.close());
+    const ok = (): void => { d.close(); if (input.value.trim()) this.renameTab(id, input.value); };
+    d.button('Rename', 'primary', ok);
+    input.addEventListener('keydown', (e) => { if (e.key === 'Enter') ok(); });
+    d.open(input);
+  }
+
+  private renderTabs(): void {
+    const tabs = this.doc?.tabs ?? [];
+    const update = (n: HTMLElement, t: DocTab): void => { setText(n, t.title); setClass(n, 'is-active', t.id === this.activeTab); };
+    patchList(this.tabsList, tabs, { key: (t) => t.id, create: (t) => { const n = el(`<button type="button" class="ft-outline-item ft-tab" data-tab="${escapeHtml(t.id)}" title="Double-click to rename"></button>`); update(n, t); return n; }, update });
+  }
+
+  styles(): Record<string, Style> { return this.doc?.styles ?? {}; }
+
+  currentStyleId(): string {
+    const p = this.view?.state.selection.$from.parent;
+    return p && p.type === schema.nodes.paragraph ? String(p.attrs.style) : 'Normal';
+  }
+
+  currentPara(): Record<string, unknown> {
+    const p = this.view?.state.selection.$from.parent;
+    return p ? { ...p.attrs } : {};
+  }
+
+  resolvedStyle(id: string): { run: Record<string, unknown>; para: Record<string, unknown> } {
+    if (!this.doc) return { run: {}, para: {} };
+    const r = resolve(this.doc, id);
+    return { run: r.run, para: r.para as Record<string, unknown> };
+  }
+
+  setStyles(styles: Record<string, Style>): void {
+    if (!this.doc) throw new Error('Open a document first.');
+    this.doc = { ...this.doc, styles };
+    this.sheet.textContent = styleSheet(this.doc);
+    this.syncStyleOptions();
+    this.syncToolbar();
+    this.emitChange();
+  }
+
+  paraProps(props: Record<string, unknown>): boolean { return this.run(setParaProps(props)); }
+  recase(mode: CaseMode): boolean { return this.run(changeCase(mode)); }
+  collapse(): boolean { return this.run(toggleCollapsed); }
+
+  stats(): { words: number; characters: number; charactersNoSpaces: number; paragraphs: number } {
+    const doc = this.view?.state.doc;
+    if (!doc) return { words: 0, characters: 0, charactersNoSpaces: 0, paragraphs: 0 };
+    const text = doc.textBetween(0, doc.content.size, '\n', ' ');
+    let paragraphs = 0;
+    doc.forEach((n) => { if (n.textContent.trim()) paragraphs++; });
+    return { words: this.words(), characters: text.replace(/\n/g, '').length, charactersNoSpaces: text.replace(/\s/g, '').length, paragraphs };
+  }
+
+  togglePainter(): boolean {
+    if (!this.view) throw new Error('Open a document first.');
+    if (this.painter) { this.painter = null; }
+    else {
+      const p = this.view.state.selection.$from.parent;
+      const para = p.type === schema.nodes.paragraph ? { style: p.attrs.style, align: p.attrs.align, indent: p.attrs.indent, indentRight: p.attrs.indentRight, indentFirst: p.attrs.indentFirst, spaceBefore: p.attrs.spaceBefore, spaceAfter: p.attrs.spaceAfter, lineSpacing: p.attrs.lineSpacing, border: p.attrs.border, shading: p.attrs.shading } : null;
+      this.painter = { marks: this.activeMarks(), para };
+    }
+    setClass(this.root.querySelector('[data-cmd="format.painter"]'), 'is-on', !!this.painter);
+    setClass(this.mount, 'is-painting', !!this.painter);
+    return !!this.painter;
+  }
+
+  private applyPainter(): void {
+    if (!this.view || !this.painter) return;
+    const { from, to, empty } = this.view.state.selection;
+    const paint = this.painter;
+    this.painter = null;
+    setClass(this.root.querySelector('[data-cmd="format.painter"]'), 'is-on', false);
+    setClass(this.mount, 'is-painting', false);
+    const tr = this.view.state.tr;
+    if (!empty) {
+      for (const t of Object.values(schema.marks)) if (t.name !== 'link') tr.removeMark(from, to, t);
+      for (const m of paint.marks) if (m.type.name !== 'link') tr.addMark(from, to, m);
+    }
+    if (paint.para) {
+      this.view.state.doc.nodesBetween(from, to, (node, pos) => {
+        if (node.type === schema.nodes.paragraph) tr.setNodeMarkup(pos, undefined, { ...node.attrs, ...paint.para });
+        return node.type !== schema.nodes.paragraph;
+      });
+    }
+    if (tr.docChanged) this.view.dispatch(tr);
   }
 
   private emitChange(): void {

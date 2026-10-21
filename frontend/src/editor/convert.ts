@@ -2,8 +2,9 @@ import type { Mark, Node as PMNode } from 'prosemirror-model';
 import type { Block, FtxtDocument, TextRun } from '../engine/model';
 import { schema } from './schema';
 
-const FLAG_MARKS = ['bold', 'italic', 'underline', 'strike', 'superscript', 'subscript', 'smallCaps', 'allCaps', 'code'] as const;
-const PROPS = ['align', 'indent', 'spaceBefore', 'spaceAfter', 'lineSpacing'] as const;
+const FLAG_MARKS = ['bold', 'italic', 'strike', 'superscript', 'subscript', 'smallCaps', 'allCaps', 'code'] as const;
+const PROPS = ['align', 'indent', 'indentRight', 'indentFirst', 'spaceBefore', 'spaceAfter', 'lineSpacing', 'keepNext', 'keepLines', 'widowControl', 'border', 'shading', 'tabs', 'collapsed'] as const;
+const PROP_DEFAULTS: Record<string, unknown> = { align: '', indent: 0, indentRight: 0, indentFirst: 0, spaceBefore: null, spaceAfter: null, lineSpacing: null, keepNext: false, keepLines: false, widowControl: true, border: '', shading: '', tabs: null, collapsed: false };
 
 function newId(): string {
   const a = new Uint8Array(6);
@@ -15,6 +16,8 @@ function marksFrom(m: Record<string, unknown> | undefined): Mark[] {
   if (!m) return [];
   const out: Mark[] = [];
   for (const k of FLAG_MARKS) if (m[k]) out.push(schema.marks[k].create());
+  if (m.underline) out.push(schema.marks.underline.create({ style: typeof m.underline === 'string' ? m.underline : 'single' }));
+  if (typeof m.spacing === 'number' && m.spacing) out.push(schema.marks.spacing.create({ pt: m.spacing }));
   if (typeof m.font === 'string' && m.font) out.push(schema.marks.font.create({ family: m.font }));
   if (typeof m.size === 'number' && m.size > 0) out.push(schema.marks.size.create({ pt: m.size }));
   if (typeof m.color === 'string' && m.color) out.push(schema.marks.color.create({ value: m.color }));
@@ -41,14 +44,12 @@ export function toPM(doc: FtxtDocument, tabIndex = 0): PMNode {
     else if (blk.type === 'pageBreak') blocks.push(schema.nodes.page_break.create());
     else {
       const p = blk.props ?? {};
+      const props: Record<string, unknown> = {};
+      for (const k of PROPS) props[k] = p[k] !== undefined && p[k] !== null ? p[k] : PROP_DEFAULTS[k];
       blocks.push(schema.nodes.paragraph.create({
+        ...props,
         id: blk.id || newId(),
         style: blk.style || 'Normal',
-        align: typeof p.align === 'string' ? p.align : '',
-        indent: typeof p.indent === 'number' ? p.indent : 0,
-        spaceBefore: typeof p.spaceBefore === 'number' ? p.spaceBefore : null,
-        spaceAfter: typeof p.spaceAfter === 'number' ? p.spaceAfter : null,
-        lineSpacing: typeof p.lineSpacing === 'number' ? p.lineSpacing : null,
         list: blk.list?.kind ?? '',
         level: blk.list?.level ?? 0,
         checked: !!blk.list?.checked,
@@ -65,6 +66,8 @@ function runFrom(node: PMNode): Record<string, unknown> {
   for (const m of node.marks) {
     const n = m.type.name;
     if ((FLAG_MARKS as readonly string[]).includes(n)) marks[n] = true;
+    else if (n === 'underline') marks.underline = m.attrs.style === 'single' ? true : m.attrs.style;
+    else if (n === 'spacing') marks.spacing = m.attrs.pt;
     else if (n === 'font') marks.font = m.attrs.family;
     else if (n === 'size') marks.size = m.attrs.pt;
     else if (n === 'color') marks.color = m.attrs.value;
@@ -86,7 +89,7 @@ export function fromPM(pm: PMNode, section: string): Block[] {
     const props: Record<string, unknown> = {};
     for (const k of PROPS) {
       const v = a[k];
-      if (v !== null && v !== '' && !(k === 'indent' && v === 0)) props[k] = v;
+      if (v !== null && JSON.stringify(v) !== JSON.stringify(PROP_DEFAULTS[k])) props[k] = v;
     }
     if (Object.keys(props).length) block.props = props;
     if (a.list) block.list = { kind: a.list, level: a.level, ...(a.list === 'check' ? { checked: a.checked } : {}) };

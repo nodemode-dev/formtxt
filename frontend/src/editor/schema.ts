@@ -15,9 +15,23 @@ function paraAttrs(n: PMNode): Attrs {
     out['data-level'] = String(a.level);
     if (a.list === 'check') out['data-checked'] = a.checked ? 'true' : 'false';
   }
+  if (a.collapsed) out['data-collapsed'] = 'true';
+  if (a.keepNext) out['data-keep-next'] = 'true';
+  if (a.keepLines) out['data-keep-lines'] = 'true';
+  if (a.widowControl === false) out['data-widow'] = 'off';
+  if (Array.isArray(a.tabs) && a.tabs.length) out['data-tabs'] = JSON.stringify(a.tabs);
   const css: string[] = [];
   if (a.align) css.push(`text-align:${a.align}`);
   if (a.indent) css.push(`margin-left:${(Number(a.indent) * 96) / 72}px`);
+  if (a.indentRight) css.push(`margin-right:${(Number(a.indentRight) * 96) / 72}px`);
+  if (a.indentFirst) css.push(`text-indent:${(Number(a.indentFirst) * 96) / 72}px`);
+  if (a.shading) css.push(`background:${a.shading}`);
+  if (a.border) {
+    const line = '1px solid #6b6b6b';
+    if (a.border === 'box') css.push(`border:${line}`, 'padding:4px 6px');
+    else css.push(`border-${a.border}:${line}`, `padding-${a.border}:4px`);
+  }
+  if (Array.isArray(a.tabs) && a.tabs.length) css.push(`tab-size:${Math.max(8, Math.round((Number((a.tabs[0] as { pos: number }).pos) * 96) / 72))}px`);
   if (a.spaceBefore !== null) css.push(`margin-top:${(Number(a.spaceBefore) * 96) / 72}px`);
   if (a.spaceAfter !== null) css.push(`margin-bottom:${(Number(a.spaceAfter) * 96) / 72}px`);
   if (a.lineSpacing !== null) css.push(`line-height:${Number(a.lineSpacing) * 1.2}`);
@@ -35,6 +49,15 @@ const nodes: Record<string, NodeSpec> = {
       style: { default: 'Normal' },
       align: { default: '' },
       indent: { default: 0 },
+      indentRight: { default: 0 },
+      indentFirst: { default: 0 },
+      keepNext: { default: false },
+      keepLines: { default: false },
+      widowControl: { default: true },
+      border: { default: '' },
+      shading: { default: '' },
+      tabs: { default: null },
+      collapsed: { default: false },
       spaceBefore: { default: null },
       spaceAfter: { default: null },
       lineSpacing: { default: null },
@@ -90,7 +113,16 @@ const marks: Record<string, MarkSpec> = {
   },
   bold: { parseDOM: [{ tag: 'strong' }, { tag: 'b' }, { style: 'font-weight', getAttrs: (v: string) => (/^(bold|[6-9]00)$/.test(v) ? null : false) }], toDOM: () => ['strong', 0] },
   italic: { parseDOM: [{ tag: 'em' }, { tag: 'i' }, { style: 'font-style=italic' }], toDOM: () => ['em', 0] },
-  underline: { parseDOM: [{ tag: 'u' }, { style: 'text-decoration=underline' }], toDOM: () => ['u', 0] },
+  underline: {
+    attrs: { style: { default: 'single' } },
+    parseDOM: [{ tag: 'u', getAttrs: (dom: HTMLElement) => ({ style: dom.dataset.u || 'single' }) }, { style: 'text-decoration=underline' }],
+    toDOM: (m) => (m.attrs.style === 'single' ? ['u', 0] : ['u', { 'data-u': String(m.attrs.style), style: `text-decoration-style:${m.attrs.style === 'dash' ? 'dashed' : m.attrs.style}` }, 0]),
+  },
+  spacing: {
+    attrs: { pt: {} },
+    parseDOM: [{ tag: 'span[data-spacing]', getAttrs: (dom: HTMLElement) => ({ pt: Number(dom.dataset.spacing) }) }],
+    toDOM: (m) => ['span', { style: `letter-spacing:${(Number(m.attrs.pt) * 96) / 72}px`, 'data-spacing': String(m.attrs.pt) }, 0],
+  },
   strike: { parseDOM: [{ tag: 's' }, { tag: 'del' }, { style: 'text-decoration=line-through' }], toDOM: () => ['s', 0] },
   superscript: { excludes: 'subscript', parseDOM: [{ tag: 'sup' }], toDOM: () => ['sup', 0] },
   subscript: { excludes: 'superscript', parseDOM: [{ tag: 'sub' }], toDOM: () => ['sub', 0] },

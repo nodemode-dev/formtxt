@@ -78,7 +78,7 @@ export const clearFormatting: Command = (state, dispatch) => {
     const tr = state.tr;
     for (const t of Object.values(schema.marks)) if (t.name !== 'link') tr.removeMark(from, to, t);
     state.doc.nodesBetween(from, to, (node, pos) => {
-      if (node.type === schema.nodes.paragraph) tr.setNodeMarkup(pos, undefined, { ...node.attrs, style: 'Normal', align: '', indent: 0, spaceBefore: null, spaceAfter: null, lineSpacing: null });
+      if (node.type === schema.nodes.paragraph) tr.setNodeMarkup(pos, undefined, { ...node.attrs, style: 'Normal', align: '', indent: 0, indentRight: 0, indentFirst: 0, spaceBefore: null, spaceAfter: null, lineSpacing: null, keepNext: false, keepLines: false, widowControl: true, border: '', shading: '', tabs: null, collapsed: false });
       return node.type !== schema.nodes.paragraph;
     });
     dispatch(tr.setStoredMarks([]).scrollIntoView());
@@ -98,7 +98,7 @@ export function splitWithNextStyle(nextOf: (style: string) => string): Command {
     const atEnd = $from.parentOffset === para.content.size;
     return splitBlockAs((node) => ({
       type: schema.nodes.paragraph,
-      attrs: { ...node.attrs, id: null, checked: false, style: atEnd && !node.attrs.list ? nextOf(String(node.attrs.style)) : node.attrs.style },
+      attrs: { ...node.attrs, id: null, checked: false, collapsed: false, style: atEnd && !node.attrs.list ? nextOf(String(node.attrs.style)) : node.attrs.style },
     }))(state, dispatch, view);
   };
 }
@@ -117,6 +117,52 @@ export const toggleCodeBlock: Command = (state, dispatch) => {
   const inCode = state.selection.$from.parent.type === schema.nodes.code_block;
   return inCode ? setBlockType(schema.nodes.paragraph, { style: 'Normal' })(state, dispatch) : setBlockType(schema.nodes.code_block)(state, dispatch);
 };
+
+export const setParaProps = (props: ParaAttrs): Command => paraCommand(() => props);
+
+export const toggleCollapsed: Command = (state, dispatch) => {
+  const { $from } = state.selection;
+  const para = $from.parent;
+  if (para.type !== schema.nodes.paragraph || !/^Heading[1-9]$/.test(String(para.attrs.style))) return false;
+  dispatch?.(state.tr.setNodeMarkup($from.before(), undefined, { ...para.attrs, collapsed: !para.attrs.collapsed }));
+  return true;
+};
+
+export type CaseMode = 'upper' | 'lower' | 'title' | 'sentence' | 'toggle';
+
+function recase(text: string, mode: CaseMode, startOfSentence: boolean): string {
+  if (mode === 'upper') return text.toUpperCase();
+  if (mode === 'lower') return text.toLowerCase();
+  if (mode === 'toggle') return [...text].map((c) => (c === c.toUpperCase() ? c.toLowerCase() : c.toUpperCase())).join('');
+  if (mode === 'title') return text.toLowerCase().replace(/(^|[\s(\["'-])(\p{L})/gu, (_m, a: string, b: string) => a + b.toUpperCase());
+  let start = startOfSentence;
+  return [...text.toLowerCase()].map((c) => {
+    if (start && /\p{L}/u.test(c)) { start = false; return c.toUpperCase(); }
+    if (/[.!?]/.test(c)) start = true;
+    return c;
+  }).join('');
+}
+
+export function changeCase(mode: CaseMode): Command {
+  return (state, dispatch) => {
+    const { from, to, empty } = state.selection;
+    if (empty) return false;
+    if (dispatch) {
+      const tr = state.tr;
+      state.doc.nodesBetween(from, to, (node, pos) => {
+        if (!node.isText) return true;
+        const s = Math.max(from, pos), e = Math.min(to, pos + node.nodeSize);
+        const text = node.text!.slice(s - pos, e - pos);
+        const before = state.doc.textBetween(Math.max(0, s - 3), s, '\n', '\n');
+        const next = recase(text, mode, s === state.doc.resolve(s).start() || /[.!?]\s*$/.test(before));
+        if (next !== text) tr.replaceWith(tr.mapping.map(s), tr.mapping.map(e), schema.text(next, node.marks));
+        return false;
+      });
+      dispatch(tr.setSelection(TextSelection.create(tr.doc, from, to)));
+    }
+    return true;
+  };
+}
 
 export function setLink(href: string | null): Command {
   return (state, dispatch) => {

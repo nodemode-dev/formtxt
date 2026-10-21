@@ -43,6 +43,27 @@ export const rules = inputRules({
   ],
 });
 
+function headingLevel(node: { attrs: Record<string, unknown> }): number {
+  const m = /^Heading([1-9])$/.exec(String(node.attrs.style ?? ''));
+  return m ? Number(m[1]) : 0;
+}
+
+export const collapsePlugin = new Plugin({
+  props: {
+    decorations(state) {
+      const decos: Decoration[] = [];
+      let hideBelow = 0;
+      state.doc.forEach((node, pos) => {
+        const level = headingLevel(node);
+        if (hideBelow && level && level <= hideBelow) hideBelow = 0;
+        if (hideBelow) decos.push(Decoration.node(pos, pos + node.nodeSize, { class: 'ft-folded' }));
+        else if (level && node.attrs.collapsed) hideBelow = level;
+      });
+      return decos.length ? DecorationSet.create(state.doc, decos) : null;
+    },
+  },
+});
+
 export interface FindState {
   query: string;
   regex: boolean;
