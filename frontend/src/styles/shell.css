@@ -79,6 +79,7 @@
   font-variant-numeric: tabular-nums;
 }
 .ft-engine { display: inline-flex; align-items: center; gap: var(--space-2); min-width: 220px; }
+.ft-docstatus { min-width: 180px; text-align: center; }
 .ft-dot { width: 8px; height: 8px; border-radius: var(--radius-pill); background: var(--text-muted); }
 .ft-dot.ok { background: var(--ok); }
 .ft-dot.bad { background: var(--danger); }

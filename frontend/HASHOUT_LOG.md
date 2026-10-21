@@ -2,8 +2,8 @@
 
 Living log of comment content, rationale and removed code for the frontend. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.2.0
-Last updated: 2026-10-21 · Phase 1 home screen and reader
+Current build version: v0.3.0
+Last updated: 2026-10-21 · Phase 2 editor core
 
 ---
 
@@ -25,7 +25,12 @@ frontend/
     ├── ui/dom.ts            patch helpers (from FormDeck)
     ├── ui/icons.ts          inline currentColor SVG icons
     ├── ui/home.ts           Home: Start, Recent, Templates, Trash, template preview
-    ├── ui/reader.ts         read-only page view until the Phase 2 editor
+    ├── editor/schema.ts     ProseMirror schema shaped like WordprocessingML
+    ├── editor/convert.ts    .ftxt body to and from the ProseMirror document
+    ├── editor/commands.ts   styles, lists, indents, alignment, marks, page break, links
+    ├── editor/plugins.ts    input rules, unique ids, find and replace
+    ├── editor/editor.ts     DocEditor: toolbar, page, outline, find panel, autosave hooks
+    ├── editor/register.ts   editor commands in the registry, toolbar wiring
     ├── ui/dialog.ts         modal dialog in #overlay-root
     ├── ui/toast.ts          toasts and the undo toast in #toast-root
     └── styles/              fonts, tokens (with the z scale), light mode, shell, components, home, reader
@@ -40,6 +45,7 @@ frontend/
 - [src/styles/tokens.css](#tokens)
 - [src/ui/home.ts](#home)
 - [src/ui/reader.ts](#reader)
+- [src/editor/](#editor)
 
 ---
 
@@ -71,11 +77,55 @@ frontend/
 
 ## src/ui/reader.ts {#reader}
 
-### reader · stepping stone
-- refers-to: src/ui/reader.ts :: class Reader
-- kind: todo
-- logged: v0.2.0 · 2026-10-21
-- Renders the first document tab as one continuous sheet at the section's page width and margins, with styles resolved through `basedOn`. The ProseMirror editor replaces it in Phase 2, and pagination comes in Phase 3.
+### reader · removed in v0.3.0
+- refers-to: src/ui/reader.ts (deleted)
+- kind: removed-code
+- logged: v0.3.0 · 2026-10-21
+- The read-only page view (class Reader: one continuous sheet, styles resolved through `basedOn` into inline CSS per block) was replaced by `src/editor/editor.ts`. Its page styling lives on in `styles/reader.css` (`.ft-page` and the template layout rules), which the editor uses.
+
+## src/editor/ {#editor}
+
+### editor · a Word-shaped schema, not Form.md's
+- refers-to: src/editor/schema.ts :: nodes, marks
+- kind: rationale
+- logged: v0.3.0 · 2026-10-21
+- Form.md's schema is block-tree and Notion-shaped. FormTxt's mirrors WordprocessingML instead: a heading is a paragraph with a heading style, a list item is a paragraph with list kind and level (Word's numbering), and direct formatting lives in paragraph attributes and marks. That keeps `.docx` mapping 1:1 in Phase 7. The ProseMirror plumbing (history, input rules, keymaps) follows Form.md's usage.
+
+### editor · styles as one stylesheet
+- refers-to: src/editor/editor.ts :: styleSheet(), load()
+- kind: rationale
+- logged: v0.3.0 · 2026-10-21
+- Paragraph styles become one `<style id="ft-doc-styles">` keyed on `p[data-style]`, rewritten only when a document loads, so restyling never touches paragraph nodes. Direct formatting rides on the paragraph's inline style and wins.
+
+### editor · fonts before the document shows
+- refers-to: src/editor/editor.ts :: loadFonts()
+- kind: rationale
+- logged: v0.3.0 · 2026-10-21
+- Every font a document names is loaded (regular and bold, capped at 1.5 s) before its content is mounted, so text never reflows after it appears.
+
+### editor · lists drawn with CSS counters
+- refers-to: src/styles/editor.css :: p[data-list]
+- kind: explainer
+- logged: v0.3.0 · 2026-10-21
+- Numbers count with CSS counters l0 to l8 that reset on any non-numbered block; bullets cycle disc, circle, square by level; a checklist box is the paragraph's ::before and a mousedown inside it toggles `checked`.
+
+### editor · Enter and next style
+- refers-to: src/editor/commands.ts :: splitWithNextStyle()
+- kind: explainer
+- logged: v0.3.0 · 2026-10-21
+- Enter at the end of a paragraph gives the new one the style's `next` (a heading is followed by Normal); Enter on an empty list item leaves the list, as Word and Docs do. Duplicate ids from splits are renumbered by the `uniqueIds` plugin outside history.
+
+### editor · autosave
+- refers-to: src/app.ts :: flush(), DocEditor hooks.changed
+- kind: explainer
+- logged: v0.3.0 · 2026-10-21
+- Saves 700 ms after the last change with a full PUT of the document, serialised through one promise chain so saves never overlap; leaving for Home, opening another document or closing the window flushes first.
+
+### editor · toolbar focus
+- refers-to: src/editor/register.ts :: registerEditorCommands() mousedown
+- kind: rationale
+- logged: v0.3.0 · 2026-10-21
+- Toolbar buttons cancel mousedown so the selection never leaves the page; selects and colour inputs run their command on change with the chosen value.
 
 ## index.html {#index}
 

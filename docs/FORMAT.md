@@ -46,4 +46,12 @@ Lengths are points (1/72 inch). Colours are `#rrggbb`. Ids are a prefix plus 4 t
 
 ### Blocks
 
-Each body entry has `type`, `id`, optional `style` and `section`, and `content`, an array of inline nodes. Version 1 defines `paragraph` blocks holding `text` runs (`text`, optional `marks`). Later phases add headings, lists, tables, pictures and the rest as new block and inline types; readers keep unknown types intact on save.
+Each body entry has `type` and `id`. Version 1 defines:
+
+| Block | Keys |
+| --- | --- |
+| `paragraph` | `style` (paragraph style id; headings are paragraphs styled `Heading1` to `Heading9`, as in Word), `section`, optional `props` (direct formatting: `align`, `indent` in points, `spaceBefore`, `spaceAfter`, `lineSpacing` as a multiple), optional `list` (`kind` of `bullet`, `number` or `check`, `level` 0 to 8, `checked` for checklists), and `content` |
+| `code` | `text`, the block's plain text |
+| `pageBreak` | nothing else |
+
+Inline nodes in `content` are `text` (`text`, optional `marks`) and `break` (a line break inside a paragraph). `marks` keys: `bold`, `italic`, `underline`, `strike`, `superscript`, `subscript`, `smallCaps`, `allCaps`, `code` (each `true`), `font` (family name), `size` (points), `color` and `highlight` (`#rrggbb`), and `link` (address). Later phases add tables, pictures and the rest as new block and inline types; readers keep unknown types intact on save.

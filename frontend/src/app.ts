@@ -6,7 +6,8 @@ import { Dialog } from './ui/dialog';
 import { delayedIndicator, el, mountOnce, q, revealApp, setClass, setHidden, setHtml, setText, setTitle } from './ui/dom';
 import { Home } from './ui/home';
 import { icon } from './ui/icons';
-import { Reader } from './ui/reader';
+import { DocEditor } from './editor/editor';
+import { registerEditorCommands } from './editor/register';
 import { toast } from './ui/toast';
 import { VERSION } from './version';
 
@@ -31,6 +32,7 @@ const SHELL = `
 </main>
 <footer class="ft-status">
   <span class="ft-engine"><i class="ft-dot" data-ref="dot"></i><span data-ref="engine"></span></span>
+  <span class="ft-docstatus" data-ref="docstatus"></span>
   <span>FormTxt ${VERSION}</span>
 </footer>`;
 
@@ -73,13 +75,39 @@ export async function startApp(): Promise<void> {
   });
   const main = q<HTMLElement>(root, '.ft-main');
   const empty = q<HTMLElement>(root, '[data-ref="empty"]');
-  const reader = new Reader(main);
+  const docStatus = q<HTMLElement>(root, '[data-ref="docstatus"]');
+  let saveTimer = 0;
+  let saving: Promise<void> = Promise.resolve();
+  let pending: FtxtDocument | null = null;
+  const flush = (): Promise<void> => {
+    window.clearTimeout(saveTimer);
+    const doc = pending;
+    pending = null;
+    if (!doc) return saving;
+    saving = saving.then(() => api.put<DocSummary>(`/documents/${encodeURIComponent(doc.id)}`, doc)).then((s) => {
+      doc.meta.modified = s.modified;
+      if (!pending) setText(docStatus, `${s.words} word${s.words === 1 ? '' : 's'} · Saved`);
+      home.upsert({ id: s.id, title: s.title, modified: s.modified, created: s.created, words: s.words, bytes: s.bytes });
+    }).catch((e: Error) => { setText(docStatus, 'Not saved'); toast(`Could not save: ${e.message}`, 'error'); });
+    return saving;
+  };
+  const editor = new DocEditor(main, {
+    changed: (doc) => {
+      pending = doc;
+      window.clearTimeout(saveTimer);
+      saveTimer = window.setTimeout(() => void flush(), 700);
+    },
+    status: (words) => setText(docStatus, `${words} word${words === 1 ? '' : 's'}${pending ? ' · Editing' : ''}`),
+  });
+  registerEditorCommands(commands, editor);
+  window.addEventListener('beforeunload', () => { void flush(); });
 
   const openDocument = async (id: string): Promise<FtxtDocument> => {
+    await flush();
     const doc = await api.get<FtxtDocument>(`/documents/${encodeURIComponent(id)}`);
-    reader.show(doc);
+    await editor.load(doc);
     setHidden(empty, true);
-    setHidden(reader.root, false);
+    editor.show(true);
     setText(docname, doc.title);
     document.title = `${doc.title} · FormTxt`;
     home.close();
@@ -122,7 +150,7 @@ export async function startApp(): Promise<void> {
     label: 'Home',
     group: 'File',
     description: 'Show Home: recent documents, templates and the Trash.',
-    run: () => { home.open(); return true; },
+    run: () => { void flush(); home.open(); return true; },
   });
   commands.register({
     id: 'file.new',
@@ -185,7 +213,7 @@ export async function startApp(): Promise<void> {
   });
 
   root.addEventListener('click', (e) => {
-    const target = (e.target as HTMLElement).closest<HTMLElement>('[data-cmd]');
+    const target = (e.target as HTMLElement).closest<HTMLElement>('button[data-cmd]');
     if (target?.dataset.cmd) void commands.run(target.dataset.cmd).catch((err: Error) => setText(engine, err.message));
   });
 
