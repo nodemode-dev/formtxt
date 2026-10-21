@@ -51,9 +51,18 @@ frontend/
 - [src/ui/home.ts](#home)
 - [src/ui/reader.ts](#reader)
 - [src/editor/](#editor)
+- [App icon and brand glyph](#app-icon)
 - [src/ui/palette.ts, shortcuts.ts, automation/bridge.ts](#commands-ui)
 
 ---
+
+## App icon and brand glyph {#app-icon}
+
+### app icon · the form family icon (owner's design)
+- refers-to: public/favicon.svg; src/ui/icons.ts `brand`; ../src-tauri/icons/ (icon.icns, icon.ico, icon.png, 32x32.png, 128x128.png); ../src-tauri/tauri.conf.json `bundle.icon`
+- kind: rationale
+- logged: v0.5.1 · 2026-10-21 (designed by the owner on branch feat/app-icon-redesign at e26a2c3, re-made here by hand on main)
+- The orange T tile becomes the form family icon: the dark tile with bloom, rim and drop shadow; a dark glass page with its own edge and shadow; a raised pilcrow in one diagonal spectrum gradient (#3A7BFF, #9A5CFF, #FF4F7A, #FFAE2B) with gloss, a soft blurred highlight and a light inset rim; two typed lines sunk into the page and a glowing text caret after the second. favicon.svg is the vector source. The macOS .icns uses the 824 px tile in a 1024 canvas with a 100 px margin; .ico and the PNGs are full bleed, and icon.png is a 1024 px master. icon.icns and icon.ico are new and listed in `bundle.icon` so macOS and Windows bundles use them instead of converting the PNG. The `brand` glyph keeps its filled currentColor tile with the pilcrow knocked out in `--bg-secondary`.
 
 ## src/ui/palette.ts, src/ui/shortcuts.ts, src/automation/bridge.ts {#commands-ui}
 
