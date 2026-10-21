@@ -256,6 +256,18 @@ def diff_body(base: list, other: list, marker: Marker, combine: bool, section: s
         ptr = 0
         for d in dels:
             hit = -1
+            if base[d].get("type") == "table":
+                for q in range(ptr, len(inss)):
+                    o = other[inss[q]]
+                    if o.get("type") == "table" and same_shape(base[d], o):
+                        hit = q
+                        break
+                if hit >= 0:
+                    for q in range(ptr, hit):
+                        result.append(incoming(other[inss[q]], marker, combine, section))
+                    result.append(diff_table(base[d], other[inss[hit]], marker, combine, section))
+                    ptr = hit + 1
+                    continue
             if base[d].get("type") == "paragraph":
                 for q in range(ptr, len(inss)):
                     o = other[inss[q]]
@@ -272,6 +284,19 @@ def diff_body(base: list, other: list, marker: Marker, combine: bool, section: s
         for q in range(ptr, len(inss)):
             result.append(incoming(other[inss[q]], marker, combine, section))
     return result
+
+
+def same_shape(a: dict, b: dict) -> bool:
+    ra, rb = a.get("rows") or [], b.get("rows") or []
+    return len(ra) == len(rb) and all(len(x.get("cells") or []) == len(y.get("cells") or []) for x, y in zip(ra, rb))
+
+
+def diff_table(base: dict, other: dict, marker: Marker, combine: bool, section: str) -> dict:
+    out = copy.deepcopy(base)
+    for r, (row_a, row_b) in enumerate(zip(base.get("rows") or [], other.get("rows") or [])):
+        for c, (cell_a, cell_b) in enumerate(zip(row_a.get("cells") or [], row_b.get("cells") or [])):
+            out["rows"][r]["cells"][c]["body"] = diff_body(cell_a.get("body") or [], cell_b.get("body") or [], marker, combine, section)
+    return out
 
 
 def incoming(block: dict, marker: Marker, combine: bool, section: str) -> dict:
