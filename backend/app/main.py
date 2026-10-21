@@ -9,6 +9,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core import config
 from app.routers import blocks, commands, data, documents, formula, live, stock, system, templates
+from app.routers import ai, collab, exchange, objects, printing, proofing, refs, review, versions
 
 
 def _write_discovery() -> None:
@@ -44,6 +45,8 @@ app.include_router(data.router, prefix="/api")
 app.include_router(formula.router, prefix="/api")
 app.include_router(blocks.router, prefix="/api")
 app.include_router(stock.router, prefix="/api")
+for _area in (refs, review, versions, exchange, printing, proofing, ai, objects, collab):
+    app.include_router(_area.router, prefix="/api")
 app.include_router(commands.router)
 app.include_router(live.router)
 

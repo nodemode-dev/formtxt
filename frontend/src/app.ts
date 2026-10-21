@@ -8,6 +8,7 @@ import { Home } from './ui/home';
 import { icon } from './ui/icons';
 import { DocEditor } from './editor/editor';
 import { registerEditorCommands } from './editor/register';
+import { registerExtensions } from './editor/ext/index';
 import { connectBridge } from './automation/bridge';
 import { CommandPalette } from './ui/palette';
 import { Shortcuts } from './ui/shortcuts';
@@ -107,6 +108,7 @@ export async function startApp(): Promise<void> {
     },
   });
   registerEditorCommands(commands, editor);
+  registerExtensions(commands, editor);
   const shortcuts = new Shortcuts(commands);
   const palette = new CommandPalette(commands);
   commands.register({ id: 'edit.commandPalette', label: 'Find a command', group: 'Help', description: 'Search every command by name and run it.', keys: ['Ctrl+Shift+P'], run: () => { palette.open(); return true; } });

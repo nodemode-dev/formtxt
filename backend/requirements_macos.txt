@@ -1,3 +1,9 @@
 fastapi
 uvicorn[standard]
 python-multipart
+python-docx
+lxml
+reportlab
+pypdf
+pdfplumber
+olefile

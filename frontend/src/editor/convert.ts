@@ -2,6 +2,8 @@ import type { Mark, Node as PMNode } from 'prosemirror-model';
 import type { Block, FtxtDocument, TextRun } from '../engine/model';
 import { TableMap } from 'prosemirror-tables';
 import { BORDER_SIDES, BORDER_STYLES, type CellBorders, type ListFmt, chipLabel, cleanChip, cleanListFmt, schema } from './schema';
+import { BLOCK_BY_NODE, BLOCK_BY_TYPE, INLINE_BY_NODE, INLINE_BY_TYPE, MARK_BY_KEY, MARK_BY_NAME } from './ext/codecs';
+import { EXT_PARA } from './ext/specs';
 
 const FLAG_MARKS = ['bold', 'italic', 'strike', 'superscript', 'subscript', 'smallCaps', 'allCaps', 'code'] as const;
 const PROPS = ['align', 'indent', 'indentRight', 'indentFirst', 'spaceBefore', 'spaceAfter', 'lineSpacing', 'keepNext', 'keepLines', 'widowControl', 'border', 'shading', 'tabs', 'collapsed'] as const;
@@ -25,6 +27,11 @@ function marksFrom(m: Record<string, unknown> | undefined): Mark[] {
   if (typeof m.color === 'string' && m.color) out.push(schema.marks.color.create({ value: m.color }));
   if (typeof m.highlight === 'string' && m.highlight) out.push(schema.marks.highlight.create({ value: m.highlight }));
   if (typeof m.link === 'string' && m.link) out.push(schema.marks.link.create({ href: m.link }));
+  for (const [k, codec] of Object.entries(MARK_BY_KEY)) {
+    if (m[k] === undefined || m[k] === null || m[k] === false) continue;
+    const mk = codec.toPM(m[k], schema);
+    if (mk) out.push(mk);
+  }
   return out;
 }
 
@@ -57,6 +64,10 @@ function inlineNodes(content: TextRun[] | undefined): PMNode[] {
       const attrs: Record<string, unknown> = {};
       for (const k of PIC_KEYS) if (pic[k] !== undefined && pic[k] !== null) attrs[k] = pic[k];
       out.push(schema.nodes.image.create(attrs));
+    }
+    else if (INLINE_BY_TYPE[run.type]) {
+      const n = INLINE_BY_TYPE[run.type].toPM(r as unknown as Record<string, unknown>, schema);
+      if (n) out.push(n);
     }
     else if (run.type === 'text' && run.text) out.push(schema.text(run.text, marksFrom(run.marks)));
   }
@@ -130,10 +141,15 @@ function blocksToPM(body: Block[], top: boolean): PMNode[] {
     else if (blk.type === 'pageBreak') { if (top) blocks.push(schema.nodes.page_break.create()); }
     else if (blk.type === 'columnBreak') { if (top) blocks.push(schema.nodes.column_break.create()); }
     else if (blk.type === 'sectionBreak') { if (top) blocks.push(schema.nodes.section_break.create({ section: (blk as unknown as { next?: string }).next ?? null })); }
+    else if (BLOCK_BY_TYPE[blk.type]) {
+      const n = BLOCK_BY_TYPE[blk.type].toPM(blk as unknown as Record<string, unknown>, schema, top);
+      if (n) blocks.push(n);
+    }
     else {
       const p = blk.props ?? {};
       const props: Record<string, unknown> = {};
       for (const k of PROPS) props[k] = p[k] !== undefined && p[k] !== null ? p[k] : PROP_DEFAULTS[k];
+      for (const [k, spec] of Object.entries(EXT_PARA)) props[k] = (p as Record<string, unknown>)[k] !== undefined && (p as Record<string, unknown>)[k] !== null ? (p as Record<string, unknown>)[k] : spec.default;
       blocks.push(schema.nodes.paragraph.create({
         ...props,
         id: blk.id || newId(),
@@ -158,6 +174,8 @@ export function toPM(doc: FtxtDocument, tabIndex = 0): PMNode {
 }
 
 function runFrom(node: PMNode): Record<string, unknown> {
+  const ext = INLINE_BY_NODE[node.type.name];
+  if (ext) return { type: ext[0], ...ext[1].fromPM(node) };
   if (node.type.name === 'hard_break') return { type: 'break' };
   if (node.type.name === 'tab') return { type: 'tab' };
   if (node.type.name === 'chip') return { type: 'chip', ...(cleanChip(node.attrs) ?? {}), text: chipLabel(node.attrs) };
@@ -196,6 +214,7 @@ function runFrom(node: PMNode): Record<string, unknown> {
     else if (n === 'color') marks.color = m.attrs.value;
     else if (n === 'highlight') marks.highlight = m.attrs.value;
     else if (n === 'link') marks.link = m.attrs.href;
+    else if (MARK_BY_NAME[n]) marks[MARK_BY_NAME[n][0]] = MARK_BY_NAME[n][1].fromPM(m);
   }
   const out: Record<string, unknown> = { type: 'text', text: node.text ?? '' };
   if (Object.keys(marks).length) out.marks = marks;
@@ -242,6 +261,8 @@ function tableFromPM(node: PMNode, section: string): Record<string, unknown> {
 export function fromPM(pm: PMNode, section: string): Block[] {
   const out: Block[] = [];
   pm.forEach((node) => {
+    const ext = BLOCK_BY_NODE[node.type.name];
+    if (ext) { out.push({ type: ext[0], ...ext[1].fromPM(node, section) } as unknown as Block); return; }
     if (node.type.name === 'table') { out.push(tableFromPM(node, section) as unknown as Block); return; }
     if (node.type.name === 'mermaid') {
       const a = node.attrs;
@@ -281,6 +302,10 @@ export function fromPM(pm: PMNode, section: string): Block[] {
     for (const k of PROPS) {
       const v = a[k];
       if (v !== null && JSON.stringify(v) !== JSON.stringify(PROP_DEFAULTS[k])) props[k] = v;
+    }
+    for (const [k, spec] of Object.entries(EXT_PARA)) {
+      const v = a[k];
+      if (v !== undefined && v !== null && JSON.stringify(v) !== JSON.stringify(spec.default)) props[k] = v;
     }
     if (Object.keys(props).length) block.props = props;
     if (a.list) block.list = { kind: a.list, level: a.level, ...(a.list === 'check' ? { checked: a.checked } : {}), ...(a.list !== 'check' && a.listFmt ? (a.listFmt as ListFmt) : {}) };

@@ -1,6 +1,7 @@
 import { type MarkSpec, type Node as PMNode, type NodeSpec, Schema } from 'prosemirror-model';
 import { tableNodes } from 'prosemirror-tables';
 import { locale } from './chart/types';
+import { EXT_MARKS, EXT_NODES, EXT_PARA, EXT_PARA_ATTRS } from './ext/specs';
 
 export const LIST_KINDS = ['bullet', 'number', 'check'] as const;
 export type ListKind = (typeof LIST_KINDS)[number] | '';
@@ -145,6 +146,15 @@ function paraAttrs(n: PMNode): Attrs {
   if (a.spaceAfter !== null) css.push(`margin-bottom:${(Number(a.spaceAfter) * 96) / 72}px`);
   if (a.lineSpacing !== null) css.push(`line-height:${Number(a.lineSpacing) * 1.2}`);
   css.push(...vars);
+  for (const [k, spec] of Object.entries(EXT_PARA)) {
+    const v = a[k];
+    if (!spec.dom || v === undefined || v === null || JSON.stringify(v) === JSON.stringify(spec.default)) continue;
+    for (const [ak, av] of Object.entries(spec.dom(v) ?? {})) {
+      if (ak === 'style') css.push(av);
+      else if (ak === 'class') out.class = out.class ? `${out.class} ${av}` : av;
+      else out[ak] = av;
+    }
+  }
   if (css.length) out.style = css.join(';');
   return out;
 }
@@ -235,6 +245,7 @@ const nodes: Record<string, NodeSpec> = {
       level: { default: 0 },
       checked: { default: false },
       listFmt: { default: null },
+      ...EXT_PARA_ATTRS,
     },
     parseDOM: [
       { tag: 'p', getAttrs: (dom: HTMLElement) => ({ style: dom.dataset.style || 'Normal', list: dom.dataset.list || '', level: Number(dom.dataset.level || 0), checked: dom.dataset.checked === 'true', align: (ALIGNS as readonly string[]).includes(dom.style.textAlign) ? dom.style.textAlign : '', listFmt: cleanListFmt(dom.dataset.listFmt ? safeJson(dom.dataset.listFmt) : null) }) },
@@ -456,4 +467,4 @@ const marks: Record<string, MarkSpec> = {
   },
 };
 
-export const schema = new Schema({ nodes, marks });
+export const schema = new Schema({ nodes: { ...nodes, ...EXT_NODES }, marks: { ...marks, ...EXT_MARKS } });
