@@ -34,6 +34,16 @@ function inlineNodes(content: TextRun[] | undefined): PMNode[] {
     const run = r as unknown as { type: string; text: string; marks?: Record<string, unknown> };
     if (run.type === 'break') out.push(schema.nodes.hard_break.create());
     else if (run.type === 'tab') out.push(schema.nodes.tab.create());
+    else if (run.type === 'math') {
+      const m = r as unknown as { latex?: string; display?: boolean };
+      out.push(schema.nodes.math.create({ latex: String(m.latex ?? ''), display: !!m.display }));
+    }
+    else if (run.type === 'shape') {
+      const s = r as unknown as Record<string, unknown>;
+      const attrs: Record<string, unknown> = {};
+      for (const k of Object.keys(schema.nodes.shape.spec.attrs ?? {})) if (s[k] !== undefined && s[k] !== null) attrs[k] = s[k];
+      out.push(schema.nodes.shape.create(attrs));
+    }
     else if (run.type === 'image') {
       const pic = r as unknown as Record<string, unknown>;
       const attrs: Record<string, unknown> = {};
@@ -114,6 +124,16 @@ export function toPM(doc: FtxtDocument, tabIndex = 0): PMNode {
 function runFrom(node: PMNode): Record<string, unknown> {
   if (node.type.name === 'hard_break') return { type: 'break' };
   if (node.type.name === 'tab') return { type: 'tab' };
+  if (node.type.name === 'math') return node.attrs.display ? { type: 'math', latex: node.attrs.latex, display: true } : { type: 'math', latex: node.attrs.latex };
+  if (node.type.name === 'shape') {
+    const out: Record<string, unknown> = { type: 'shape' };
+    const specs = schema.nodes.shape.spec.attrs ?? {};
+    for (const k of Object.keys(specs)) {
+      const v = node.attrs[k];
+      if (k === 'kind' || k === 'width' || k === 'height' || JSON.stringify(v) !== JSON.stringify(specs[k]?.default)) out[k] = v;
+    }
+    return out;
+  }
   if (node.type.name === 'image') {
     const out: Record<string, unknown> = { type: 'image' };
     for (const k of PIC_KEYS) {

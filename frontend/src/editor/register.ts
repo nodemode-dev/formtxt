@@ -8,7 +8,9 @@ import { CHART_KINDS } from './chart/types';
 import { CellSelection, addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow, deleteTable, isInTable, mergeCells, setCellAttr, splitCell, toggleHeaderColumn, toggleHeaderRow } from 'prosemirror-tables';
 import { el, setHidden, setText } from '../ui/dom';
 import { toast } from '../ui/toast';
-import { chartDialog, symbolDialog } from './dialogs';
+import { chartDialog, equationDialog, shapeGalleryDialog, shapePropertiesDialog, symbolDialog } from './dialogs';
+import { SHAPES, SHAPE_WRAPS, WORDART, insertShape, selectedShape, setShape, shapeDefaults } from './shape';
+import { putMath, selectedMath } from './math';
 import { headerFooterDialog, insertTableDialog, pageGeometry, pageSetupDialog, paragraphDialog, parseTabs, picturePropertiesDialog, stylesDialog, tablePropertiesDialog, wordCountDialog } from './dialogs';
 import { type DocEditor, FONTS } from './editor';
 import { TABLE_LOOKS, schema } from './schema';
@@ -302,6 +304,87 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
     if (!/^[0-9a-f]{1,6}$/i.test(hex) || !(n > 31 && n <= 0x10ffff)) throw new Error('code must be a hexadecimal Unicode code such as 00A9.');
     return ed.insertText(String.fromCodePoint(n));
   }, [{ name: 'char', type: 'string', description: 'The character to insert' }, { name: 'code', type: 'string', description: 'Hexadecimal Unicode code, such as 2122' }]);
+  const needShape = (patch: (a: Record<string, unknown>, p: Record<string, unknown>) => Record<string, unknown>) => (p: Record<string, unknown>) => {
+    const s = ed.view ? selectedShape(ed.view.state) : null;
+    if (!s) throw new Error('Select a shape first (click it, or run shape.select).');
+    return ed.run(setShape(patch(s.node.attrs as Record<string, unknown>, p)));
+  };
+  const color = (v: unknown): string => {
+    const s = String(v ?? '').trim();
+    if (s && !/^#[0-9a-f]{6}$/i.test(s)) throw new Error('Colours are #rrggbb; empty removes it.');
+    return s;
+  };
+  add('insert.shape', 'Shape', 'Insert', `Insert a shape; with no kind, opens the shape gallery. Kinds: ${SHAPES.join(', ')}.`, (p) => {
+    if (p.kind === undefined) { shapeGalleryDialog(ed); return true; }
+    const kind = String(p.kind);
+    if (!(SHAPES as readonly string[]).includes(kind)) throw new Error(`kind must be one of ${SHAPES.join(', ')}.`);
+    const attrs = shapeDefaults(kind);
+    if (p.text !== undefined) attrs.text = String(p.text);
+    if (Number(p.width)) attrs.width = Number(p.width);
+    if (Number(p.height)) attrs.height = Number(p.height);
+    return ed.run(insertShape(attrs));
+  }, [{ name: 'kind', type: 'string', description: SHAPES.join(', ') }, { name: 'text', type: 'string', description: 'Text inside the shape' }, { name: 'width', type: 'number', description: 'Points' }, { name: 'height', type: 'number', description: 'Points' }]);
+  add('insert.textBox', 'Text box', 'Insert', 'Insert a text box with square wrapping.', (p) => ed.run(insertShape({ ...shapeDefaults('textBox'), ...(p.text !== undefined ? { text: String(p.text) } : {}) })), [{ name: 'text', type: 'string', description: 'Text' }]);
+  add('insert.wordArt', 'WordArt', 'Insert', `Insert decorative text in a style: ${WORDART.join(', ')}.`, (p) => {
+    const style = String(p.style ?? 'gradient');
+    if (!(WORDART as readonly string[]).includes(style)) throw new Error(`style must be one of ${WORDART.join(', ')}.`);
+    return ed.run(insertShape({ ...shapeDefaults('wordArt'), wordart: style, ...(p.text !== undefined ? { text: String(p.text) } : {}) }));
+  }, [{ name: 'text', type: 'string', description: 'Text' }, { name: 'style', type: 'string', description: WORDART.join(', ') }]);
+  add('shape.properties', 'Shape properties', 'Shape', 'Kind, fill, outline, text, WordArt style, wrapping, size, rotation and position of the selected shape.', () => { shapePropertiesDialog(ed); return true; });
+  add('shape.text', 'Shape text', 'Shape', 'Set the text inside the selected shape (double-click a shape to type in it).', needShape((_a, p) => ({ text: String(p.text ?? '').replace(/\\n/g, '\n') })), [{ name: 'text', type: 'string', description: 'Text; \\n starts a new line' }]);
+  add('shape.fill', 'Shape fill', 'Shape', 'Fill colour; empty removes the fill.', needShape((_a, p) => ({ fill: color(p.color) })), [{ name: 'color', type: 'string', description: '#rrggbb or empty' }]);
+  add('shape.outline', 'Shape outline', 'Shape', 'Outline colour and width in points; empty colour removes the outline.', needShape((a, p) => ({ stroke: p.color === undefined ? a.stroke : color(p.color), strokeWidth: p.width === undefined ? a.strokeWidth : Math.max(0, Number(p.width) || 0) })), [{ name: 'color', type: 'string', description: '#rrggbb or empty' }, { name: 'width', type: 'number', description: 'Points' }]);
+  add('shape.textFormat', 'Shape text format', 'Shape', 'Text colour, size, bold, font and alignment inside the selected shape.', needShape((a, p) => ({
+    color: p.color === undefined ? a.color : color(p.color), size: Number(p.size) || a.size, bold: p.bold === undefined ? a.bold : !!p.bold, font: p.font === undefined ? a.font : String(p.font),
+    align: ['left', 'center', 'right'].includes(String(p.align)) ? String(p.align) : a.align, valign: ['top', 'middle', 'bottom'].includes(String(p.valign)) ? String(p.valign) : a.valign,
+  })), [{ name: 'color', type: 'string', description: '#rrggbb' }, { name: 'size', type: 'number', description: 'Points' }, { name: 'bold', type: 'boolean', description: 'Bold' }, { name: 'font', type: 'string', description: 'Font family' }, { name: 'align', type: 'string', description: 'left, center or right' }, { name: 'valign', type: 'string', description: 'top, middle or bottom' }]);
+  add('shape.kind', 'Change shape', 'Shape', 'Change the shape outline, keeping size, colours and text.', needShape((_a, p) => {
+    const kind = String(p.kind ?? '');
+    if (!(SHAPES as readonly string[]).includes(kind)) throw new Error(`kind must be one of ${SHAPES.join(', ')}.`);
+    return { kind };
+  }), [{ name: 'kind', type: 'string', description: SHAPES.join(', ') }]);
+  add('shape.wordArt', 'WordArt style', 'Shape', `Set the WordArt style: ${WORDART.join(', ')}.`, needShape((_a, p) => {
+    const style = String(p.style ?? '');
+    if (!(WORDART as readonly string[]).includes(style)) throw new Error(`style must be one of ${WORDART.join(', ')}.`);
+    return { kind: 'wordArt', wordart: style };
+  }), [{ name: 'style', type: 'string', description: WORDART.join(', ') }]);
+  add('shape.size', 'Shape size', 'Shape', 'Width and height in points.', needShape((a, p) => ({ width: Math.max(6, Number(p.width) || Number(a.width)), height: Math.max(3, Number(p.height) || Number(a.height)) })), [{ name: 'width', type: 'number', description: 'Points' }, { name: 'height', type: 'number', description: 'Points' }]);
+  add('shape.rotate', 'Rotate shape', 'Shape', 'Rotate to an angle, or by 90 degrees with no angle.', needShape((a, p) => ({ rotate: p.degrees === undefined ? (Number(a.rotate) + 90) % 360 : Number(p.degrees) % 360 })), [{ name: 'degrees', type: 'number', description: 'Angle; empty adds 90' }]);
+  add('shape.wrap', 'Shape wrapping', 'Shape', `Set how text wraps: ${SHAPE_WRAPS.join(', ')}.`, needShape((_a, p) => {
+    const wrap = String(p.wrap ?? 'front');
+    if (!(SHAPE_WRAPS as readonly string[]).includes(wrap)) throw new Error(`wrap must be one of ${SHAPE_WRAPS.join(', ')}.`);
+    return { wrap, ...(p.side ? { side: ['left', 'center', 'right'].includes(String(p.side)) ? String(p.side) : 'left' } : {}) };
+  }), [{ name: 'wrap', type: 'string', description: SHAPE_WRAPS.join(', ') }, { name: 'side', type: 'string', description: 'left, center or right' }]);
+  add('shape.position', 'Shape position', 'Shape', 'Offset a shape behind or in front of text from the top left of its paragraph, in points.', needShape((_a, p) => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 })), [{ name: 'x', type: 'number', description: 'Points' }, { name: 'y', type: 'number', description: 'Points' }]);
+  add('shape.info', 'Shape at cursor', 'Shape', 'Properties of the selected shape.', () => { const s = ed.view ? selectedShape(ed.view.state) : null; return s ? { ...s.node.attrs, pos: s.pos } : null; });
+  add('shape.select', 'Select shape', 'Shape', 'Select the first shape, or the next one after the selection.', () => {
+    if (!ed.view) throw new Error('Open a document first.');
+    const { state } = ed.view;
+    const all: number[] = [];
+    state.doc.descendants((n, pos) => { if (n.type === schema.nodes.shape) all.push(pos); return true; });
+    if (!all.length) throw new Error('The document has no shapes.');
+    const at = all.find((pos) => pos > state.selection.from) ?? all[0];
+    ed.view.dispatch(state.tr.setSelection(NodeSelection.create(state.doc, at)).scrollIntoView());
+    return at;
+  });
+  add('insert.equation', 'Equation', 'Insert', 'Insert an equation written in LaTeX; with no latex, opens the equation editor (Alt+=).', (p) => {
+    if (p.latex === undefined) { equationDialog(ed); return true; }
+    return ed.run(putMath(String(p.latex), !!p.display));
+  }, [{ name: 'latex', type: 'string', description: 'LaTeX, such as \\frac{a}{b}' }, { name: 'display', type: 'boolean', description: 'On its own line' }], ['Alt+=']);
+  add('equation.edit', 'Edit equation', 'Equation', 'Edit the selected equation (or double-click it).', () => { equationDialog(ed); return true; });
+  add('equation.info', 'Equation at cursor', 'Equation', 'The LaTeX of the selected equation.', () => { const m = ed.view ? selectedMath(ed.view.state) : null; return m ? { latex: m.node.attrs.latex, display: m.node.attrs.display, pos: m.pos } : null; });
+  ed.onEquationKey = () => equationDialog(ed);
+  ed.root.addEventListener('dblclick', (e) => {
+    const m = (e.target as HTMLElement).closest<HTMLElement>('.ft-pm-root .ft-math');
+    if (!m || !ed.view || !ed.view.editable) return;
+    e.preventDefault();
+    const pos = ed.view.posAtDOM(m, 0);
+    const $p = ed.view.state.doc.resolve(pos);
+    const at = $p.nodeAfter?.type === schema.nodes.math ? pos : pos - 1;
+    ed.view.dispatch(ed.view.state.tr.setSelection(NodeSelection.create(ed.view.state.doc, at)));
+    equationDialog(ed);
+  });
+
   ed.root.addEventListener('dblclick', (e) => {
     const fig = (e.target as HTMLElement).closest<HTMLElement>('.ft-pm-root figure.ft-chart');
     if (!fig || !ed.view || !ed.view.editable) return;

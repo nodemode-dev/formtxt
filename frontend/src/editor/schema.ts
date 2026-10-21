@@ -157,6 +157,29 @@ const nodes: Record<string, NodeSpec> = {
       return ['span', { class: 'ft-pic', 'data-media': String(n.attrs.media), 'data-w': String(n.attrs.width), 'data-h': String(n.attrs.height), 'data-wrap': String(n.attrs.wrap), 'data-side': String(n.attrs.side), 'data-pic': JSON.stringify({ crop, rotate, brightness, contrast, saturation, transparency, x, y }) }, ['img', { src: mediaUrl(String(n.attrs.media), String(n.attrs.from || '')), alt: String(n.attrs.alt), width: String(Math.round(Number(n.attrs.width) * 96 / 72)) }]];
     },
   },
+  shape: {
+    inline: true,
+    group: 'inline',
+    atom: true,
+    draggable: true,
+    selectable: true,
+    attrs: {
+      kind: { default: 'rect' }, width: { default: 96 }, height: { default: 96 }, fill: { default: '#f97316' }, stroke: { default: '' }, strokeWidth: { default: 1 },
+      rotate: { default: 0 }, text: { default: '' }, color: { default: '' }, size: { default: 11 }, bold: { default: false }, font: { default: '' },
+      align: { default: 'center' }, valign: { default: 'middle' }, wordart: { default: '' }, wrap: { default: 'front' }, side: { default: 'left' }, x: { default: 0 }, y: { default: 0 },
+    },
+    parseDOM: [{ tag: 'span.ft-shape', getAttrs: (dom: HTMLElement) => { try { return JSON.parse(dom.dataset.shape ?? '{}') as Record<string, unknown>; } catch { return {}; } } }],
+    toDOM: (n) => ['span', { class: 'ft-shape', 'data-shape': JSON.stringify(n.attrs) }, String(n.attrs.text ?? '')],
+  },
+  math: {
+    inline: true,
+    group: 'inline',
+    atom: true,
+    selectable: true,
+    attrs: { latex: { default: '' }, display: { default: false } },
+    parseDOM: [{ tag: 'span.ft-math', getAttrs: (dom: HTMLElement) => ({ latex: dom.dataset.latex ?? dom.textContent ?? '', display: dom.dataset.display === 'true' }) }],
+    toDOM: (n) => ['span', { class: 'ft-math', 'data-latex': String(n.attrs.latex), 'data-display': String(!!n.attrs.display) }, String(n.attrs.latex)],
+  },
   section_break: {
     group: 'block',
     atom: true,

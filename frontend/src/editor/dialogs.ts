@@ -4,9 +4,11 @@ import { el, escapeHtml, setText } from '../ui/dom';
 import { setCellAttr } from 'prosemirror-tables';
 import { type DocEditor, FONTS } from './editor';
 import { selectedPicture, setPicture } from './picture';
-import { CHART_FNS, CHART_LABELS, type ChartData, type ChartOptions, SAMPLE, gridText, insertChart, paint, parseGrid, selectedChart, setChart } from './chart/chart';
+import { CHART_FNS, CHART_LABELS, type ChartData, type ChartOptions, SAMPLE, SERIES_COLORS, gridText, insertChart, paint, parseGrid, selectedChart, setChart } from './chart/chart';
 import { CHART_KINDS } from './chart/types';
 import { SYMBOL_GROUPS } from './symbols';
+import { SHAPES, SHAPE_LABELS, WORDART, insertShape, selectedShape, setShape, shapeDefaults, shapePath } from './shape';
+import { MATH_SNIPPETS, loadMathFonts, putMath, renderMath, selectedMath } from './math';
 import { api } from '../io/api';
 import { toast } from '../ui/toast';
 import { distributeColumns, insertTable, setCellShading, setTableAttr, sortTable, tableInfo } from './table';
@@ -306,6 +308,16 @@ export function picturePropertiesDialog(ed: DocEditor): void {
   d.open(alt);
 }
 
+function withColors(data: ChartData, list: string): ChartData {
+  const names = list.split(/[\s,]+/).map((s) => s.trim().toLowerCase()).filter(Boolean);
+  return { ...data, series: data.series.map((s, i) => {
+    const c = names[i];
+    const out: ChartData['series'][number] = { name: s.name, values: s.values };
+    if (c && (SERIES_COLORS as readonly string[]).includes(c)) out.color = c;
+    return out;
+  }) };
+}
+
 export function chartDialog(ed: DocEditor, insert: boolean): void {
   const cur = insert ? null : ed.view ? selectedChart(ed.view.state) : null;
   if (!insert && !cur) throw new Error('Click a chart first.');
@@ -323,6 +335,7 @@ export function chartDialog(ed: DocEditor, insert: boolean): void {
   const stacked = input('checkbox', String(!!o.stacked));
   const fn = select(CHART_FNS.map((f) => [f, f[0].toUpperCase() + f.slice(1)] as [string, string]), String(o.fn ?? 'sum'));
   const target = input('number', o.target ? String(o.target) : '', 'step="any" placeholder="None"');
+  const colors = input('text', (((a.data ?? SAMPLE) as ChartData).series ?? []).map((s) => s.color ?? '').join(', ').replace(/^(, )+$/, ''), `spellcheck="false" placeholder="Automatic; or ${SERIES_COLORS.slice(0, 3).join(', ')}"`);
   const grid = el<HTMLTextAreaElement>('<textarea class="ft-input ft-chart-data" rows="9" spellcheck="false" aria-label="Chart data"></textarea>');
   grid.value = gridText((a.data ?? SAMPLE) as ChartData);
   const preview = el('<div class="ft-chart-preview"><figure class="ft-chart"><svg class="chart" role="img" aria-label="Preview"></svg></figure></div>');
@@ -333,7 +346,7 @@ export function chartDialog(ed: DocEditor, insert: boolean): void {
   const attrs = (): Record<string, unknown> => ({
     kind: kind.value, title: title.value.trim(), width: Math.max(120, Number(width.value) || 468), height: Math.max(90, Number(height.value) || 252), align: align.value,
     options: { labels: labels.checked, legend: legend.checked, smooth: smooth.checked, stacked: stacked.checked, fn: fn.value, ...(Number(target.value) ? { target: Number(target.value) } : {}) },
-    data: parseGrid(grid.value),
+    data: withColors(parseGrid(grid.value), colors.value),
   });
   let frame = 0;
   const refresh = (): void => {
@@ -345,7 +358,7 @@ export function chartDialog(ed: DocEditor, insert: boolean): void {
       paint(svg, { ...at, width: Number(at.width) * scale, height: Number(at.height) * scale });
     });
   };
-  for (const n of [kind, title, width, height, labels, legend, smooth, stacked, fn, target, grid]) n.addEventListener('input', refresh);
+  for (const n of [kind, title, width, height, labels, legend, smooth, stacked, fn, target, grid, colors]) n.addEventListener('input', refresh);
   for (const n of [kind, labels, legend, smooth, stacked, fn]) n.addEventListener('change', refresh);
   file.addEventListener('change', () => {
     const f = file.files?.[0];
@@ -359,7 +372,7 @@ export function chartDialog(ed: DocEditor, insert: boolean): void {
   cols.append(left, right);
   d.body.appendChild(cols);
   const g = el('<div class="ft-form-grid"></div>');
-  for (const [label, control] of [['Type', kind], ['Title', title], ['Width (pt)', width], ['Height (pt)', height], ['Alignment', align], ['Number shows', fn], ['Target (gauge, radial)', target], ['Data labels', labels], ['Legend', legend], ['Smooth lines', smooth], ['Stacked', stacked]] as Array<[string, HTMLElement]>) {
+  for (const [label, control] of [['Type', kind], ['Title', title], ['Width (pt)', width], ['Height (pt)', height], ['Alignment', align], ['Number shows', fn], ['Target (gauge, radial)', target], ['Data labels', labels], ['Legend', legend], ['Smooth lines', smooth], ['Stacked', stacked], ['Series colours', colors]] as Array<[string, HTMLElement]>) {
     const l = el('<label class="ft-field"><span class="ft-field-label"></span></label>');
     setText(l.querySelector('.ft-field-label'), label);
     l.appendChild(control);
@@ -376,6 +389,118 @@ export function chartDialog(ed: DocEditor, insert: boolean): void {
     d.close();
   });
   d.open(kind);
+  refresh();
+}
+
+export function shapeGalleryDialog(ed: DocEditor): void {
+  const d = new Dialog('Shapes', 560);
+  const gridEl = el('<div class="ft-shape-gallery" role="grid" aria-label="Shapes"></div>');
+  for (const kind of SHAPES) {
+    const b = el<HTMLButtonElement>(`<button type="button" class="ft-shape-pick" data-kind="${kind}"></button>`);
+    const def = shapeDefaults(kind);
+    if (kind === 'wordArt') b.innerHTML = '<span class="ft-shape-pick-wa">Aa</span>';
+    else if (kind === 'textBox') b.innerHTML = `<svg viewBox="0 0 40 28" aria-hidden="true"><path d="${shapePath('rect', 40, 28, 1.5)}" fill="#ffffff" stroke="#57534e" stroke-width="1.5"/><path d="M8 10h20M8 16h14" stroke="#57534e" stroke-width="1.5"/></svg>`;
+    else b.innerHTML = `<svg viewBox="0 0 40 ${kind === 'line' ? 12 : kind.startsWith('arrow') && (kind === 'arrowRight' || kind === 'arrowLeft') ? 22 : 32}" aria-hidden="true"><path d="${shapePath(kind, 40, kind === 'line' ? 12 : kind.startsWith('arrow') && (kind === 'arrowRight' || kind === 'arrowLeft') ? 22 : 32, 1.5)}" fill="${kind === 'line' ? 'none' : String(def.fill)}" stroke="${String(def.stroke)}" stroke-width="1.5"/></svg>`;
+    b.title = SHAPE_LABELS[kind] ?? kind;
+    b.setAttribute('aria-label', b.title);
+    gridEl.appendChild(b);
+  }
+  gridEl.addEventListener('click', (e) => {
+    const kind = (e.target as HTMLElement).closest<HTMLElement>('[data-kind]')?.dataset.kind;
+    if (!kind) return;
+    ed.run(insertShape(shapeDefaults(kind)));
+    d.close();
+  });
+  d.body.appendChild(gridEl);
+  d.body.appendChild(el('<p class="ft-note">Double-click a shape to type in it. Drag its handles to resize (Shift keeps proportions) and drag a selected shape to move it. Shape properties sets the fill, outline, text, WordArt style and wrapping.</p>'));
+  d.button('Close', 'ghost', () => d.close());
+  d.open();
+}
+
+export function shapePropertiesDialog(ed: DocEditor): void {
+  const cur = ed.view ? selectedShape(ed.view.state) : null;
+  if (!cur) throw new Error('Click a shape first.');
+  const a = cur.node.attrs;
+  const d = new Dialog('Shape', 600);
+  const kind = select(SHAPES.map((k) => [k, SHAPE_LABELS[k] ?? k] as [string, string]), String(a.kind));
+  const fill = input('color', a.fill && a.fill !== 'none' ? String(a.fill) : '#ffffff');
+  const noFill = input('checkbox', String(!a.fill || a.fill === 'none'));
+  const stroke = input('color', a.stroke ? String(a.stroke) : '#1a1a1a');
+  const noStroke = input('checkbox', String(!a.stroke));
+  const strokeWidth = input('number', String(a.strokeWidth ?? 1), 'min="0" max="24" step="0.25"');
+  const text = el<HTMLTextAreaElement>('<textarea class="ft-input" rows="3" spellcheck="true"></textarea>');
+  text.value = String(a.text ?? '');
+  const color = input('color', a.color ? String(a.color) : '#1a1a1a');
+  const size = input('number', String(a.size ?? 11), 'min="4" max="400" step="1"');
+  const bold = input('checkbox', String(!!a.bold));
+  const font = select([['', 'Document font'], ...FONTS.map((f) => [f, f] as [string, string])], String(a.font ?? ''));
+  const align = select([['left', 'Left'], ['center', 'Centre'], ['right', 'Right']], String(a.align ?? 'center'));
+  const valign = select([['top', 'Top'], ['middle', 'Middle'], ['bottom', 'Bottom']], String(a.valign ?? 'middle'));
+  const wordart = select(WORDART.map((w) => [w, w[0].toUpperCase() + w.slice(1)] as [string, string]), String(a.wordart || 'fill'));
+  const wrap = select([['inline', 'In line with text'], ['square', 'Square'], ['topBottom', 'Top and bottom'], ['behind', 'Behind text'], ['front', 'In front of text']], String(a.wrap ?? 'front'));
+  const side = select([['left', 'Left'], ['center', 'Centre (top and bottom only)'], ['right', 'Right']], String(a.side ?? 'left'));
+  const width = input('number', String(a.width), 'min="6" step="1"');
+  const height = input('number', String(a.height), 'min="3" step="1"');
+  const rotate = input('number', String(a.rotate ?? 0), 'min="-360" max="360" step="1"');
+  const x = input('number', String(a.x ?? 0), 'step="1"'), y = input('number', String(a.y ?? 0), 'step="1"');
+  fill.addEventListener('input', () => { noFill.checked = false; });
+  stroke.addEventListener('input', () => { noStroke.checked = false; });
+  d.field('Text', text);
+  grid(d, [['Shape', kind], ['Fill', fill], ['No fill', noFill], ['Outline', stroke], ['No outline', noStroke], ['Outline width (pt)', strokeWidth],
+    ['Text colour', color], ['Text size (pt)', size], ['Bold', bold], ['Font', font], ['Text alignment', align], ['Vertical alignment', valign], ['WordArt style', wordart],
+    ['Wrapping', wrap], ['Side', side], ['Width (pt)', width], ['Height (pt)', height], ['Rotation (degrees)', rotate], ['Offset left (pt, behind or in front)', x], ['Offset top (pt)', y]]);
+  d.button('Cancel', 'ghost', () => d.close());
+  d.button('Apply', 'primary', () => {
+    ed.run(setShape({
+      kind: kind.value, fill: noFill.checked ? '' : fill.value, stroke: noStroke.checked ? '' : stroke.value, strokeWidth: Math.max(0, Number(strokeWidth.value) || 0),
+      text: text.value, color: color.value, size: Math.max(4, Number(size.value) || 11), bold: bold.checked, font: font.value, align: align.value, valign: valign.value,
+      wordart: kind.value === 'wordArt' ? wordart.value : String(a.wordart ?? ''), wrap: wrap.value, side: side.value,
+      width: Math.max(6, Number(width.value) || Number(a.width)), height: Math.max(3, Number(height.value) || Number(a.height)), rotate: Number(rotate.value) || 0, x: Number(x.value) || 0, y: Number(y.value) || 0,
+    }));
+    d.close();
+  });
+  d.open(text);
+}
+
+export function equationDialog(ed: DocEditor): void {
+  const cur = ed.view ? selectedMath(ed.view.state) : null;
+  const d = new Dialog(cur ? 'Edit equation' : 'Insert equation', 640);
+  const src = el<HTMLTextAreaElement>('<textarea class="ft-input ft-eq-src" rows="4" spellcheck="false" aria-label="Equation in LaTeX" placeholder="x = \\frac{-b \\pm \\sqrt{b^2 - 4ac}}{2a}"></textarea>');
+  src.value = String(cur?.node.attrs.latex ?? '');
+  const display = input('checkbox', String(!!cur?.node.attrs.display));
+  const preview = el('<div class="ft-eq-preview" aria-live="polite"></div>');
+  const snippets = el('<div class="ft-eq-snippets"></div>');
+  for (const [label, tex] of MATH_SNIPPETS) {
+    const b = el<HTMLButtonElement>('<button type="button" class="ft-btn sm"></button>');
+    setText(b, label);
+    b.addEventListener('click', () => {
+      const at = src.selectionStart ?? src.value.length;
+      src.setRangeText(tex, at, src.selectionEnd ?? at, 'end');
+      src.focus();
+      refresh();
+    });
+    snippets.appendChild(b);
+  }
+  let frame = 0;
+  const refresh = (): void => {
+    if (frame) return;
+    frame = requestAnimationFrame(() => { frame = 0; preview.innerHTML = renderMath(src.value, display.checked); });
+  };
+  src.addEventListener('input', refresh);
+  display.addEventListener('change', refresh);
+  d.body.append(snippets);
+  d.field('LaTeX', src);
+  const l = el('<label class="ft-check"></label>');
+  l.append(display, document.createTextNode(' Display on its own line'));
+  d.body.append(l, preview);
+  void loadMathFonts().then(refresh);
+  d.button('Cancel', 'ghost', () => d.close());
+  d.button(cur ? 'Apply' : 'Insert', 'primary', () => {
+    if (!src.value.trim()) { toast('Type an equation first.', 'error'); return; }
+    ed.run(putMath(src.value.trim(), display.checked));
+    d.close();
+  });
+  d.open(src);
   refresh();
 }
 
