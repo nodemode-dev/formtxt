@@ -130,7 +130,7 @@ export async function startApp(): Promise<void> {
     setText(docname, doc.title);
     document.title = `${doc.title} · FormTxt`;
     home.close();
-    const words = doc.tabs.flatMap((t) => t.body).flatMap((b) => b.content ?? []).reduce((n, r) => n + r.text.split(/\s+/).filter(Boolean).length, 0);
+    const words = doc.tabs.flatMap((t) => t.body).flatMap((b) => b.content ?? []).reduce((n, r) => n + (typeof r.text === 'string' ? r.text.split(/\s+/).filter(Boolean).length : 0), 0);
     home.upsert({ id: doc.id, title: doc.title, modified: doc.meta.modified, created: doc.meta.created, words, bytes: 0 });
     return doc;
   };
