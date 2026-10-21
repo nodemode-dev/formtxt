@@ -97,7 +97,7 @@ SPEC.nodes.citation = inline({
 });
 
 SPEC.nodes.link_chip = inline({
-  attrs: { href: { default: '' }, title: { default: '' }, site: { default: '' } },
-  parseDOM: [{ tag: 'a.ft-linkchip', getAttrs: (dom: HTMLElement) => ({ href: dom.getAttribute('href') || '', title: dom.dataset.title || '', site: dom.dataset.site || '' }) }],
-  toDOM: (n) => ['a', { class: 'ft-linkchip', href: String(n.attrs.href), rel: 'noopener', target: '_blank', contenteditable: 'false', 'data-title': String(n.attrs.title), 'data-site': String(n.attrs.site), title: String(n.attrs.href) }, ['span', { class: 'ft-linkchip-site' }, String(n.attrs.site)], ['span', { class: 'ft-linkchip-title' }, String(n.attrs.title)]],
+  attrs: { href: { default: '' }, title: { default: '' }, site: { default: '' }, desc: { default: '' } },
+  parseDOM: [{ tag: 'a.ft-linkchip', getAttrs: (dom: HTMLElement) => ({ href: dom.getAttribute('href') || '', title: dom.dataset.title || '', site: dom.dataset.site || '', desc: dom.dataset.desc || '' }) }],
+  toDOM: (n) => ['a', { class: 'ft-linkchip', href: String(n.attrs.href), rel: 'noopener', target: '_blank', contenteditable: 'false', 'data-title': String(n.attrs.title), 'data-site': String(n.attrs.site), 'data-desc': String(n.attrs.desc) }, ['span', { class: 'ft-linkchip-site' }, String(n.attrs.site)], ['span', { class: 'ft-linkchip-title' }, String(n.attrs.title)]],
 });

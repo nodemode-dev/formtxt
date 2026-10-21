@@ -78,4 +78,5 @@ def page_info(url: str) -> dict:
     t = _TITLE.search(body)
     title = _clean(metas.get("og:title") or (t.group(1) if t else "") or metas.get("twitter:title", ""), 200)
     site = _clean(metas.get("og:site_name", ""), 80) or host_of(final or url)
-    return {"url": url, "title": title, "site": site, "fetched": True}
+    desc = _clean(metas.get("og:description") or metas.get("description") or metas.get("twitter:description", ""), 300)
+    return {"url": url, "title": title, "site": site, "description": desc, "fetched": True}

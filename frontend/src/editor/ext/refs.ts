@@ -17,6 +17,7 @@ import {
 import { headings, jump, saveSources, saveStyle, sourcesOf } from './refs/util';
 import { addMenuItems } from './ui';
 import { addPlugin, onDocumentLoaded } from './plugins';
+import { linkCardPlugin } from './refs/card';
 import type { CommandParam } from '../../engine/registry';
 
 const P = (name: string, type: CommandParam['type'], description: string): CommandParam => ({ name, type, description });
@@ -87,6 +88,7 @@ export function register(reg: CommandRegistry, ed: DocEditor): void {
       },
     },
   }));
+  addPlugin(linkCardPlugin());
   addPlugin(keymap({
     'Mod-Alt-f': () => { void reg.run('references.insertFootnote').catch((e: Error) => toast(e.message, 'error')); return true; },
     'Mod-Alt-d': () => { void reg.run('references.insertEndnote').catch((e: Error) => toast(e.message, 'error')); return true; },

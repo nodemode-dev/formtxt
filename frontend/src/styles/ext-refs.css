@@ -46,6 +46,13 @@
 .ft-refs-bm { display: flex; align-items: center; gap: var(--space-2); }
 .ft-refs-bm-name { flex: 1 1 auto; overflow: hidden; text-overflow: ellipsis; }
 .ft-refs-error { color: var(--danger); }
+.ft-linkcard { position: fixed; z-index: var(--z-menu); display: flex; flex-direction: column; gap: 4px; width: 320px; padding: var(--space-3); border: 1px solid var(--border-light); border-radius: var(--radius); background: var(--bg-secondary); color: var(--text-primary); box-shadow: 0 8px 24px rgb(0 0 0 / 0.35); font-size: var(--ft-12); }
+.ft-linkcard[hidden] { display: none; }
+.ft-linkcard-site { color: var(--text-muted); font-size: var(--ft-11); text-transform: uppercase; letter-spacing: 0.04em; }
+.ft-linkcard-title { font-weight: 600; line-height: 1.35; }
+.ft-linkcard-desc { color: var(--text-secondary); line-height: 1.4; display: -webkit-box; -webkit-line-clamp: 3; -webkit-box-orient: vertical; overflow: hidden; }
+.ft-linkcard-url { overflow: hidden; color: var(--accent-color); text-overflow: ellipsis; white-space: nowrap; }
+.ft-linkcard-row { display: flex; gap: var(--space-2); margin-top: var(--space-1); }
 @media print {
   .ft-refblock-update, .ft-idx, .ft-bookmark { display: none; }
 }

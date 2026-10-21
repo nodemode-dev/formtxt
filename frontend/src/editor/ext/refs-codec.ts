@@ -83,4 +83,4 @@ CODEC.inline.citation.toPM = (run, schema) => schema.nodes.citation.create({
   items: Array.isArray(run.items) ? run.items.filter((i) => i && typeof i === 'object').map((i) => ({ id: str((i as Record<string, unknown>).id), ...((i as Record<string, unknown>).locator ? { locator: str((i as Record<string, unknown>).locator) } : {}) })) : [],
   result: str(run.text),
 });
-CODEC.inline.linkChip = inlineCodec('link_chip', ['href', 'title', 'site'], (n) => String(n.attrs.title || n.attrs.site || n.attrs.href));
+CODEC.inline.linkChip = inlineCodec('link_chip', ['href', 'title', 'site', 'desc'], (n) => String(n.attrs.title || n.attrs.site || n.attrs.href));

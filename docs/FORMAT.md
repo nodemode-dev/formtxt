@@ -101,7 +101,7 @@ Four blocks share one shape: `title` (the heading shown above the entries), `ent
 | `crossRef` | `kind` (`heading`, `bookmark`, `caption` or `note`), `target` (the paragraph id for `heading` and `caption`, the bookmark name, or the note id), `what` (`text`, `page`, `label` or `number`), `text` (the last computed result, empty when the target is missing) |
 | `indexEntry` | `main` and optional `sub`; `text` is empty. Shown on screen as a small tag and not printed |
 | `citation` | `items` (a list of `{id, locator}`: a source id from the top-level `sources` and an optional page or locator), `text` (the citation as formatted in the document's style) |
-| `linkChip` | a link shown as a chip: `href` (http or https), `title` (page title, or the host name when the title was not fetched), `site` (site name or host), `text` (the title) |
+| `linkChip` | a link shown as a chip: `href` (http or https), `title` (page title, or the host name when the title was not fetched), `site` (site name or host), optional `desc` (the page's description, up to 300 characters, shown in the preview card), `text` (the title) |
 
 A link mark whose address starts with `#` points inside the document: `#` plus a paragraph id (a heading) or `#bm:` plus a bookmark name.
 

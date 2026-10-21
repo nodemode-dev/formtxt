@@ -225,13 +225,13 @@ export function linkToTarget(ed: DocEditor, target: string, text: string): strin
   v.focus();
 }
 
-export interface PageInfo { url: string; title: string; site: string; fetched: boolean }
+export interface PageInfo { url: string; title: string; site: string; fetched: boolean; description?: string }
 
 export async function fetchPage(url: string): Promise<PageInfo> {
   try {
     const r = await api.get<PageInfo>(`/refs/link-title?url=${encodeURIComponent(url)}`);
     const host = hostOf(url);
-    return { url, title: r.title || host, site: r.site || host, fetched: !!r.title };
+    return { url, title: r.title || host, site: r.site || host, fetched: !!r.title, description: r.description ?? '' };
   } catch {
     const host = hostOf(url);
     return { url, title: host, site: host, fetched: false };
@@ -282,7 +282,7 @@ export async function makeLinkChip(ed: DocEditor, url: string, fetchTitle: boole
   const info = fetchTitle ? await fetchPage(clean) : { url: clean, title: hostOf(clean), site: hostOf(clean), fetched: false };
   const v = view(ed);
   const under = linkUnderSelection(ed);
-  const node = schema.nodes.link_chip.create({ href: clean, title: info.title, site: info.site });
+  const node = schema.nodes.link_chip.create({ href: clean, title: info.title, site: info.site, desc: info.description ?? '' });
   const tr = v.state.tr;
   if (under && under.href === clean) tr.replaceWith(under.from, under.to, node);
   else tr.replaceSelectionWith(node, false);
