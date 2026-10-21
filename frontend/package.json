@@ -40,7 +40,8 @@
     "prosemirror-state": "1.4.4",
     "prosemirror-tables": "1.8.5",
     "prosemirror-transform": "1.12.2",
-    "prosemirror-view": "1.42.6"
+    "prosemirror-view": "1.42.6",
+    "wordnet-db": "3.1.14"
   },
   "devDependencies": {
     "@tauri-apps/cli": "2.12.1",

@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.services.proofing import dictionary, prefs
+from app.services.proofing import dictionary, prefs, wordnet
 
 router = APIRouter()
 
@@ -71,3 +71,11 @@ def personal(body: WordBody) -> dict:
     elif word not in current:
         current = [*current, word]
     return {"dictionary": prefs.write({"dictionary": current})["dictionary"]}
+
+
+@router.get("/proofing/thesaurus")
+def thesaurus(word: str = "", limit: int = 12) -> dict:
+    w = word.strip()
+    if not w or len(w) > 60:
+        raise HTTPException(status_code=422, detail="Give one word or a short phrase.")
+    return wordnet.lookup(w, max(1, min(30, limit)))

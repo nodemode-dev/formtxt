@@ -20,6 +20,20 @@ FormTxt. Copyright 2026 nodemode-ai. Licensed under the Apache License 2.0 (`LIC
 | FastAPI, Starlette, Pydantic | MIT | engine |
 | Uvicorn | BSD-3-Clause | engine server |
 | python-multipart | Apache-2.0 | engine uploads |
+| prosemirror-collab 1.3.1 | MIT | live co-editing |
+| wordnet-db 3.1.14 (WordNet 3.0 database, Copyright 2006 by Princeton University; used under the WordNet License, which permits use, copying and distribution with this notice; the database is provided as is, without warranties) | MIT package, WordNet License data | Tools > Thesaurus and dictionary (read by the engine from `frontend/node_modules`) |
+| SCOWL-derived hunspell dictionaries for en-US, en-GB, en-AU and en-CA, from dictionary-en 4.0.0, dictionary-en-gb, -au and -ca 3.0.0 (licence file in `backend/app/services/proofing/data/`) | MIT AND BSD | spelling |
+| python-docx 1.2.0 | MIT | .docx reading and writing |
+| lxml 6.1.3 | BSD-3-Clause | .odt, .docx and EPUB XML |
+| reportlab 5.0.1 | BSD | PDF export |
+| pypdf 6.21.2 | BSD-3-Clause | PDF tags and reading |
+| pdfplumber 0.11.10 (with pdfminer.six) | MIT | opening PDFs |
+| pypdfium2 5.14.0 (PDFium) | Apache-2.0 or BSD-3-Clause | PDF page rendering |
+| olefile 0.47 | BSD-2-Clause | Word 97-2003 .doc reading |
+| Pillow 13.0.0 | MIT-CMU (HPND) | pictures |
+| openpyxl 3.1.5 | MIT | spreadsheet data |
+| cryptography 50.0.2 | Apache-2.0 or BSD-3-Clause | password protection |
+| rapidocr-onnxruntime 1.2.3 with onnxruntime 1.31.0, opencv-python, numpy, shapely and pyclipper | Apache-2.0, MIT, Apache-2.0, BSD-3-Clause, BSD-3-Clause, MIT | OCR of scanned PDF pages, engine only |
 
 ## From the form family
 

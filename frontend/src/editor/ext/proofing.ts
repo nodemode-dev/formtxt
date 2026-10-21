@@ -21,6 +21,8 @@ import { addWord } from './proofing/spell';
 import { clearIgnores, getPrefs, loadPrefs, savePrefs } from './proofing/state';
 import type { Category } from './proofing/types';
 import { READ_PANEL, ReadPanel, VOICE_PANEL, VoicePanel } from './proofing/voicepanels';
+import { ThesaurusPanel } from './proofing/thesaurus';
+import { keymap } from 'prosemirror-keymap';
 
 type P = Record<string, unknown>;
 type ParamDef = { name: string; type: 'string' | 'number' | 'boolean'; description: string };
@@ -60,6 +62,25 @@ export function register(reg: CommandRegistry, ed: DocEditor): void {
     voicePanel.patch();
     return voicePanel;
   };
+
+  let thesaurus: ThesaurusPanel | null = null;
+  const showThesaurus = (): ThesaurusPanel => {
+    thesaurus ??= new ThesaurusPanel(ed);
+    if (!panelOpen('thesaurus')) openPanel('thesaurus', 'Thesaurus and dictionary', thesaurus.root);
+    return thesaurus;
+  };
+  reg.register({
+    id: 'tools.thesaurus', label: 'Thesaurus', group: 'Tools', keys: ['Shift+F7'],
+    description: 'Look up the word at the caret (or a given word) in the offline thesaurus and dictionary: meanings with definitions, examples, synonyms, antonyms and broader words. Click a word to replace the one in the text.',
+    params: [{ name: 'word', type: 'string', description: 'Word to look up instead of the one at the caret' }, { name: 'replace', type: 'string', description: 'Replace the looked-up word in the text with this word' }],
+    run: async (p) => {
+      const panel = showThesaurus();
+      if (typeof p.replace === 'string' && p.replace) { if (!panel.current()) await panel.fromSelection(); return panel.replace(p.replace); }
+      return typeof p.word === 'string' && p.word ? panel.lookup(p.word, false) : panel.fromSelection();
+    },
+  });
+  addPlugin(keymap({ 'Shift-F7': () => { void reg.run('tools.thesaurus').catch((e: Error) => toast(e.message, 'error')); return true; } }));
+  addMenuItems('Tools', [{ cmd: 'tools.thesaurus', label: 'Thesaurus and dictionary', keys: 'Shift+F7' }]);
 
   addPlugin(proofingPlugin());
   addPlugin(semanticsPlugin(ed));
