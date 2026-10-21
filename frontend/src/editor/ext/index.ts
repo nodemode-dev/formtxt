@@ -11,8 +11,9 @@ import { register as proofing } from './proofing';
 import { register as ai } from './ai';
 import { register as objects } from './objects';
 import { register as collab } from './collab';
+import { register as views } from './views';
 
-const AREAS: AreaRegister[] = [refs, review, versions, exchange, print, proofing, ai, objects, collab];
+const AREAS: AreaRegister[] = [refs, review, versions, exchange, print, proofing, ai, objects, collab, views];
 
 export function registerExtensions(reg: CommandRegistry, ed: DocEditor): void {
   mountExtensionUI();
