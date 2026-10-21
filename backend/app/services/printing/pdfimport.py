@@ -13,6 +13,55 @@ from .reader import (BULLET_RE, END_RE, MONO_RE, NUMBER_RE, SERIF_RE, PdfReaderS
                      line_stats, merge_runs, rect_in, table_block)
 
 MAX_PAGES = 400
+_OCR = None
+
+
+def ocr_available() -> bool:
+    import importlib.util
+    return importlib.util.find_spec("rapidocr_onnxruntime") is not None
+
+
+def ocr_paragraphs(pdf_page) -> list[str] | None:
+    global _OCR
+    try:
+        import numpy as np
+        from rapidocr_onnxruntime import RapidOCR
+    except ImportError:
+        return None
+    if _OCR is None:
+        _OCR = RapidOCR()
+    image = pdf_page.render(scale=2).to_pil().convert("RGB")
+    result, _ = _OCR(np.array(image))
+    boxes = []
+    for box, text, score in result or []:
+        if float(score) < 0.5 or not str(text).strip():
+            continue
+        ys = [p[1] for p in box]
+        xs = [p[0] for p in box]
+        boxes.append((min(ys), max(ys), min(xs), str(text).strip()))
+    if not boxes:
+        return []
+    boxes.sort()
+    lines: list[list] = []
+    for top, bottom, left, text in boxes:
+        if lines and top < (lines[-1][0] + lines[-1][1]) / 2:
+            lines[-1][3].append((left, text))
+            lines[-1][1] = max(lines[-1][1], bottom)
+        else:
+            lines.append([top, bottom, left, [(left, text)]])
+    heights = sorted(ln[1] - ln[0] for ln in lines)
+    unit = heights[len(heights) // 2] or 1
+    paras: list[str] = []
+    prev_bottom = None
+    for top, bottom, _left, parts in lines:
+        text = " ".join(t for _x, t in sorted(parts))
+        if paras and prev_bottom is not None and top - prev_bottom < unit * 0.9:
+            last = paras[-1]
+            paras[-1] = last[:-1] + text if last.endswith("-") and len(last) > 1 and last[-2].isalpha() and text[:1].islower() else f"{last} {text}"
+        else:
+            paras.append(text)
+        prev_bottom = bottom
+    return paras
 
 
 def find_gutter(groups: list[list[dict]], page_width: float) -> tuple[float, float] | None:
@@ -337,6 +386,7 @@ def pdf_to_document(data: bytes, filename: str = "document.pdf") -> tuple[dict, 
             state.note(f"The PDF's main font ({main_family}) is shown in {font}, because fonts inside a PDF cannot be reused.")
 
         per_page: list[tuple[int, list, float, float, float | None]] = []
+        ocr_text: dict[int, list[str]] = {}
         heading_sizes: Counter = Counter()
         furniture: dict[tuple[str, bool, tuple[int, int]], list] = {}
         for pi, page in enumerate(pages):
@@ -345,6 +395,14 @@ def pdf_to_document(data: bytes, filename: str = "document.pdf") -> tuple[dict, 
             except (ValueError, KeyError):
                 links = []
             items, gutter = page_items(state, page, render[pi], body_size, links)
+            if not any(c["text"].strip() for c in page.chars[:200]):
+                found = ocr_paragraphs(render[pi])
+                if found is None:
+                    state.note("Some pages are scanned images; OCR needs the optional rapidocr-onnxruntime package, so they were kept as pictures.")
+                elif found:
+                    ocr_text[pi] = found
+                    items = [it for it in items if it[0] == "line"]
+                    state.note(f"Page {pi + 1} was read by OCR; check the text against the original.")
             per_page.append((pi, items, float(page.width), float(page.height), gutter))
             for kind, _top, _x, ln in items:
                 if kind != "line":
@@ -435,12 +493,14 @@ def pdf_to_document(data: bytes, filename: str = "document.pdf") -> tuple[dict, 
                 else:
                     imp.add_block(payload)
                     prev = None
+            for text in ocr_text.get(pi, []):
+                imp.add_block({"type": "paragraph", "id": new_id("p_"), "style": "Normal", "content": [{"type": "text", "text": text}]})
             imp.flush()
 
     body = imp.body
     if not body:
         body = [{"type": "paragraph", "id": new_id("p_"), "style": "Normal", "section": sections[0]["id"], "content": []}]
-        state.note("No text was found in this PDF. Scanned pages are not read by OCR in this version.")
+        state.note("No text was found in this PDF." + ("" if ocr_available() else " Scanned pages need the optional rapidocr-onnxruntime package for OCR."))
     doc["sections"] = sections
     doc["tabs"][0]["body"] = body
     doc["media"] = state.media_meta
