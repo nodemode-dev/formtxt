@@ -146,3 +146,15 @@ backend/
 - kind: todo
 - logged: v0.2.0 · 2026-10-21
 - `.md`, `.markdown` and `.txt` only; headings, quotes, list lines (kept as text in List Paragraph until lists land in Phase 2), bold, italic, code and links. Every other format answers 415 naming Phase 7.
+
+### intake · Markdown pipe tables
+- refers-to: app/services/intake.py :: _table(), _cells()
+- kind: explainer
+- logged: v0.8.0 · 2026-10-21
+- Consecutive lines that start with `|` become one table block. A `|---|` second line makes the first row header cells and the table repeats it on each page; `:---:` and `---:` set centre and right alignment on that column's paragraphs; `\|` is a literal pipe. Columns share the page body width less 0.75 pt, so the collapsed outer border never makes the table one pixel wider than the body.
+
+### model · walking blocks
+- refers-to: app/services/model.py :: iter_runs(); app/services/thumbs.py :: render()
+- kind: explainer
+- logged: v0.8.0 · 2026-10-21
+- Text now lives inside table cells as well as top-level paragraphs, so `iter_runs` walks cell bodies recursively; word counts use it and thumbnails draw a table as ruled rows with a shaded header row.

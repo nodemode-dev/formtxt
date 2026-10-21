@@ -16,7 +16,7 @@ Readers refuse a package whose `mimetype` differs, that lacks `document.json`, o
 
 ## Units and ids
 
-Lengths are points (1/72 inch). Colours are `#rrggbb`. Ids are a prefix plus 4 to 40 lowercase letters or digits: `d_` document, `sec_` section, `tab_` document tab, `p_` paragraph.
+Lengths are points (1/72 inch). Colours are `#rrggbb`. Ids are a prefix plus 4 to 40 lowercase letters or digits: `d_` document, `sec_` section, `tab_` document tab, `p_` paragraph, `t_` table.
 
 ## document.json
 
@@ -54,5 +54,8 @@ Each body entry has `type` and `id`. Version 1 defines:
 | `code` | `text`, the block's plain text |
 | `pageBreak` | nothing else |
 | `sectionBreak` | `next`, the id of the section that starts after the break; blocks before the first break belong to `sections[0]` |
+| `table` | `columns` (column widths in points, 0 for automatic), `rows` (each `{cells}`), optional `look` (`grid`, `plain`, `rows`, `banded` or `accent`; default `grid`), `repeatHeader` (repeat the leading rows made only of header cells on each page the table continues on) and `align` (`center`, or absent for left) |
+
+A table cell is `{body}` with optional `header` (`true` for a header cell), `colspan` and `rowspan` (default 1), `shading` (`#rrggbb`) and `valign` (`middle` or `bottom`; absent is top). `body` is a list of blocks: paragraphs, code blocks and nested tables, never page or section breaks. A cell covered by another cell's span is not written, as in HTML; every row covers the same number of columns. Rows do not split across pages; a row taller than a page runs past its bottom margin.
 
 Inline nodes in `content` are `text` (`text`, optional `marks`) , `break` (a line break inside a paragraph) and `tab` (a tab character, advanced to the paragraph's next tab stop or to the next multiple of `settings.defaultTab`, 36 points when unset). `marks` keys: `bold`, `italic`, `strike`, `superscript`, `subscript`, `smallCaps`, `allCaps`, `code` (each `true`), `underline` (`true` for single, or `double`, `dotted`, `dash`, `wavy`), `font` (family name), `size` (points), `spacing` (character spacing in points), `color` and `highlight` (`#rrggbb`), and `link` (address). Later phases add tables, pictures and the rest as new block and inline types; readers keep unknown types intact on save.

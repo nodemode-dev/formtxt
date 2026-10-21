@@ -229,6 +229,24 @@ frontend/
 - logged: v0.7.0 · 2026-10-21
 - Double-click turns the sheet's header or footer `contenteditable="plaintext-only"`; Enter or leaving it saves through `updateSectionById` for that sheet's section and which part (first, even or default), Esc puts the text back. Painting skips a header that is being edited so a relayout never overwrites typing.
 
+### tables · prosemirror-tables with a Word-shaped file
+- refers-to: src/editor/schema.ts :: table nodes; src/editor/table.ts; src/editor/convert.ts :: tableToPM(), tableFromPM()
+- kind: rationale
+- logged: v0.8.0 · 2026-10-21
+- Cell selection, merging, splitting, column resizing and keeping rows rectangular come from prosemirror-tables (MIT), the same model Word uses (spans, a column grid). The editor keeps widths per cell in pixels (`colwidth`); the file keeps one `columns` list in points, rebuilt from the table map on save. Table nodes are declared after `paragraph` in the schema because ProseMirror fills `block+` with the first block type, and a new document must start with a paragraph. `FtTableView` extends the library's view only to mirror look, repeat and alignment onto the `<table>` element by attribute, so a change never rebuilds the table.
+
+### tables · rows split across pages
+- refers-to: src/editor/pages.ts :: layout() table branch, rowSpacer(), repeatRow()
+- kind: warning-context
+- logged: v0.8.0 · 2026-10-21
+- A table that crosses the page bottom gets a spacer `<tr>` widget before the first row that does not fit, then a clone of each header row (when `repeatHeader` is on and those rows are all `<th>`). Both are widgets inside the table body, so the rows around them are never re-rendered; the clones are `contenteditable=false`, `aria-hidden` and keyed by a hash of their HTML so an edited header refreshes them. The header and first body row stay together: if they cannot fit, the whole table moves. A row taller than a page is not split, matching Word with "allow row to break across pages" off. Borders belong to cells, not the `<table>`, so the spacer row draws no side lines across the page gap.
+
+### tables · toolbar kept short
+- refers-to: src/editor/editor.ts :: toolbar; src/editor/register.ts :: table context menu
+- kind: rationale
+- logged: v0.8.0 · 2026-10-21
+- Only Insert table and Table properties sit on the toolbar (properties is disabled outside a table, by attribute, so the toolbar never changes width). Row, column, merge and header actions live in a right-click menu on cells, rendered in `#overlay-root`, and every action is also a `table.*` command for the palette and CLI.
+
 ### pages · cost
 - refers-to: src/editor/pages.ts :: layout()
 - kind: todo
