@@ -320,6 +320,18 @@ frontend/
 - logged: v0.13.0 · 2026-10-21
 - The 12 layout functions are FormDeck's, kept line for line where possible. FormDeck emits slide shapes with theme colour references; here each layout emits plain boxes (geometry, frame, hex colours, text lines), drawn as SVG paths with a positioned HTML text layer so text wraps and fits like FormDeck's shrink-on-overflow (the same size search). Colours: colourful cycles the document accent and five fixed hues; the shade schemes darken then lighten one hue across the items, as FormDeck's lumMod and lumOff do. Items are a plain tree with no ids; text is edited as indented lines. The view redraws only when layout, items, style, colours, size or the accent change.
 
+### pictures · cropping on the picture
+- refers-to: src/editor/picture.ts :: cropMode(), cropDown(), paintCrop()
+- kind: explainer
+- logged: v0.14.0 · 2026-10-21
+- Crop mode keeps the image element where it is (it already sits at the uncropped size, offset by the crop) and lets the frame overflow, then lays a box over the whole image with a window for the kept area; the window's huge white box shadow, clipped by the box, dims what will be cut. Handles move the window's edges (at least 5 percent stays, at most 90 percent is removed per axis), dragging inside moves the window, and pointer distances are turned into the picture's own axes so rotated pictures crop along their edges. Nothing is written to the document until the mode ends: Enter, clicking elsewhere or deselecting applies one `setNodeMarkup` with the new crop and a size that keeps the image's scale; Esc discards. While cropping the view ignores attribute updates and PM ignores its pointer events.
+
+### pictures and shapes · fixed to the page
+- refers-to: src/editor/editor.ts :: placePageAnchored(); picture.ts and shape.ts apply()
+- kind: rationale
+- logged: v0.14.0 · 2026-10-21
+- An object stays a run in its paragraph, so it moves between pages with the text that anchors it; with `relative: page` its offset is measured from that page instead. After every layout the editor finds each page-anchored object's paragraph, which page it is on, and writes the paragraph-to-page offset into `data-ox` and `data-oy`; the views add those offsets to `x` and `y`, and a drag subtracts them before saving. The objects are absolutely positioned, so placing them never changes the flow and cannot loop the paginator.
+
 ### pages · atom blocks at a page break
 - refers-to: src/editor/pages.ts :: layout() posOf()
 - kind: warning-context
