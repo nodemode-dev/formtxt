@@ -31,7 +31,6 @@ function paraAttrs(n: PMNode): Attrs {
     if (a.border === 'box') css.push(`border:${line}`, 'padding:4px 6px');
     else css.push(`border-${a.border}:${line}`, `padding-${a.border}:4px`);
   }
-  if (Array.isArray(a.tabs) && a.tabs.length) css.push(`tab-size:${Math.max(8, Math.round((Number((a.tabs[0] as { pos: number }).pos) * 96) / 72))}px`);
   if (a.spaceBefore !== null) css.push(`margin-top:${(Number(a.spaceBefore) * 96) / 72}px`);
   if (a.spaceAfter !== null) css.push(`margin-bottom:${(Number(a.spaceAfter) * 96) / 72}px`);
   if (a.lineSpacing !== null) css.push(`line-height:${Number(a.lineSpacing) * 1.2}`);
@@ -88,6 +87,22 @@ const nodes: Record<string, NodeSpec> = {
     selectable: false,
     parseDOM: [{ tag: 'br' }],
     toDOM: () => ['br'],
+  },
+  tab: {
+    inline: true,
+    group: 'inline',
+    atom: true,
+    selectable: false,
+    parseDOM: [{ tag: 'span.ft-tab' }],
+    toDOM: () => ['span', { class: 'ft-tab', contenteditable: 'false' }, '\t'],
+  },
+  section_break: {
+    group: 'block',
+    atom: true,
+    selectable: true,
+    attrs: { section: { default: null }, start: { default: 'nextPage' } },
+    parseDOM: [{ tag: 'hr.ft-section-break', getAttrs: (dom: HTMLElement) => ({ section: dom.dataset.section || null }) }],
+    toDOM: (n) => ['hr', { class: 'ft-section-break', contenteditable: 'false', 'data-section': String(n.attrs.section ?? '') }],
   },
   page_break: {
     group: 'block',

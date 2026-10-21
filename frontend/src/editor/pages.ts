@@ -91,6 +91,9 @@ export function numberFormat(n: number, fmt: string): string {
 export class Paginator {
   pages = 1;
   onLayout: (() => void) | null = null;
+  sectionsOf: (() => Section[]) | null = null;
+  sectionStarts: Array<{ page: number; id: string }> = [];
+  beforeMeasure: ((root: HTMLElement, ratio: number) => void) | null = null;
   private frame = 0;
   private readonly sheets: HTMLElement;
 
@@ -125,6 +128,8 @@ export class Paginator {
     if (this.container.dataset.mode !== mode) this.container.dataset.mode = mode;
     const empty = pagesKey.getState(view.state);
     if (empty && empty !== DecorationSet.empty) view.dispatch(view.state.tr.setMeta(pagesKey, DecorationSet.empty).setMeta('addToHistory', false));
+    this.sectionStarts = [{ page: 0, id: this.section()!.id }];
+    this.beforeMeasure?.(view.dom as HTMLElement, this.zoom());
     if (pageless) { this.pages = 1; this.paint(g, true); this.onLayout?.(); return; }
     const root = view.dom as HTMLElement;
     const rootRect = root.getBoundingClientRect();
@@ -143,6 +148,7 @@ export class Paginator {
       const top = tops[i] + off;
       const height = rect.height / ratio;
       if (k.classList.contains('ft-page-break')) { force = true; continue; }
+      if (k.classList.contains('ft-section-break')) { force = true; if (k.dataset.section) this.sectionStarts.push({ page: page + 1, id: k.dataset.section }); continue; }
       const posOf = (n: HTMLElement): number => { try { return view.posAtDOM(n, 0) - 1; } catch { return -1; } };
       if (force) {
         force = false;
@@ -259,15 +265,26 @@ export class Paginator {
     const z = this.zoom();
     const extra = z === 1 ? '' : `${((this.container.offsetHeight || 0) * (z - 1)).toFixed(0)}px`;
     if (this.container.style.marginBottom !== extra) this.container.style.marginBottom = extra;
-    const start = Number((s as unknown as { pageNumberStart?: number }).pageNumberStart ?? 1) || 1;
-    const fmt = String((s as unknown as { pageNumberFormat?: string }).pageNumberFormat ?? 'decimal');
     const evenOdd = !!settings.evenOdd;
-    const pick = (parts: Record<string, unknown>, i: number): HeaderPart | null => {
-      const key = i === 0 && s.titlePage ? 'first' : evenOdd && (i + start) % 2 === 0 ? 'even' : 'default';
-      const v = parts?.[key] as HeaderPart | undefined;
+    const all = this.sectionsOf?.() ?? [s];
+    const byId = new Map(all.map((x) => [x.id, x]));
+    const starts = this.sectionStarts.length ? this.sectionStarts : [{ page: 0, id: s.id }];
+    const plan: Array<{ sec: Section; first: boolean; num: number }> = [];
+    for (let i = 0; i < count; i++) {
+      let st = starts[0];
+      for (const x of starts) if (x.page <= i) st = x;
+      const sec = byId.get(st.id) ?? s;
+      const first = st.page === i;
+      const restart = sec.pageNumberStart;
+      const num = i === 0 ? Number(restart ?? 1) || 1 : first && typeof restart === 'number' && st.page > 0 ? restart : plan[i - 1].num + 1;
+      plan.push({ sec, first, num });
+    }
+    const which = (i: number): string => (plan[i].first && plan[i].sec.titlePage ? 'first' : evenOdd && plan[i].num % 2 === 0 ? 'even' : 'default');
+    const pick = (where: 'headers' | 'footers', i: number): HeaderPart | null => {
+      const v = (plan[i].sec[where] as Record<string, unknown>)?.[which(i)] as HeaderPart | undefined;
       return v && v.text ? v : null;
     };
-    const fill = (text: string, i: number): string => text.replace(/\{PAGE\}/g, numberFormat(i + start, fmt)).replace(/\{NUMPAGES\}/g, numberFormat(count, fmt === 'decimal' ? 'decimal' : 'decimal'));
+    const fill = (text: string, i: number): string => text.replace(/\{PAGE\}/g, numberFormat(plan[i].num, String(plan[i].sec.pageNumberFormat ?? 'decimal'))).replace(/\{NUMPAGES\}/g, String(count));
     const items = Array.from({ length: count }, (_, i) => i);
     const watermark = String(settings.watermark ?? '');
     patchList(this.sheets, items, {
@@ -279,11 +296,14 @@ export class Paginator {
       const sheet = n as HTMLElement;
       const css = `top:${i * (g.H + GAP)}px;height:${g.H}px`;
       if (sheet.getAttribute('style') !== css) sheet.setAttribute('style', css);
-      const h = pick(s.headers, i), f = pick(s.footers, i);
+      const h = pick('headers', i), f = pick('footers', i);
       const hd = sheet.querySelector('.ft-sheet-header') as HTMLElement;
       const fd = sheet.querySelector('.ft-sheet-footer') as HTMLElement;
-      setText(hd, h ? fill(h.text, i) : '');
-      setText(fd, f ? fill(f.text, i) : '');
+      sheet.dataset.section = plan[i].sec.id;
+      hd.dataset.which = which(i);
+      fd.dataset.which = which(i);
+      if (!hd.isContentEditable) setText(hd, h ? fill(h.text, i) : '');
+      if (!fd.isContentEditable) setText(fd, f ? fill(f.text, i) : '');
       hd.style.textAlign = h?.align ?? 'left';
       fd.style.textAlign = f?.align ?? 'center';
       setText(sheet.querySelector('.ft-sheet-watermark'), watermark);

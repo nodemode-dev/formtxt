@@ -125,6 +125,14 @@
 .ft-editor[data-view="focus"] .ft-editor-body { grid-template-columns: minmax(0, 1fr); }
 body.ft-focus #app { grid-template-rows: 0 1fr 0; }
 body.ft-focus .ft-titlebar, body.ft-focus .ft-status { visibility: hidden; overflow: hidden; }
+.ft-pm span.ft-tab { display: inline-block; height: 1em; vertical-align: baseline; color: transparent; overflow: hidden; white-space: pre; user-select: none; }
+.ft-pm span.ft-tab.leader-dot { border-bottom: 2px dotted currentColor; color: transparent; border-color: #6b6b6b; }
+.ft-pm span.ft-tab.leader-dash { border-bottom: 1px dashed #6b6b6b; }
+.ft-pm span.ft-tab.leader-underline { border-bottom: 1px solid #6b6b6b; }
+.ft-pm hr.ft-section-break { height: 0; margin: 18px -96px; border: 0; border-top: 1px dashed #8a78c8; }
+.ft-pages[data-mode="paged"] .ft-pm hr.ft-section-break { margin: 0; border-top-color: transparent; }
+.ft-pm hr.ft-section-break.ProseMirror-selectednode { border-top-color: var(--accent-color); }
+.ft-sheet-header[contenteditable="true"], .ft-sheet-footer[contenteditable="true"] { outline: 2px solid var(--accent-color); outline-offset: 4px; color: #1a1a1a; white-space: pre-wrap; cursor: text; }
 .ft-pm .ft-folded { display: none; }
 .ft-pm p[data-style^="Heading"]::after { content: ''; position: absolute; left: -22px; top: 50%; width: 7px; height: 7px; margin-top: -5px; border-right: 1.5px solid #9a968c; border-bottom: 1.5px solid #9a968c; transform: rotate(45deg); opacity: 0; cursor: pointer; }
 .ft-pm p[data-style^="Heading"]:hover::after { opacity: 1; }

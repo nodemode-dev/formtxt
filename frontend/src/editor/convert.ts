@@ -31,6 +31,7 @@ function inlineNodes(content: TextRun[] | undefined): PMNode[] {
   for (const r of content ?? []) {
     const run = r as unknown as { type: string; text: string; marks?: Record<string, unknown> };
     if (run.type === 'break') out.push(schema.nodes.hard_break.create());
+    else if (run.type === 'tab') out.push(schema.nodes.tab.create());
     else if (run.type === 'text' && run.text) out.push(schema.text(run.text, marksFrom(run.marks)));
   }
   return out;
@@ -42,6 +43,7 @@ export function toPM(doc: FtxtDocument, tabIndex = 0): PMNode {
     const blk = b as Block & { type: string; text?: string; props?: Record<string, unknown>; list?: { kind: string; level: number; checked?: boolean } };
     if (blk.type === 'code') blocks.push(schema.nodes.code_block.create({ id: blk.id }, blk.text ? schema.text(blk.text) : null));
     else if (blk.type === 'pageBreak') blocks.push(schema.nodes.page_break.create());
+    else if (blk.type === 'sectionBreak') blocks.push(schema.nodes.section_break.create({ section: (blk as unknown as { next?: string }).next ?? null }));
     else {
       const p = blk.props ?? {};
       const props: Record<string, unknown> = {};
@@ -62,6 +64,7 @@ export function toPM(doc: FtxtDocument, tabIndex = 0): PMNode {
 
 function runFrom(node: PMNode): Record<string, unknown> {
   if (node.type.name === 'hard_break') return { type: 'break' };
+  if (node.type.name === 'tab') return { type: 'tab' };
   const marks: Record<string, unknown> = {};
   for (const m of node.marks) {
     const n = m.type.name;
@@ -84,6 +87,7 @@ export function fromPM(pm: PMNode, section: string): Block[] {
   pm.forEach((node) => {
     if (node.type.name === 'code_block') { out.push({ type: 'code', id: node.attrs.id || newId(), text: node.textContent } as unknown as Block); return; }
     if (node.type.name === 'page_break') { out.push({ type: 'pageBreak', id: newId() } as unknown as Block); return; }
+    if (node.type.name === 'section_break') { out.push({ type: 'sectionBreak', id: newId(), next: node.attrs.section } as unknown as Block); return; }
     const a = node.attrs;
     const block: Record<string, unknown> = { type: 'paragraph', id: a.id || newId(), style: a.style, section, content: [] as unknown[] };
     const props: Record<string, unknown> = {};

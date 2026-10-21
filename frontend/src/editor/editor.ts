@@ -16,6 +16,7 @@ import { collapsePlugin, findKey, findPlugin, rules, uniqueIds } from './plugins
 import type { DocTab, Section, Style } from '../engine/model';
 import { Paginator, pagesKey, pagesPlugin } from './pages';
 import { Ruler } from './ruler';
+import { layoutTabs } from './tabs';
 
 export type ViewMode = 'print' | 'draft' | 'read' | 'focus';
 import { schema } from './schema';
@@ -121,7 +122,7 @@ ${TB('paragraph.align.left', 'alignLeft', 'Align left', 'Ctrl+Shift+L')}${TB('pa
 ${TB('list.bullet', 'listBullet', 'Bulleted list', 'Ctrl+Shift+8')}${TB('list.number', 'listNumber', 'Numbered list', 'Ctrl+Shift+7')}${TB('list.check', 'listCheck', 'Checklist', 'Ctrl+Shift+9')}${TB('paragraph.outdent', 'outdent', 'Decrease indent', 'Shift+Tab')}${TB('paragraph.indent', 'indent', 'Increase indent', 'Tab')}
 <select class="ft-tb-select ft-tb-spacing" data-cmd="paragraph.lineSpacing" aria-label="Line spacing">${SPACINGS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>${SEP}
 ${TB('format.painter', 'painter', 'Format Painter', 'Ctrl+Shift+C')}${TB('format.paragraph', 'paragraph', 'Paragraph settings')}${TB('format.styles', 'styles', 'Styles')}${SEP}
-${TB('insert.link', 'link', 'Link', 'Ctrl+K')}${TB('insert.codeBlock', 'code', 'Code block')}${TB('insert.pageBreak', 'pageBreak', 'Page break', 'Ctrl+Enter')}${TB('format.clear', 'clearFormat', 'Clear formatting', 'Ctrl+\\')}${SEP}
+${TB('insert.link', 'link', 'Link', 'Ctrl+K')}${TB('insert.codeBlock', 'code', 'Code block')}${TB('insert.pageBreak', 'pageBreak', 'Page break', 'Ctrl+Enter')}${TB('insert.sectionBreak', 'sectionBreak', 'Section break (next page)')}${TB('format.clear', 'clearFormat', 'Clear formatting', 'Ctrl+\\')}${SEP}
 ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', 'outline', 'Outline')}${SEP}
 ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 'pageSetup', 'Page setup')}${TB('insert.headerFooter', 'headerFooter', 'Header and footer')}${TB('view.pageless', 'pageless', 'Pageless')}
 <select class="ft-tb-select ft-tb-zoom" data-cmd="view.zoom" aria-label="Zoom">${[50, 75, 90, 100, 110, 125, 150, 200].map((z) => `<option value="${z}"${z === 100 ? ' selected' : ''}>${z}%</option>`).join('')}<option value="" disabled hidden></option></select>
@@ -140,6 +141,8 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     this.pagesEl = this.root.querySelector('.ft-pages') as HTMLElement;
     this.paginator = new Paginator(() => this.view, this.pagesEl, () => this.doc?.sections[0] ?? null, () => { const st = (this.doc?.settings ?? {}) as unknown as Record<string, unknown>; return this.viewMode === 'draft' ? { ...st, pageless: true } : st; }, () => this.zoom);
     this.paginator.onLayout = () => this.hooks.status(this.words());
+    this.paginator.beforeMeasure = layoutTabs;
+    this.paginator.sectionsOf = () => this.doc?.sections ?? [];
     this.ruler = new Ruler(this.root.querySelector('.ft-scroll') as HTMLElement, (props) => this.paraProps(props));
     this.mount = this.root.querySelector('.ft-pm') as HTMLElement;
     this.outline = this.root.querySelector('.ft-outline-list') as HTMLElement;
@@ -201,7 +204,14 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
         'Shift-Mod-7': toggleList('number'), 'Shift-Mod-8': toggleList('bullet'), 'Shift-Mod-9': toggleList('check'),
         'Shift-Mod-l': setAlign('left'), 'Shift-Mod-e': setAlign('center'), 'Shift-Mod-r': setAlign('right'), 'Shift-Mod-j': setAlign('justify'),
         'Mod-\\': clearFormatting, 'Mod-Enter': insertPageBreak,
-        Tab: shiftIndent(1), 'Shift-Tab': shiftIndent(-1),
+        Tab: (state, dispatch, view) => {
+          const p = state.selection.$from.parent;
+          if (p.type === schema.nodes.paragraph && p.attrs.list) return shiftIndent(1)(state, dispatch, view);
+          if (p.type !== schema.nodes.paragraph) return false;
+          dispatch?.(state.tr.replaceSelectionWith(schema.nodes.tab.create()).scrollIntoView());
+          return true;
+        },
+        'Shift-Tab': shiftIndent(-1),
         Enter: splitWithNextStyle(nextOf), 'Shift-Enter': chainCommands(exitCode, (state, dispatch) => { dispatch?.(state.tr.replaceSelectionWith(schema.nodes.hard_break.create()).scrollIntoView()); return true; }),
         'Mod-f': () => { this.openFind(); return true; }, 'Mod-h': () => { this.openFind(true); return true; },
         'Mod-k': () => { this.promptLink(); return true; },
@@ -279,6 +289,44 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
   }
 
   section(): Section | null { return this.doc?.sections[0] ?? null; }
+
+  sectionById(id: string): Section {
+    const s = this.doc?.sections.find((x) => x.id === id) ?? this.doc?.sections[0];
+    if (!s) throw new Error('Open a document first.');
+    return s;
+  }
+
+  currentSectionId(): string {
+    if (!this.doc || !this.view) throw new Error('Open a document first.');
+    let id = this.doc.sections[0].id;
+    const at = this.view.state.selection.from;
+    this.view.state.doc.forEach((node, pos) => { if (pos < at && node.type === schema.nodes.section_break && node.attrs.section) id = String(node.attrs.section); });
+    return id;
+  }
+
+  updateSectionById(id: string, patch: Partial<Section> & Record<string, unknown>, settings: Record<string, unknown> = {}): boolean {
+    if (!this.doc) throw new Error('Open a document first.');
+    if (this.doc.sections[0].id === id) return this.updatePage(patch, settings);
+    this.doc = { ...this.doc, sections: this.doc.sections.map((s) => (s.id === id ? ({ ...s, ...patch } as Section) : s)), settings: { ...this.doc.settings, ...settings } };
+    this.paginator.layoutNow();
+    this.emitChange();
+    return true;
+  }
+
+  insertSectionBreak(): string {
+    if (!this.view || !this.doc) throw new Error('Open a document first.');
+    const from = this.sectionById(this.currentSectionId());
+    const id = `sec_${Math.random().toString(36).slice(2, 12)}`;
+    const copy = JSON.parse(JSON.stringify(from)) as Section;
+    delete copy.pageNumberStart;
+    this.doc = { ...this.doc, sections: [...this.doc.sections, { ...copy, id, titlePage: false }] };
+    const { state } = this.view;
+    const after = state.selection.$from.depth ? state.selection.$from.after(1) : state.selection.from;
+    const tr = state.tr.insert(after, [schema.nodes.section_break.create({ section: id }), schema.nodes.paragraph.create()]);
+    tr.setSelection(TextSelection.near(tr.doc.resolve(after + 2)));
+    this.view.dispatch(tr.scrollIntoView());
+    return id;
+  }
 
   updatePage(section: Partial<Section> & Record<string, unknown>, settings: Record<string, unknown> = {}): boolean {
     if (!this.doc) throw new Error('Open a document first.');
