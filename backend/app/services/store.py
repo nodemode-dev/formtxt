@@ -1,9 +1,11 @@
+import copy
+import os
 import threading
 import time
 from pathlib import Path
 
 from app.core import config
-from app.core.ids import is_id
+from app.core.ids import is_id, new_id
 from app.services import model, package
 
 EXT = ".ftxt"
@@ -70,7 +72,9 @@ def trash(doc_id: str) -> None:
     if not path.is_file():
         raise NotFound(doc_id)
     with _lock:
-        path.replace(_path(doc_id, config.trash_dir()))
+        target = _path(doc_id, config.trash_dir())
+        path.replace(target)
+        os.utime(target)
 
 
 def restore(doc_id: str) -> None:
@@ -82,4 +86,45 @@ def restore(doc_id: str) -> None:
 
 
 def trashed() -> list[dict]:
-    return listing(config.trash_dir())
+    rows = listing(config.trash_dir())
+    for row in rows:
+        try:
+            row["deletedAt"] = _path(row["id"], config.trash_dir()).stat().st_mtime
+        except OSError:
+            row["deletedAt"] = 0
+    return sorted(rows, key=lambda r: r["deletedAt"], reverse=True)
+
+
+def purge(doc_id: str) -> None:
+    path = _path(doc_id, config.trash_dir())
+    if not path.is_file():
+        raise NotFound(doc_id)
+    with _lock:
+        path.unlink()
+
+
+def empty_trash() -> int:
+    n = 0
+    with _lock:
+        for path in config.trash_dir().glob(f"d_*{EXT}"):
+            path.unlink(missing_ok=True)
+            n += 1
+    return n
+
+
+def adopt(doc: dict, media: dict[str, bytes] | None = None, title: str = "") -> dict:
+    fresh = copy.deepcopy(doc)
+    fresh["id"] = new_id("d_")
+    if title:
+        fresh["title"] = title.strip()[:200]
+    now = time.time()
+    fresh.setdefault("meta", {}).update(created=now, modified=now)
+    model.validate(fresh)
+    with _lock:
+        _write(_path(fresh["id"]), package.pack(fresh, media))
+    return fresh
+
+
+def duplicate(doc_id: str) -> dict:
+    doc, media = load(doc_id)
+    return adopt(doc, media, f"{doc['title']} (copy)")

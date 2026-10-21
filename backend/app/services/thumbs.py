@@ -1,0 +1,85 @@
+from html import escape
+
+W, H = 612.0, 792.0
+GREY = "#c9c6bf"
+DARK = "#4a4740"
+
+
+def _resolve(doc: dict, sid: str) -> tuple[dict, dict]:
+    run: dict = {}
+    para: dict = {}
+    chain = []
+    seen = set()
+    while sid and sid in doc.get("styles", {}) and sid not in seen:
+        seen.add(sid)
+        chain.append(doc["styles"][sid])
+        sid = doc["styles"][sid].get("basedOn")
+    for style in reversed(chain):
+        run.update(style.get("run") or {})
+        para.update(style.get("para") or {})
+    return run, para
+
+
+def _text(block: dict) -> str:
+    return "".join(str(r.get("text", "")) for r in block.get("content") or [] if isinstance(r, dict))
+
+
+def render(doc: dict) -> str:
+    section = doc["sections"][0]
+    page = section["page"]
+    scale = min(W / float(page["width"]), H / float(page["height"]))
+    m = section["margins"]
+    left, right, top = m["left"] * scale, W - m["right"] * scale, m["top"] * scale
+    bottom = H - m["bottom"] * scale
+    tpl = (doc.get("settings") or {}).get("template") or {}
+    layout, accent = tpl.get("layout", "classic"), tpl.get("accent", "#f97316")
+    out = [f'<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 {W:g} {H:g}" width="{W:g}" height="{H:g}">',
+           f'<rect width="{W:g}" height="{H:g}" fill="#ffffff"/>']
+    y = top
+    if layout == "banded":
+        out.append(f'<rect width="{W:g}" height="{top + 70:g}" fill="{escape(accent)}" opacity="0.14"/>')
+        out.append(f'<rect width="{W:g}" height="8" fill="{escape(accent)}"/>')
+    elif layout == "newsletter":
+        out.append(f'<rect x="{left:g}" y="{top - 18:g}" width="{right - left:g}" height="4" fill="{escape(accent)}"/>')
+    elif layout == "letterhead":
+        out.append(f'<rect x="{left:g}" y="{top - 22:g}" width="{right - left:g}" height="2" fill="{escape(accent)}"/>')
+    for block in (doc.get("tabs") or [{}])[0].get("body", []):
+        if y > bottom:
+            break
+        run, para = _resolve(doc, block.get("style") or "Normal")
+        size = float(run.get("size", 11.0)) * scale
+        text = _text(block)
+        y += float(para.get("spaceBefore", 0.0)) * scale
+        sid = block.get("style") or "Normal"
+        heading = sid.startswith("Heading") or sid in ("Title", "Subtitle")
+        color = escape(str(run.get("color") or DARK)) if heading else GREY
+        if sid == "Quote":
+            color = GREY
+            out.append(f'<rect x="{left:g}" y="{y:g}" width="3" height="{size * 1.3:g}" fill="{escape(accent)}"/>')
+        indent = float(para.get("indentLeft", 0.0)) * scale
+        x0 = left + indent
+        width = right - x0 - float(para.get("indentRight", 0.0)) * scale
+        if layout == "sidebar" and sid.startswith("Heading"):
+            out.append(f'<rect x="{left - 14:g}" y="{y:g}" width="4" height="{size:g}" fill="{escape(accent)}"/>')
+        per_line = max(8, int(width / max(size * 0.5, 1)))
+        lines = max(1, -(-max(len(text), 1) // per_line)) if text else 1
+        line_h = size * float(para.get("lineSpacing", 1.15)) * 1.2
+        for i in range(lines):
+            if y > bottom:
+                break
+            remaining = len(text) - i * per_line
+            frac = 1.0 if remaining >= per_line else max(0.15, remaining / per_line)
+            if not text:
+                frac = 0.0
+            bar_w = width * frac * (0.92 if not heading else 0.85)
+            x = x0
+            if para.get("align") == "center":
+                x = x0 + (width - bar_w) / 2
+            elif para.get("align") == "right":
+                x = x0 + width - bar_w
+            if bar_w > 0:
+                out.append(f'<rect x="{x:.1f}" y="{y:.1f}" width="{bar_w:.1f}" height="{max(size * 0.62, 1.5):.1f}" rx="1" fill="{color}"/>')
+            y += line_h
+        y += float(para.get("spaceAfter", 8.0)) * scale
+    out.append("</svg>")
+    return "".join(out)

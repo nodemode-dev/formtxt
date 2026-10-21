@@ -2,8 +2,8 @@
 
 Living log of comment content, rationale and removed code for the engine. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.1.0
-Last updated: 2026-10-21 · Phase 0 engine contract
+Current build version: v0.2.0
+Last updated: 2026-10-21 · Phase 1 templates, thumbnails, intake, trash
 
 ---
 
@@ -23,9 +23,17 @@ backend/
     ├── routers/system.py    health, version, capabilities, settings
     ├── routers/documents.py library: create, read, save, download, trash, restore
     ├── routers/commands.py  command catalogue mirror and search
+    ├── routers/templates.py template catalogue, previews, save as template, instantiate
     ├── services/model.py    .ftxt document model, default styles and sections
     ├── services/package.py  .ftxt zip pack and unpack
-    └── services/store.py    the library on disk
+    ├── services/store.py    the library on disk: trash, purge, duplicate, adopt
+    ├── services/thumbs.py   SVG wireframe thumbnails of a document's first page
+    ├── services/intake.py   .md and .txt to a document
+    └── services/templates/
+        ├── catalog.py       the 39 templates and 11 categories
+        ├── samples.py       original sample text per category
+        ├── generator.py     template to .ftxt document (styles, fonts, accent)
+        └── user.py          templates saved from documents (category Yours)
 ```
 
 ---
@@ -37,6 +45,9 @@ backend/
 - [app/services/package.py](#package)
 - [app/services/store.py](#store)
 - [app/routers/commands.py](#commands)
+- [app/services/templates/](#templates)
+- [app/services/thumbs.py](#thumbs)
+- [app/services/intake.py](#intake)
 
 ---
 
@@ -97,3 +108,39 @@ backend/
 - kind: todo
 - logged: v0.1.0 · 2026-10-21
 - Mirror, list and describe only. Running a command from the CLI or MCP needs the live window bridge (FormDeck's `services/bridge.py`), which lands with the editor in Phase 2.
+
+## app/services/templates/ {#templates}
+
+### templates · generated, not stored
+- refers-to: app/services/templates/catalog.py :: TEMPLATES; generator.py :: build()
+- kind: rationale
+- logged: v0.2.0 · 2026-10-21
+- The 39 built-in templates (owner's count) are generated in code on request, as FormDeck's are: one catalogue row per template (layout, accent, heading and body fonts, page size) plus category sample text. Nothing Microsoft or Google is bundled; every sample sentence is original.
+
+### templates · fonts named, not yet bundled
+- refers-to: app/services/templates/catalog.py :: SANS, SERIF, CLASSIC, MODERN, HUMANIST, PLEX, EDITORIAL, MERRI
+- kind: warning-context
+- logged: v0.2.0 · 2026-10-21
+- The templates name OFL families (Source Serif 4, Libre Baskerville, Space Grotesk, Work Sans, IBM Plex, Playfair Display, Lora, Merriweather). Only Inter ships today; the reader falls back to Georgia or Inter until the fonts are bundled with the editor in Phase 2.
+
+### templates · user templates
+- refers-to: app/services/templates/user.py
+- kind: explainer
+- logged: v0.2.0 · 2026-10-21
+- Saved templates are `.ftxt` packages named `t_[id].ftxt` in `~/FormTxt/Templates`, listed under the category Yours; built-in ids are refused by DELETE.
+
+## app/services/thumbs.py {#thumbs}
+
+### thumbs · wireframes instead of text
+- refers-to: app/services/thumbs.py :: render()
+- kind: rationale
+- logged: v0.2.0 · 2026-10-21
+- Cards show a wireframe of the first page (bars sized from text length, accent from the template) in a fixed 612 by 792 viewBox, so previews need no fonts, render identically everywhere, and never reflow when fonts load. Real page renders replace them once the Phase 3 layout exists.
+
+## app/services/intake.py {#intake}
+
+### intake · scope today
+- refers-to: app/services/intake.py :: to_document()
+- kind: todo
+- logged: v0.2.0 · 2026-10-21
+- `.md`, `.markdown` and `.txt` only; headings, quotes, list lines (kept as text in List Paragraph until lists land in Phase 2), bold, italic, code and links. Every other format answers 415 naming Phase 7.

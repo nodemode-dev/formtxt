@@ -27,7 +27,7 @@ Lengths are points (1/72 inch). Colours are `#rrggbb`. Ids are a prefix plus 4 t
 | `id` | string | document id, also the library file name |
 | `title` | string | up to 200 characters |
 | `meta` | object | `author`, `created`, `modified` (Unix seconds), `subject`, `keywords`, `language` (BCP-47) |
-| `settings` | object | `pageless`, `defaultTab` (points), `trackChanges` |
+| `settings` | object | `pageless`, `defaultTab` (points), `trackChanges`; optional `template` (`id`, `layout`, `accent`) recording the template a document came from, and `userTemplate` on saved templates |
 | `styles` | object | style id to style (below) |
 | `numbering` | object | list definitions, keyed by id (Phase 2) |
 | `sections` | array | at least one section (below) |

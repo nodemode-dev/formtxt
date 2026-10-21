@@ -40,9 +40,10 @@ def get_settings() -> dict:
 
 @router.post("/settings")
 def set_settings(patch: dict) -> dict:
-    allowed = {k: v for k, v in patch.items() if k in {"author", "units", "defaultPageSize", "theme", "autosave", "pinned"}}
+    allowed = {k: v for k, v in patch.items() if k in {"author", "units", "defaultPageSize", "theme", "autosave", "pinned", "recentHidden"}}
     if "author" in allowed:
         allowed["author"] = str(allowed["author"] or "")[:200]
-    if "pinned" in allowed:
-        allowed["pinned"] = [str(i)[:80] for i in allowed["pinned"] if isinstance(i, str)][:500] if isinstance(allowed["pinned"], list) else []
+    for key in ("pinned", "recentHidden"):
+        if key in allowed:
+            allowed[key] = [str(i)[:80] for i in allowed[key] if isinstance(i, str)][:500] if isinstance(allowed[key], list) else []
     return config.write_settings(allowed)
