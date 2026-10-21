@@ -1,10 +1,11 @@
 import type { CommandRegistry } from '../engine/registry';
 import type { Section } from '../engine/model';
-import { type Command, TextSelection } from 'prosemirror-state';
+import { type Command, NodeSelection, TextSelection } from 'prosemirror-state';
+import { WRAPS, insertPicture, selectedPicture, setPicture } from './picture';
 import { CellSelection, addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow, deleteTable, isInTable, mergeCells, setCellAttr, splitCell, toggleHeaderColumn, toggleHeaderRow } from 'prosemirror-tables';
 import { el, setHidden, setText } from '../ui/dom';
 import { toast } from '../ui/toast';
-import { headerFooterDialog, insertTableDialog, pageGeometry, pageSetupDialog, paragraphDialog, parseTabs, stylesDialog, tablePropertiesDialog, wordCountDialog } from './dialogs';
+import { headerFooterDialog, insertTableDialog, pageGeometry, pageSetupDialog, paragraphDialog, parseTabs, picturePropertiesDialog, stylesDialog, tablePropertiesDialog, wordCountDialog } from './dialogs';
 import { type DocEditor, FONTS } from './editor';
 import { TABLE_LOOKS, schema } from './schema';
 import { distributeColumns, insertTable, setCellShading, setTableAttr, sortTable, tableInfo, tableToText, textToTable } from './table';
@@ -169,6 +170,73 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   }, [{ name: 'separator', type: 'string', description: 'tab, comma, semicolon or pipe' }]);
   add('table.toText', 'Convert table to text', 'Table', 'Turn the table into paragraphs with cells separated by tabs.', inTable(tableToText()));
   add('table.info', 'Table at cursor', 'Table', 'Rows, columns, look and the cell at the cursor.', () => (ed.view ? tableInfo(ed.view.state) : null));
+
+  const picker = el<HTMLInputElement>('<input type="file" accept="image/png,image/jpeg,image/gif,image/webp,image/bmp,image/svg+xml" multiple hidden>');
+  ed.root.appendChild(picker);
+  picker.addEventListener('change', () => {
+    const files = Array.from(picker.files ?? []);
+    picker.value = '';
+    if (files.length) void ed.insertPictures(files).catch((err: Error) => toast(`Could not add the picture: ${err.message}`, 'error'));
+  });
+  const needPic = (patch: (a: Record<string, unknown>, p: Record<string, unknown>) => Record<string, unknown>) => (p: Record<string, unknown>) => {
+    const pic = ed.view ? selectedPicture(ed.view.state) : null;
+    if (!pic) throw new Error('Click a picture first (or put the cursor right next to one).');
+    return ed.run(setPicture(patch(pic.node.attrs as Record<string, unknown>, p)));
+  };
+  add('insert.picture', 'Picture', 'Insert', 'Insert pictures from files; with media, inserts a picture already uploaded to the document (POST /api/documents/{id}/media).', (p) => {
+    if (!p.media) { picker.click(); return true; }
+    const meta = (ed.doc?.media ?? {})[String(p.media)] as { width?: number; height?: number } | undefined;
+    const w = Number(p.width) || Math.min(ed.bodyWidth(), (meta?.width ?? 400) * 0.75);
+    const h = Number(p.height) || w * ((meta?.height ?? 300) / (meta?.width ?? 400));
+    return ed.run(insertPicture({ media: String(p.media), alt: String(p.alt ?? ''), width: w, height: h }));
+  }, [{ name: 'media', type: 'string', description: 'Media name returned by the upload' }, { name: 'width', type: 'number', description: 'Width in points' }, { name: 'height', type: 'number', description: 'Height in points; defaults to the picture proportions' }, { name: 'alt', type: 'string', description: 'Alt text' }]);
+  add('picture.properties', 'Picture properties', 'Picture', 'Alt text, wrapping, size, rotation, crop, brightness, contrast, saturation, transparency and position (or double-click a picture).', () => { picturePropertiesDialog(ed); return true; });
+  add('picture.wrap', 'Wrap text', 'Picture', `Set how text wraps: ${WRAPS.join(', ')}.`, needPic((_a, p) => {
+    const wrap = String(p.wrap ?? 'inline');
+    if (!(WRAPS as readonly string[]).includes(wrap)) throw new Error(`Wrap must be one of ${WRAPS.join(', ')}.`);
+    return { wrap, ...(p.side ? { side: ['left', 'center', 'right'].includes(String(p.side)) ? String(p.side) : 'left' } : {}) };
+  }), [{ name: 'wrap', type: 'string', description: WRAPS.join(', ') }, { name: 'side', type: 'string', description: 'left, center or right' }]);
+  add('picture.size', 'Picture size', 'Picture', 'Set the size in points; give only width to keep the proportions.', needPic((a, p) => {
+    const w = Number(p.width) || Number(a.width);
+    const h = Number(p.height) || (Number(p.width) ? w * (Number(a.height) / Math.max(1, Number(a.width))) : Number(a.height));
+    return { width: Math.max(9, w), height: Math.max(9, h) };
+  }), [{ name: 'width', type: 'number', description: 'Points' }, { name: 'height', type: 'number', description: 'Points (optional)' }]);
+  add('picture.rotate', 'Rotate picture', 'Picture', 'Rotate to an angle, or by 90 degrees with no angle.', needPic((a, p) => ({ rotate: p.degrees === undefined ? (Number(a.rotate) + 90) % 360 : Number(p.degrees) % 360 })), [{ name: 'degrees', type: 'number', description: 'Angle; empty adds 90' }]);
+  add('picture.crop', 'Crop picture', 'Picture', 'Crop each edge by a percentage; all zero removes the crop.', needPic((_a, p) => {
+    const f = (v: unknown): number => Math.max(0, Math.min(90, Number(v) || 0)) / 100;
+    const c = { t: f(p.top), r: f(p.right), b: f(p.bottom), l: f(p.left) };
+    if (c.t + c.b > 0.9 || c.l + c.r > 0.9) throw new Error('Crop can remove at most 90 percent of the width or height.');
+    return { crop: c.t || c.r || c.b || c.l ? c : null };
+  }), [{ name: 'top', type: 'number', description: 'Percent' }, { name: 'right', type: 'number', description: 'Percent' }, { name: 'bottom', type: 'number', description: 'Percent' }, { name: 'left', type: 'number', description: 'Percent' }]);
+  add('picture.adjust', 'Adjust picture', 'Picture', 'Brightness, contrast and saturation from 0 to 200 (100 is unchanged), transparency from 0 to 100.', needPic((a, p) => {
+    const r = (v: unknown, d: unknown, max: number): number => (v === undefined ? Number(d) : Math.max(0, Math.min(max, Number(v) || 0)));
+    return { brightness: r(p.brightness, a.brightness, 200), contrast: r(p.contrast, a.contrast, 200), saturation: r(p.saturation, a.saturation, 200), transparency: r(p.transparency, a.transparency, 100) };
+  }), [{ name: 'brightness', type: 'number', description: '0 to 200' }, { name: 'contrast', type: 'number', description: '0 to 200' }, { name: 'saturation', type: 'number', description: '0 to 200; 0 is greyscale' }, { name: 'transparency', type: 'number', description: '0 to 100' }]);
+  add('picture.alt', 'Alt text', 'Picture', 'Set the alt text read by screen readers and exported to Word and HTML.', needPic((_a, p) => ({ alt: String(p.text ?? '').trim() })), [{ name: 'text', type: 'string', description: 'Description' }]);
+  add('picture.position', 'Picture position', 'Picture', 'Offset a picture behind or in front of text from the top left of its paragraph, in points.', needPic((_a, p) => ({ x: Number(p.x) || 0, y: Number(p.y) || 0 })), [{ name: 'x', type: 'number', description: 'Points from the left' }, { name: 'y', type: 'number', description: 'Points from the top' }]);
+  add('picture.reset', 'Reset picture', 'Picture', 'Remove crop, rotation and adjustments.', needPic(() => ({ crop: null, rotate: 0, brightness: 100, contrast: 100, saturation: 100, transparency: 0 })));
+  add('picture.info', 'Picture at cursor', 'Picture', 'Properties of the selected picture.', () => {
+    const pic = ed.view ? selectedPicture(ed.view.state) : null;
+    return pic ? { ...pic.node.attrs, pos: pic.pos } : null;
+  });
+  add('picture.select', 'Select picture', 'Picture', 'Select the first picture in the document, or the next one after the selection.', () => {
+    if (!ed.view) throw new Error('Open a document first.');
+    const { state } = ed.view;
+    let found = -1, first = -1;
+    state.doc.descendants((n, pos) => { if (n.type === schema.nodes.image) { if (first < 0) first = pos; if (found < 0 && pos > state.selection.from - (state.selection instanceof NodeSelection ? 0 : 1)) found = pos; } return found < 0; });
+    const at = found >= 0 && !(state.selection instanceof NodeSelection && state.selection.from === found) ? found : first;
+    if (at < 0) throw new Error('The document has no pictures.');
+    ed.view.dispatch(state.tr.setSelection(NodeSelection.create(state.doc, at)).scrollIntoView());
+    return at;
+  });
+  ed.root.addEventListener('dblclick', (e) => {
+    const pic = (e.target as HTMLElement).closest<HTMLElement>('.ft-pm-root .ft-pic');
+    if (!pic || !ed.view || !ed.view.editable) return;
+    e.preventDefault();
+    const pos = ed.view.posAtDOM(pic, 0);
+    ed.view.dispatch(ed.view.state.tr.setSelection(NodeSelection.create(ed.view.state.doc, pos)));
+    picturePropertiesDialog(ed);
+  });
 
   const menu = el<HTMLElement>('<div class="ft-menu" role="menu" aria-label="Table" hidden></div>');
   document.getElementById('overlay-root')?.appendChild(menu);

@@ -69,6 +69,7 @@
   --ft-titlebar-h: 44px;
   --ft-status-h: 28px;
 
+  --z-behind: -1;
   --z-base: 0;
   --z-raised: 8;
   --z-chrome: 100;

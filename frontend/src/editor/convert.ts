@@ -5,7 +5,8 @@ import { schema } from './schema';
 
 const FLAG_MARKS = ['bold', 'italic', 'strike', 'superscript', 'subscript', 'smallCaps', 'allCaps', 'code'] as const;
 const PROPS = ['align', 'indent', 'indentRight', 'indentFirst', 'spaceBefore', 'spaceAfter', 'lineSpacing', 'keepNext', 'keepLines', 'widowControl', 'border', 'shading', 'tabs', 'collapsed'] as const;
-const PROP_DEFAULTS: Record<string, unknown> = { align: '', indent: 0, indentRight: 0, indentFirst: 0, spaceBefore: null, spaceAfter: null, lineSpacing: null, keepNext: false, keepLines: false, widowControl: true, border: '', shading: '', tabs: null, collapsed: false };
+const PIC_KEYS = ['media', 'alt', 'width', 'height', 'crop', 'rotate', 'brightness', 'contrast', 'saturation', 'transparency', 'wrap', 'side', 'x', 'y'] as const;
+const PROP_DEFAULTS: Record<string, unknown> ={ align: '', indent: 0, indentRight: 0, indentFirst: 0, spaceBefore: null, spaceAfter: null, lineSpacing: null, keepNext: false, keepLines: false, widowControl: true, border: '', shading: '', tabs: null, collapsed: false };
 
 function newId(prefix = 'p_'): string {
   const a = new Uint8Array(6);
@@ -33,6 +34,12 @@ function inlineNodes(content: TextRun[] | undefined): PMNode[] {
     const run = r as unknown as { type: string; text: string; marks?: Record<string, unknown> };
     if (run.type === 'break') out.push(schema.nodes.hard_break.create());
     else if (run.type === 'tab') out.push(schema.nodes.tab.create());
+    else if (run.type === 'image') {
+      const pic = r as unknown as Record<string, unknown>;
+      const attrs: Record<string, unknown> = {};
+      for (const k of PIC_KEYS) if (pic[k] !== undefined && pic[k] !== null) attrs[k] = pic[k];
+      out.push(schema.nodes.image.create(attrs));
+    }
     else if (run.type === 'text' && run.text) out.push(schema.text(run.text, marksFrom(run.marks)));
   }
   return out;
@@ -101,6 +108,14 @@ export function toPM(doc: FtxtDocument, tabIndex = 0): PMNode {
 function runFrom(node: PMNode): Record<string, unknown> {
   if (node.type.name === 'hard_break') return { type: 'break' };
   if (node.type.name === 'tab') return { type: 'tab' };
+  if (node.type.name === 'image') {
+    const out: Record<string, unknown> = { type: 'image' };
+    for (const k of PIC_KEYS) {
+      const v = node.attrs[k];
+      if (k === 'media' || k === 'width' || k === 'height' || JSON.stringify(v) !== JSON.stringify(schema.nodes.image.spec.attrs?.[k]?.default)) out[k] = v;
+    }
+    return out;
+  }
   const marks: Record<string, unknown> = {};
   for (const m of node.marks) {
     const n = m.type.name;

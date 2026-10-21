@@ -3,6 +3,8 @@ import { Dialog } from '../ui/dialog';
 import { el, escapeHtml, setText } from '../ui/dom';
 import { setCellAttr } from 'prosemirror-tables';
 import { type DocEditor, FONTS } from './editor';
+import { selectedPicture, setPicture } from './picture';
+import { toast } from '../ui/toast';
 import { distributeColumns, insertTable, setCellShading, setTableAttr, sortTable, tableInfo } from './table';
 
 function num(v: unknown, fallback = ''): string {
@@ -251,6 +253,53 @@ export function tablePropertiesDialog(ed: DocEditor): void {
     d.close();
   });
   d.open(look);
+}
+
+export function picturePropertiesDialog(ed: DocEditor): void {
+  const pic = ed.view ? selectedPicture(ed.view.state) : null;
+  if (!pic) throw new Error('Click a picture first.');
+  const a = pic.node.attrs;
+  const crop = (a.crop ?? {}) as Partial<Record<'t' | 'r' | 'b' | 'l', number>>;
+  const pct = (v: unknown): string => String(Math.round((Number(v) || 0) * 1000) / 10);
+  const d = new Dialog('Picture', 600);
+  const alt = input('text', String(a.alt ?? ''), 'spellcheck="true" placeholder="Describe the picture for people using screen readers"');
+  const wrap = select([['inline', 'In line with text'], ['square', 'Square'], ['tight', 'Tight'], ['topBottom', 'Top and bottom'], ['behind', 'Behind text'], ['front', 'In front of text']], String(a.wrap));
+  const side = select([['left', 'Left'], ['center', 'Centre (top and bottom only)'], ['right', 'Right']], String(a.side));
+  const width = input('number', String(a.width), 'min="9" step="1"');
+  const height = input('number', String(a.height), 'min="9" step="1"');
+  const lock = input('checkbox', 'true');
+  const rotate = input('number', String(a.rotate), 'min="-360" max="360" step="1"');
+  const ct = input('number', pct(crop.t), 'min="0" max="90" step="1"'), cr = input('number', pct(crop.r), 'min="0" max="90" step="1"');
+  const cb = input('number', pct(crop.b), 'min="0" max="90" step="1"'), cl = input('number', pct(crop.l), 'min="0" max="90" step="1"');
+  const bright = input('range', String(a.brightness), 'min="0" max="200" step="1"');
+  const contrast = input('range', String(a.contrast), 'min="0" max="200" step="1"');
+  const sat = input('range', String(a.saturation), 'min="0" max="200" step="1"');
+  const transp = input('range', String(a.transparency), 'min="0" max="100" step="1"');
+  const x = input('number', String(a.x), 'step="1"'), y = input('number', String(a.y), 'step="1"');
+  const ratio = Number(a.height) / Math.max(1, Number(a.width));
+  width.addEventListener('input', () => { if (lock.checked) height.value = String(Math.round(Number(width.value) * ratio * 100) / 100); });
+  height.addEventListener('input', () => { if (lock.checked) width.value = String(Math.round((Number(height.value) / ratio) * 100) / 100); });
+  d.field('Alt text', alt);
+  grid(d, [['Wrapping', wrap], ['Side', side], ['Width (pt)', width], ['Height (pt)', height], ['Keep proportions', lock], ['Rotation (degrees)', rotate],
+    ['Crop top (%)', ct], ['Crop bottom (%)', cb], ['Crop left (%)', cl], ['Crop right (%)', cr],
+    ['Brightness', bright], ['Contrast', contrast], ['Saturation (0 is greyscale)', sat], ['Transparency', transp],
+    ['Offset from paragraph, left (pt, behind or in front)', x], ['Offset from paragraph, top (pt)', y]]);
+  d.button('Reset picture', '', () => { ed.run(setPicture({ crop: null, rotate: 0, brightness: 100, contrast: 100, saturation: 100, transparency: 0 })); d.close(); });
+  d.button('Cancel', 'ghost', () => d.close());
+  d.button('Apply', 'primary', () => {
+    const f = (i: HTMLInputElement): number => Math.max(0, Math.min(90, Number(i.value) || 0)) / 100;
+    const c = { t: f(ct), r: f(cr), b: f(cb), l: f(cl) };
+    if (c.t + c.b > 0.9 || c.l + c.r > 0.9) { toast('Crop can remove at most 90 percent of the width or height.', 'error'); return; }
+    ed.run(setPicture({
+      alt: alt.value.trim(), wrap: wrap.value, side: side.value,
+      width: Math.max(9, Number(width.value) || Number(a.width)), height: Math.max(9, Number(height.value) || Number(a.height)),
+      rotate: Number(rotate.value) || 0, crop: c.t || c.r || c.b || c.l ? c : null,
+      brightness: Number(bright.value), contrast: Number(contrast.value), saturation: Number(sat.value), transparency: Number(transp.value),
+      x: Number(x.value) || 0, y: Number(y.value) || 0,
+    }));
+    d.close();
+  });
+  d.open(alt);
 }
 
 export function wordCountDialog(ed: DocEditor): void {

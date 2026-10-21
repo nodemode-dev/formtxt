@@ -19,9 +19,12 @@ import { Ruler } from './ruler';
 import { layoutTabs } from './tabs';
 import { addRowAfter, goToNextCell, isInTable } from 'prosemirror-tables';
 import { tablePlugins } from './table';
+import { PictureView, fitSize, insertPicture, naturalSize } from './picture';
+import { api } from '../io/api';
+import { toast } from '../ui/toast';
 
 export type ViewMode = 'print' | 'draft' | 'read' | 'focus';
-import { schema } from './schema';
+import { mediaUrl, schema, setMediaDocument } from './schema';
 
 const PX = 96 / 72;
 export const FONTS = ['Inter', 'Source Serif 4', 'Libre Baskerville', 'Lora', 'Merriweather', 'Playfair Display', 'IBM Plex Sans', 'IBM Plex Serif', 'Work Sans', 'Space Grotesk'];
@@ -125,7 +128,7 @@ ${TB('list.bullet', 'listBullet', 'Bulleted list', 'Ctrl+Shift+8')}${TB('list.nu
 <select class="ft-tb-select ft-tb-spacing" data-cmd="paragraph.lineSpacing" aria-label="Line spacing">${SPACINGS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>${SEP}
 ${TB('format.painter', 'painter', 'Format Painter', 'Ctrl+Shift+C')}${TB('format.paragraph', 'paragraph', 'Paragraph settings')}${TB('format.styles', 'styles', 'Styles')}${SEP}
 ${TB('insert.link', 'link', 'Link', 'Ctrl+K')}${TB('insert.codeBlock', 'code', 'Code block')}${TB('insert.pageBreak', 'pageBreak', 'Page break', 'Ctrl+Enter')}${TB('insert.sectionBreak', 'sectionBreak', 'Section break (next page)')}${TB('format.clear', 'clearFormat', 'Clear formatting', 'Ctrl+\\')}${SEP}
-${TB('insert.table', 'table', 'Insert table')}<span class="ft-tb-group" data-group="table">${TB('table.properties', 'tableProps', 'Table properties (right-click a cell for rows, columns and merging)')}</span>${SEP}
+${TB('insert.picture', 'image', 'Insert picture (or paste or drop one)')}${TB('insert.table', 'table', 'Insert table')}<span class="ft-tb-group" data-group="table">${TB('table.properties', 'tableProps', 'Table properties (right-click a cell for rows, columns and merging)')}</span>${SEP}
 ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', 'outline', 'Outline')}${SEP}
 ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 'pageSetup', 'Page setup')}${TB('insert.headerFooter', 'headerFooter', 'Header and footer')}${TB('view.pageless', 'pageless', 'Pageless')}
 <select class="ft-tb-select ft-tb-zoom" data-cmd="view.zoom" aria-label="Zoom">${[50, 75, 90, 100, 110, 125, 150, 200].map((z) => `<option value="${z}"${z === 100 ? ' selected' : ''}>${z}%</option>`).join('')}<option value="" disabled hidden></option></select>
@@ -232,6 +235,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
   async load(doc: FtxtDocument): Promise<void> {
     await loadFonts(docFonts(doc));
     this.doc = doc;
+    setMediaDocument(doc.id);
     this.sheet.textContent = styleSheet(doc);
     this.applyGeometry();
     const tpl = (doc.settings as unknown as { template?: { layout?: string; accent?: string } }).template;
@@ -247,6 +251,21 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
       this.view = new EditorView(this.mount, {
         state,
         attributes: { class: 'ft-pm-root', spellcheck: 'true', 'aria-label': 'Document' },
+        nodeViews: { image: (node, view, getPos) => new PictureView(node, view, getPos) },
+        handlePaste: (_view, e) => {
+          const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/'));
+          if (!files.length) return false;
+          void this.insertPictures(files);
+          return true;
+        },
+        handleDrop: (view, e) => {
+          const files = Array.from((e as DragEvent).dataTransfer?.files ?? []).filter((f) => f.type.startsWith('image/'));
+          if (!files.length) return false;
+          e.preventDefault();
+          const at = view.posAtCoords({ left: (e as DragEvent).clientX, top: (e as DragEvent).clientY })?.pos;
+          void this.insertPictures(files, at);
+          return true;
+        },
         dispatchTransaction: (tr) => {
           if (!this.view) return;
           const next = this.view.state.apply(tr);
@@ -302,6 +321,30 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
   bodyWidth(): number {
     const s = this.doc?.sections[0];
     return s ? s.page.width - s.margins.left - s.margins.right : 468;
+  }
+
+  bodyHeight(): number {
+    const s = this.doc?.sections[0];
+    return s ? s.page.height - s.margins.top - s.margins.bottom : 648;
+  }
+
+  async insertPictures(files: File[], at?: number): Promise<string[]> {
+    if (!this.doc || !this.view) throw new Error('Open a document first.');
+    const id = this.doc.id;
+    const out = await api.upload<{ media: Array<{ name: string; type: string; bytes: number; source: string }>; errors: string[] }>(`/documents/${encodeURIComponent(id)}/media`, files);
+    for (const e of out.errors) toast(e, 'error');
+    if (!this.doc || this.doc.id !== id || !this.view) return [];
+    const names: string[] = [];
+    let pos = at;
+    for (const m of out.media) {
+      const { w, h } = await naturalSize(mediaUrl(m.name));
+      this.doc = { ...this.doc, media: { ...(this.doc.media ?? {}), [m.name]: { type: m.type, bytes: m.bytes, source: m.source, width: w, height: h } } };
+      const size = fitSize(w, h, this.bodyWidth(), this.bodyHeight() - 24);
+      this.run(insertPicture({ media: m.name, alt: m.source.replace(/\.[a-z0-9]+$/i, ''), ...size }, pos));
+      if (pos !== undefined) pos += 1;
+      names.push(m.name);
+    }
+    return names;
   }
 
   sectionById(id: string): Section {

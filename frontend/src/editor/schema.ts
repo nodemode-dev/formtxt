@@ -39,7 +39,15 @@ function paraAttrs(n: PMNode): Attrs {
   return out;
 }
 
-export const TABLE_LOOKS = ['grid', 'plain', 'rows', 'banded', 'accent'] as const;
+let mediaDoc = '';
+
+export function setMediaDocument(id: string): void { mediaDoc = id; }
+
+export function mediaUrl(name: string): string {
+  return name && mediaDoc ? `/api/documents/${encodeURIComponent(mediaDoc)}/media/${encodeURIComponent(name)}` : '';
+}
+
+export const TABLE_LOOKS =['grid', 'plain', 'rows', 'banded', 'accent'] as const;
 
 const cellAttr = (name: string, css: string) => ({
   default: '',
@@ -122,6 +130,20 @@ const nodes: Record<string, NodeSpec> = {
     selectable: false,
     parseDOM: [{ tag: 'span.ft-tab' }],
     toDOM: () => ['span', { class: 'ft-tab', contenteditable: 'false' }, '\t'],
+  },
+  image: {
+    inline: true,
+    group: 'inline',
+    atom: true,
+    draggable: true,
+    selectable: true,
+    attrs: {
+      media: { default: '' }, alt: { default: '' }, width: { default: 144 }, height: { default: 108 },
+      crop: { default: null }, rotate: { default: 0 }, brightness: { default: 100 }, contrast: { default: 100 }, saturation: { default: 100 }, transparency: { default: 0 },
+      wrap: { default: 'inline' }, side: { default: 'left' }, x: { default: 0 }, y: { default: 0 },
+    },
+    parseDOM: [{ tag: 'span.ft-pic', getAttrs: (dom: HTMLElement) => ({ media: dom.dataset.media || '', alt: dom.querySelector('img')?.getAttribute('alt') ?? '', width: Number(dom.dataset.w) || 144, height: Number(dom.dataset.h) || 108, wrap: dom.dataset.wrap || 'inline', side: dom.dataset.side || 'left' }) }],
+    toDOM: (n) => ['span', { class: 'ft-pic', 'data-media': String(n.attrs.media), 'data-w': String(n.attrs.width), 'data-h': String(n.attrs.height), 'data-wrap': String(n.attrs.wrap), 'data-side': String(n.attrs.side) }, ['img', { src: mediaUrl(String(n.attrs.media)), alt: String(n.attrs.alt), width: String(Math.round(Number(n.attrs.width) * 96 / 72)) }]],
   },
   section_break: {
     group: 'block',
