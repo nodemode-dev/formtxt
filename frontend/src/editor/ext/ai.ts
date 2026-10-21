@@ -10,6 +10,9 @@ import { matchFormat } from './ai/format';
 import { openSettings } from './ai/settings-dialog';
 import { AIPanel } from './ai/panel';
 import { cached, loadStatus, saveSettings } from './ai/state';
+import { autoOn, autoSummaryPlugin } from './ai/autosummary';
+import { ReplaceStep } from 'prosemirror-transform';
+import { Slice } from 'prosemirror-model';
 
 type P = Record<string, unknown>;
 type Param = { name: string; type: 'string' | 'number' | 'boolean'; description: string };
@@ -87,6 +90,15 @@ export function register(reg: CommandRegistry, ed: DocEditor): void {
     return get().summarize(p.scope === 'selection', into);
   }, [S('into', 'panel (default), caret or block'), S('scope', 'document (default) or selection')]);
   add('ai.summaryBlock', 'Insert or refresh Summary block', 'Write a summary and put it in a Summary block at the top of the document; if a Summary block exists it is refreshed.', async () => get().summarize(false, 'block'));
+  addPlugin(autoSummaryPlugin(ed, () => get().summarize(false, 'block'), () => !!cached()?.enabled));
+  add('ai.summaryAuto', 'Keep the Summary block updated', 'Refresh the Summary block by itself about 20 seconds after the rest of the document changes, while AI is on. Saved with the document.', (p) => {
+    const view = ed.view;
+    if (!view || !ed.doc) throw new Error('Open a document first.');
+    const on = p.on === undefined ? !autoOn(ed) : !!p.on;
+    ed.doc = { ...ed.doc, settings: { ...ed.doc.settings, aiSummaryAuto: on } as typeof ed.doc.settings };
+    view.dispatch(view.state.tr.step(new ReplaceStep(0, 0, Slice.empty)).setMeta('ftxt-system', true).setMeta('addToHistory', false));
+    return { on };
+  }, [B('on', 'On or off; empty toggles')]);
 
   add('ai.editDocument', 'Edit with AI across the document', 'Apply an instruction to the whole document and review the proposed paragraph changes in the panel; accept or reject each or all.', async (p) => {
     if (!p.instruction) { get().focusInput('document', 'reviseInput'); return true; }
@@ -162,6 +174,7 @@ export function register(reg: CommandRegistry, ed: DocEditor): void {
   addMenuItems('AI', [
     { cmd: 'ai.summarize', label: 'Summarize in the panel' },
     { cmd: 'ai.summaryBlock', label: 'Insert or refresh Summary block' },
+    { cmd: 'ai.summaryAuto', label: 'Keep the Summary block updated' },
     { cmd: 'ai.editDocument', label: 'Edit across the document...' },
     { cmd: 'ai.translate', label: 'Translate document' },
     { cmd: 'ai.matchFormat', label: 'Match format from a document...' },
