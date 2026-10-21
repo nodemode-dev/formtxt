@@ -124,6 +124,17 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
     { name: 'top', type: 'number', description: 'Top margin in inches' }, { name: 'bottom', type: 'number', description: 'Bottom margin in inches' },
     { name: 'left', type: 'number', description: 'Left margin in inches' }, { name: 'right', type: 'number', description: 'Right margin in inches' },
   ]);
+  add('layout.columns', 'Columns', 'Layout', 'Set the number of text columns (1 to 4) and the space between them (inches) for the current section, all sections or a section id; text flows down one column and into the next.', (p) => {
+    if (!ed.doc) throw new Error('Open a document first.');
+    const count = Math.max(1, Math.min(4, Math.round(Number(p.count ?? 2))));
+    const want = p.section === undefined ? (ed.doc.sections.length > 1 ? 'current' : 'all') : String(p.section);
+    const ids = want === 'all' ? ed.doc.sections.map((x) => x.id) : [want === 'current' ? ed.currentSectionId() : want];
+    for (const id of ids) {
+      const s = ed.sectionById(id);
+      ed.updateSectionById(id, { columns: { count, gap: p.gap === undefined ? (s.columns?.gap ?? 36) : Math.max(0, Number(p.gap) * 72) } });
+    }
+    return count;
+  }, [{ name: 'count', type: 'number', description: 'Number of columns, 1 to 4' }, { name: 'gap', type: 'number', description: 'Space between columns in inches (default 0.5)' }, { name: 'section', type: 'string', description: 'current, all or a section id' }]);
   add('insert.headerFooter', 'Header and footer', 'Insert', 'Edit headers and footers, a different first page, odd and even pages, and page number format.', () => { headerFooterDialog(ed); return true; });
   add('insert.pageNumber', 'Page numbers', 'Insert', 'Put "Page N of M" or "N" in the header or footer.', (p) => {
     const s = ed.section();
@@ -171,7 +182,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
     return ed.updateSectionById(id, { start });
   }, [{ name: 'start', type: 'string', description: 'nextPage, continuous, oddPage or evenPage' }]);
   add('insert.tab', 'Tab', 'Insert', 'Insert a tab character that aligns to the next tab stop.', () => ed.run((state, dispatch) => { dispatch?.(state.tr.replaceSelectionWith(schemaTab()).scrollIntoView()); return true; }));
-  add('layout.sections', 'List sections', 'Layout', 'List the document sections with their page size, orientation, margins, start, headers and footers.', () => (ed.doc?.sections ?? []).map((s) => ({ id: s.id, size: s.page.size, orientation: s.page.orientation, margins: s.margins, start: s.start || 'nextPage', headers: s.headers, footers: s.footers, titlePage: s.titlePage, pageNumberStart: s.pageNumberStart ?? null })));
+  add('layout.sections', 'List sections', 'Layout', 'List the document sections with their page size, orientation, width and height (points), margins, columns, start, headers and footers.', () => (ed.doc?.sections ?? []).map((s) => ({ id: s.id, size: s.page.size, orientation: s.page.orientation, width: s.page.width, height: s.page.height, margins: s.margins, columns: s.columns ?? { count: 1, gap: 36 }, start: s.start || 'nextPage', headers: s.headers, footers: s.footers, titlePage: s.titlePage, pageNumberStart: s.pageNumberStart ?? null })));
   add('layout.setHeaderFooter', 'Set header or footer', 'Layout', 'Set a header or footer text in a section; {PAGE} and {NUMPAGES} are fields.', (p) => {
     const id = String(p.section ?? ed.currentSectionId());
     const where = p.part === 'footer' ? 'footers' : 'headers';

@@ -399,9 +399,11 @@ export function pageSetupDialog(ed: DocEditor): void {
   const watermark = input('text', String(settings.watermark ?? ''), 'placeholder="For example DRAFT" spellcheck="false"');
   const pageless = input('checkbox', String(!!settings.pageless));
   const lines = select([['', 'None'], ['continuous', 'Continuous'], ['page', 'Restart each page']], String(settings.lineNumbers ?? ''));
+  const cols = select([['1', 'One'], ['2', 'Two'], ['3', 'Three'], ['4', 'Four']], String(s.columns?.count || 1));
+  const colGap = mi(s.columns?.gap ?? 36);
   if (sections.length > 1) grid(d, index > 0 ? [['Apply to', applyTo], ['Section starts on', start]] : [['Apply to', applyTo]]);
   grid(d, [['Paper size', size], ['Orientation', orient], ['Top margin (in)', top], ['Bottom margin (in)', bottom], ['Left margin (in)', left], ['Right margin (in)', right],
-    ['Header from edge (in)', header], ['Footer from edge (in)', footer], ['Page colour', color], ['Page border', border], ['Watermark text', watermark], ['Line numbers', lines], ['Pageless', pageless]]);
+    ['Header from edge (in)', header], ['Footer from edge (in)', footer], ['Columns', cols], ['Space between columns (in)', colGap], ['Page colour', color], ['Page border', border], ['Watermark text', watermark], ['Line numbers', lines], ['Pageless', pageless]]);
   d.button('Cancel', 'ghost', () => d.close());
   d.button('Apply', 'primary', () => {
     const pt = (i: HTMLInputElement, fallback: number): number => (i.value.trim() === '' ? fallback : Math.max(0, Number(i.value) * 72));
@@ -409,6 +411,7 @@ export function pageSetupDialog(ed: DocEditor): void {
       page: pageGeometry(size.value, orient.value),
       margins: { ...m, top: pt(top, m.top), bottom: pt(bottom, m.bottom), left: pt(left, m.left), right: pt(right, m.right), header: pt(header, m.header), footer: pt(footer, m.footer) },
       pageColor: color.value.toLowerCase() === '#ffffff' ? '' : color.value, pageBorder: border.value,
+      columns: { count: Number(cols.value) || 1, gap: pt(colGap, s.columns?.gap ?? 36) },
     };
     const docSettings = { watermark: watermark.value.trim(), pageless: pageless.checked, lineNumbers: lines.value };
     if (applyTo.value === 'all') { for (const x of [...sections].reverse()) ed.updateSectionById(x.id, { ...patch, margins: { ...x.margins, ...patch.margins } }, docSettings); }
