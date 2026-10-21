@@ -1,5 +1,6 @@
 import { type MarkSpec, type Node as PMNode, type NodeSpec, Schema } from 'prosemirror-model';
 import { tableNodes } from 'prosemirror-tables';
+import { locale } from './chart/types';
 
 export const LIST_KINDS = ['bullet', 'number', 'check'] as const;
 export type ListKind = (typeof LIST_KINDS)[number] | '';
@@ -13,6 +14,72 @@ export interface ListFmt { format?: string; prefix?: string; suffix?: string; st
 function safeJson(s: string): unknown { try { return JSON.parse(s); } catch { return null; } }
 
 const cssString = (s: string): string => `"${s.replace(/[\u0000-\u001f\u007f]/g, '').replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
+
+export const CHIP_KINDS = ['date', 'person', 'dropdown', 'doc'] as const;
+export const DATE_FORMATS = ['short', 'long', 'numeric', 'iso'] as const;
+export interface ChipOption { label: string; color: string }
+export interface ChipAttrs { kind: string; date: string; format: string; name: string; email: string; options: ChipOption[]; value: string; doc: string; title: string }
+
+export function parseIsoDate(s: string): Date | null {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(s);
+  if (!m) return null;
+  const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+  return d.getMonth() === Number(m[2]) - 1 ? d : null;
+}
+
+export function isoDate(d: Date): string {
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+export function formatChipDate(iso: string, format: string): string {
+  const d = parseIsoDate(iso);
+  if (!d) return iso || 'Pick a date';
+  if (format === 'iso') return iso;
+  const o: Intl.DateTimeFormatOptions = format === 'long' ? { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' } : format === 'numeric' ? { year: 'numeric', month: 'numeric', day: 'numeric' } : { year: 'numeric', month: 'short', day: 'numeric' };
+  try { return new Intl.DateTimeFormat(locale(), o).format(d); } catch { return new Intl.DateTimeFormat('en-US', o).format(d); }
+}
+
+function initials(s: string): string {
+  const parts = s.replace(/@.*/, '').split(/[\s._-]+/).filter(Boolean);
+  return ((parts[0]?.[0] ?? '?') + (parts.length > 1 ? parts[parts.length - 1][0] : '')).toUpperCase();
+}
+
+export function chipLabel(a: Record<string, unknown>): string {
+  if (a.kind === 'date') return formatChipDate(String(a.date || ''), String(a.format || 'short'));
+  if (a.kind === 'person') return String(a.name || a.email || 'Person');
+  if (a.kind === 'dropdown') return String(a.value || 'Choose');
+  if (a.kind === 'doc') return String(a.title || 'Document');
+  return '';
+}
+
+function chipTitle(a: Record<string, unknown>): string {
+  if (a.kind === 'person') return [a.name, a.email].filter(Boolean).join(' ') || 'Person';
+  if (a.kind === 'date') return String(a.date || '');
+  if (a.kind === 'dropdown') return (a.options as ChipOption[]).map((o) => o.label).join(', ');
+  return `Open ${String(a.title || 'document')}`;
+}
+
+function chipData(a: Record<string, unknown>): Partial<ChipAttrs> {
+  if (a.kind === 'date') return { kind: 'date', date: String(a.date), format: String(a.format) };
+  if (a.kind === 'person') return { kind: 'person', name: String(a.name), email: String(a.email) };
+  if (a.kind === 'dropdown') return { kind: 'dropdown', options: a.options as ChipOption[], value: String(a.value) };
+  return { kind: 'doc', doc: String(a.doc), title: String(a.title) };
+}
+
+export function cleanChip(v: unknown): Partial<ChipAttrs> | null {
+  if (!v || typeof v !== 'object') return null;
+  const o = v as Record<string, unknown>;
+  const kind = String(o.kind);
+  if (!(CHIP_KINDS as readonly string[]).includes(kind)) return null;
+  const s = (k: string, max = 200): string => (typeof o[k] === 'string' ? (o[k] as string).slice(0, max) : '');
+  if (kind === 'date') return { kind, date: parseIsoDate(s('date')) ? s('date') : isoDate(new Date()), format: (DATE_FORMATS as readonly string[]).includes(s('format')) ? s('format') : 'short' };
+  if (kind === 'person') return { kind, name: s('name'), email: s('email') };
+  if (kind === 'dropdown') {
+    const options = (Array.isArray(o.options) ? o.options : []).slice(0, 30).map((x) => ({ label: String((x as ChipOption)?.label ?? '').slice(0, 60), color: /^#[0-9a-f]{6}$/i.test(String((x as ChipOption)?.color)) ? String((x as ChipOption).color) : '' })).filter((x) => x.label);
+    return { kind, options, value: options.some((x) => x.label === s('value')) ? s('value') : '' };
+  }
+  return { kind, doc: s('doc', 80), title: s('title') };
+}
 
 export function cleanListFmt(v: unknown): ListFmt | null {
   if (!v || typeof v !== 'object') return null;
@@ -235,6 +302,23 @@ const nodes: Record<string, NodeSpec> = {
     },
     parseDOM: [{ tag: 'span.ft-shape', getAttrs: (dom: HTMLElement) => { try { return JSON.parse(dom.dataset.shape ?? '{}') as Record<string, unknown>; } catch { return {}; } } }],
     toDOM: (n) => ['span', { class: 'ft-shape', 'data-shape': JSON.stringify(n.attrs) }, String(n.attrs.text ?? '')],
+  },
+  chip: {
+    inline: true,
+    group: 'inline',
+    atom: true,
+    selectable: true,
+    attrs: { kind: { default: 'date' }, date: { default: '' }, format: { default: 'short' }, name: { default: '' }, email: { default: '' }, options: { default: [] }, value: { default: '' }, doc: { default: '' }, title: { default: '' } },
+    parseDOM: [{ tag: 'span.ft-smart-chip', getAttrs: (dom: HTMLElement) => ({ ...(cleanChip(safeJson(dom.dataset.chip || '')) ?? {}) }) }],
+    toDOM: (n) => {
+      const a = n.attrs;
+      const label = chipLabel(a);
+      const opt = a.kind === 'dropdown' ? (a.options as ChipOption[]).find((o) => o.label === a.value) : undefined;
+      const attrs: Record<string, string> = { class: 'ft-smart-chip', contenteditable: 'false', 'data-kind': String(a.kind), 'data-chip': JSON.stringify(chipData(a)), title: chipTitle(a) };
+      if (opt?.color) attrs.style = `--chip-color:${opt.color}`;
+      if (a.kind === 'person') return ['span', attrs, ['span', { class: 'ft-chip-avatar', 'aria-hidden': 'true' }, initials(String(a.name || a.email))], ['span', { class: 'ft-chip-text' }, label]];
+      return ['span', attrs, ['span', { class: 'ft-chip-text' }, label]];
+    },
   },
   field: {
     inline: true,

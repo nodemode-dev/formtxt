@@ -1,7 +1,7 @@
 import type { Mark, Node as PMNode } from 'prosemirror-model';
 import type { Block, FtxtDocument, TextRun } from '../engine/model';
 import { TableMap } from 'prosemirror-tables';
-import { BORDER_SIDES, BORDER_STYLES, type CellBorders, type ListFmt, cleanListFmt, schema } from './schema';
+import { BORDER_SIDES, BORDER_STYLES, type CellBorders, type ListFmt, chipLabel, cleanChip, cleanListFmt, schema } from './schema';
 
 const FLAG_MARKS = ['bold', 'italic', 'strike', 'superscript', 'subscript', 'smallCaps', 'allCaps', 'code'] as const;
 const PROPS = ['align', 'indent', 'indentRight', 'indentFirst', 'spaceBefore', 'spaceAfter', 'lineSpacing', 'keepNext', 'keepLines', 'widowControl', 'border', 'shading', 'tabs', 'collapsed'] as const;
@@ -34,6 +34,10 @@ function inlineNodes(content: TextRun[] | undefined): PMNode[] {
     const run = r as unknown as { type: string; text: string; marks?: Record<string, unknown> };
     if (run.type === 'break') out.push(schema.nodes.hard_break.create());
     else if (run.type === 'tab') out.push(schema.nodes.tab.create());
+    else if (run.type === 'chip') {
+      const c = cleanChip(r);
+      if (c) out.push(schema.nodes.chip.create(c));
+    }
     else if (run.type === 'field') {
       const f = r as unknown as Record<string, unknown>;
       out.push(schema.nodes.field.create({ kind: String(f.kind ?? 'formula'), code: String(f.code ?? ''), format: String(f.format ?? ''), result: String(f.result ?? ''), error: String(f.error ?? '') }));
@@ -149,6 +153,7 @@ export function toPM(doc: FtxtDocument, tabIndex = 0): PMNode {
 function runFrom(node: PMNode): Record<string, unknown> {
   if (node.type.name === 'hard_break') return { type: 'break' };
   if (node.type.name === 'tab') return { type: 'tab' };
+  if (node.type.name === 'chip') return { type: 'chip', ...(cleanChip(node.attrs) ?? {}), text: chipLabel(node.attrs) };
   if (node.type.name === 'field') {
     const out: Record<string, unknown> = { type: 'field', kind: node.attrs.kind, code: node.attrs.code, result: node.attrs.result };
     if (node.attrs.format) out.format = node.attrs.format;

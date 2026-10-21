@@ -80,6 +80,24 @@
 .ft-math { display: inline-block; padding: 0 1px; border-radius: 2px; }
 .ft-math[data-display="true"] { display: block; margin: 6px 0; text-align: center; }
 .ft-math .katex { font-size: 1.12em; }
+.ft-smart-chip { --chip-color: #6b7280; display: inline-flex; align-items: center; gap: 3px; max-width: 100%; margin: 0 1px; padding: 0 7px 0 6px; border-radius: 999px; background: color-mix(in srgb, var(--chip-color) 14%, #ffffff); color: inherit; font-size: 0.92em; line-height: 1.45; vertical-align: baseline; white-space: nowrap; cursor: pointer; user-select: none; }
+.ft-chip-text { overflow: hidden; text-overflow: ellipsis; }
+.ft-smart-chip[data-kind="date"] { --chip-color: #3b82f6; }
+.ft-smart-chip[data-kind="person"] { --chip-color: #8b5cf6; padding-left: 2px; }
+.ft-smart-chip[data-kind="doc"] { --chip-color: #f97316; }
+.ft-smart-chip[data-kind="doc"]::before { content: ''; width: 0.7em; height: 0.85em; border: 1.5px solid currentColor; border-radius: 2px; opacity: 0.7; box-sizing: border-box; flex: none; }
+.ft-smart-chip[data-kind="dropdown"] { background: color-mix(in srgb, var(--chip-color) 22%, #ffffff); }
+.ft-smart-chip[data-kind="dropdown"]::after { content: ''; flex: none; margin-left: 2px; border: 0.28em solid transparent; border-top-color: currentColor; border-bottom-width: 0; opacity: 0.7; }
+.ft-chip-avatar { display: inline-grid; place-items: center; width: 1.35em; height: 1.35em; border-radius: 50%; background: var(--chip-color); color: #ffffff; font-size: 0.68em; font-weight: 600; flex: none; }
+.ft-smart-chip.ProseMirror-selectednode { outline: 1.5px solid var(--accent-color); outline-offset: 1px; }
+.ft-chip-menu { max-height: 320px; min-width: 240px; max-width: 340px; padding: var(--space-1); }
+.ft-chip-menu-list { display: flex; flex-direction: column; overflow-y: auto; }
+.ft-chip-menu-head { padding: 6px var(--space-3) 2px; color: var(--text-muted); font-size: var(--ft-11, 11px); text-transform: uppercase; letter-spacing: 0.04em; }
+.ft-chip-menu-item { display: flex; align-items: center; justify-content: space-between; gap: 12px; flex: none; }
+.ft-chip-menu-item.is-active { background: var(--bg-hover); }
+.ft-chip-menu-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ft-chip-menu-hint { overflow: hidden; color: var(--text-muted); font-size: var(--ft-12, 12px); text-overflow: ellipsis; white-space: nowrap; }
+.ft-chip-options { width: 100%; resize: vertical; }
 .ft-field { padding: 0 1px; border-radius: 2px; background: color-mix(in srgb, currentColor 9%, transparent); font-variant-numeric: tabular-nums; cursor: default; }
 .ft-field[data-error] { color: var(--danger); }
 .ft-field.ProseMirror-selectednode { outline: 1px solid var(--accent-color); background: color-mix(in srgb, var(--accent-color) 16%, transparent); }

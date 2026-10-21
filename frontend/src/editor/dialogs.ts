@@ -8,7 +8,9 @@ import { CHART_FNS, CHART_LABELS, type ChartData, type ChartOptions, SAMPLE, SER
 import { CHART_KINDS } from './chart/types';
 import { SYMBOL_GROUPS } from './symbols';
 import { FORMAT_PRESETS, defaultFormula, evaluate, formulaSites, selectedField, updateFields } from './fields';
-import { type ListFmt, schema } from './schema';
+import { type ChipAttrs, type ChipOption, type ListFmt, isoDate, schema } from './schema';
+import { CHIP_COLORS, DROPDOWN_PRESETS, chipNode, knownDocs, loadDocs } from './chips';
+import type { Node as PMNode } from 'prosemirror-model';
 import { setListFormat } from './commands';
 import { STYLE_SETS, currentSetId, setFonts } from './stylesets';
 import { SHAPES, SHAPE_LABELS, WORDART, insertShape, selectedShape, setShape, shapeDefaults, shapePath } from './shape';
@@ -88,6 +90,63 @@ export function paragraphDialog(ed: DocEditor): void {
     d.close();
   });
   d.open(align);
+}
+
+export async function chipDialog(ed: DocEditor, kind: string, current: { node: PMNode; pos: number } | null): Promise<void> {
+  if (!ed.view) throw new Error('Open a document first.');
+  const a = (current?.node.attrs ?? {}) as Partial<ChipAttrs>;
+  const titles: Record<string, string> = { date: 'Date', person: 'Person', dropdown: 'Dropdown', doc: 'Link a document' };
+  if (!titles[kind]) throw new Error('kind must be date, person, dropdown or doc.');
+  if (kind === 'doc') await loadDocs();
+  const d = new Dialog(current ? `Edit ${titles[kind].toLowerCase()} chip` : titles[kind], 460);
+  let read: () => Partial<ChipAttrs> | null;
+  if (kind === 'date') {
+    const date = input('date', String(a.date || isoDate(new Date())));
+    const format = select([['short', 'Short (Oct 21, 2026)'], ['long', 'Long (Wednesday, October 21, 2026)'], ['numeric', 'Numeric (10/21/2026)'], ['iso', 'ISO (2026-10-21)']], String(a.format || 'short'));
+    grid(d, [['Date', date], ['Format', format]]);
+    read = () => (date.value ? { kind, date: date.value, format: format.value } : null);
+  } else if (kind === 'person') {
+    const name = input('text', String(a.name ?? ''), 'spellcheck="false" placeholder="Full name"');
+    const email = input('email', String(a.email ?? ''), 'spellcheck="false" placeholder="name@example.com"');
+    grid(d, [['Name', name], ['Email', email]]);
+    read = () => (name.value.trim() || email.value.trim() ? { kind, name: name.value.trim(), email: email.value.trim() } : null);
+  } else if (kind === 'dropdown') {
+    const opts = (a.options ?? DROPDOWN_PRESETS[0].options) as ChipOption[];
+    const text = el<HTMLTextAreaElement>('<textarea class="ft-input ft-chip-options" rows="6" spellcheck="false" aria-label="Options"></textarea>');
+    text.value = opts.map((o) => o.label).join('\n');
+    const value = select(opts.map((o) => [o.label, o.label] as [string, string]), String(a.value || opts[0]?.label || ''));
+    const parse = (): ChipOption[] => text.value.split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 30).map((label, i) => ({ label, color: opts.find((o) => o.label === label)?.color || CHIP_COLORS[i % CHIP_COLORS.length] }));
+    text.addEventListener('input', () => {
+      const cur = value.value;
+      const list = parse();
+      value.replaceChildren(...list.map((o) => { const op = document.createElement('option'); op.value = o.label; op.textContent = o.label; return op; }));
+      value.value = list.some((o) => o.label === cur) ? cur : list[0]?.label ?? '';
+    });
+    d.field('Options, one per line', text);
+    grid(d, [['Chosen', value]]);
+    read = () => { const options = parse(); return options.length ? { kind, options, value: value.value } : null; };
+  } else {
+    const self = ed.docId();
+    const docs = knownDocs().filter((x) => x.id !== self);
+    if (!docs.length) throw new Error('There are no other documents to link yet.');
+    const pick = select(docs.map((x) => [x.id, x.title] as [string, string]), String(a.doc || docs[0].id));
+    grid(d, [['Document', pick]]);
+    read = () => ({ kind, doc: pick.value, title: docs.find((x) => x.id === pick.value)?.title ?? '' });
+  }
+  d.button('Cancel', 'ghost', () => d.close());
+  d.button(current ? 'Apply' : 'Insert', 'primary', () => {
+    const attrs = read();
+    if (!attrs) { toast('Fill in the chip first.', 'error'); return; }
+    ed.run((state, dispatch) => {
+      if (!dispatch) return true;
+      const node = chipNode(attrs);
+      if (current && state.doc.nodeAt(current.pos)?.type === schema.nodes.chip) dispatch(state.tr.setNodeMarkup(current.pos, undefined, node.attrs));
+      else dispatch(state.tr.replaceSelectionWith(node, false).insertText(' ').scrollIntoView());
+      return true;
+    });
+    d.close();
+  });
+  d.open(d.body.querySelector<HTMLElement>('input, textarea, select') ?? undefined);
 }
 
 export async function styleSetDialog(ed: DocEditor): Promise<void> {

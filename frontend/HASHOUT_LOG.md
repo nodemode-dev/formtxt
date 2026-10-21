@@ -404,6 +404,30 @@ frontend/
 - logged: v0.17.0 · 2026-10-21
 - A style set patches font, size, colour and spacing on Normal, Title, Subtitle, Quote and Heading1 to Heading9 and leaves every other key (keep with next, outline level, indents) alone. The set's fonts are loaded before the style sheet is swapped, so the page restyles once in its final fonts rather than reflowing again when a web font arrives; the gallery waits for all nine sets' fonts before it opens for the same reason. Like other style edits, applying a set is not in the undo history; Standard restores the defaults.
 
+### chips · the @ menu
+- refers-to: src/editor/chips.ts :: chipPlugin, ChipMenu
+- kind: rationale
+- logged: v0.18.0 · 2026-10-21
+- Typing @ at the start of a paragraph or after a space or bracket opens the menu; after a letter it does not, so email addresses typed as text stay text. The plugin state is only `{active, from, query}`, mapped through every transaction and dropped when the cursor leaves the paragraph, the query grows past 40 characters or holds two spaces, or the @ is deleted. The menu is created once in `#overlay-root` and patched by key on every keystroke, so filtering never rebuilds it. The plugin sits ahead of the keymaps in the plugin list so Enter, Tab and the arrows reach the menu before they split paragraphs or indent.
+
+### chips · data loading
+- refers-to: src/editor/chips.ts :: loadDocs(), loadAuthor(), peopleIn()
+- kind: explainer
+- logged: v0.18.0 · 2026-10-21
+- The document list (cached 30 s) and the author name load when @ is typed; the menu first shows dates, people and dropdowns and the documents group appears when the list arrives. People come from person chips already in the document plus the author preference; there is no contacts directory.
+
+### chips · class name
+- refers-to: src/editor/schema.ts :: chip toDOM
+- kind: gotcha
+- logged: v0.18.0 · 2026-10-21
+- The in-document chip is `.ft-smart-chip`, not `.ft-chip`: Home's filter chips already own `.ft-chip` in `components.css`, and sharing it gave every smart chip Home's border.
+
+### chips · click actions
+- refers-to: src/editor/chips.ts :: chipActions(), openChipActions()
+- kind: explainer
+- logged: v0.18.0 · 2026-10-21
+- Clicking a chip selects it and opens the same menu in actions mode at the chip: options for a dropdown, Today, Change date or Turn into text for a date, Email and Copy email for a person, Open document for a document chip. Edits replace the chip's attrs in one transaction, so Undo restores the previous value.
+
 ## index.html {#index}
 
 ### index · theme before first paint

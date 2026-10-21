@@ -8,7 +8,7 @@ import { CHART_KINDS } from './chart/types';
 import { CellSelection, addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow, deleteTable, isInTable, mergeCells, setCellAttr, splitCell, toggleHeaderColumn, toggleHeaderRow } from 'prosemirror-tables';
 import { el, setHidden, setText } from '../ui/dom';
 import { toast } from '../ui/toast';
-import { cellBordersDialog, listFormatDialog, styleSetDialog, chartDialog, diagramDialog, equationDialog, formulaDialog, shapeGalleryDialog, shapePropertiesDialog, symbolDialog } from './dialogs';
+import { cellBordersDialog, chipDialog, listFormatDialog, styleSetDialog, chartDialog, diagramDialog, equationDialog, formulaDialog, shapeGalleryDialog, shapePropertiesDialog, symbolDialog } from './dialogs';
 import { formulaSites, selectedField, updateFields } from './fields';
 import { SHAPES, SHAPE_WRAPS, WORDART, insertShape, newShapeId, selectedShape, setShape, shapeDefaults } from './shape';
 import { putMath, selectedMath } from './math';
@@ -16,7 +16,9 @@ import { findIcon, iconAttrs, iconsDialog } from './icons-dialog';
 import { DIAGRAM_COLORS, DIAGRAM_LAYOUTS, DIAGRAM_STYLES, type DiagramItem, insertDiagram, itemsToText, sampleItems, selectedDiagram, setDiagram, textToItems } from './diagram';
 import { headerFooterDialog, insertTableDialog, pageGeometry, pageSetupDialog, paragraphDialog, parseTabs, picturePropertiesDialog, stylesDialog, tablePropertiesDialog, wordCountDialog } from './dialogs';
 import { type DocEditor, FONTS } from './editor';
-import { NUMBER_FORMATS, TABLE_LOOKS, schema } from './schema';
+import { CHIP_KINDS, type ChipAttrs, type ChipOption, DATE_FORMATS, NUMBER_FORMATS, TABLE_LOOKS, chipLabel, cleanChip, isoDate, parseIsoDate, schema } from './schema';
+import { CHIP_COLORS, DROPDOWN_PRESETS, chipKey, chipNode, knownDocs, loadAuthor, loadDocs, selectedChip, setChipHost } from './chips';
+import type { Node as PMNode } from 'prosemirror-model';
 import { setListFormat } from './commands';
 import { STYLE_SETS } from './stylesets';
 import { BORDER_TARGETS, distributeColumns, insertTable, setCellBorders, setCellShading, setTableAttr, sortTable, tableInfo, tableToText, textToTable } from './table';
@@ -459,6 +461,75 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   add('equation.edit', 'Edit equation', 'Equation', 'Edit the selected equation (or double-click it).', () => { equationDialog(ed); return true; });
   add('equation.info', 'Equation at cursor', 'Equation', 'The LaTeX of the selected equation.', () => { const m = ed.view ? selectedMath(ed.view.state) : null; return m ? { latex: m.node.attrs.latex, display: m.node.attrs.display, pos: m.pos } : null; });
   ed.onEquationKey = () => equationDialog(ed);
+  setChipHost({
+    docId: () => ed.docId(),
+    openDoc: (id) => { void reg.run('file.open', { id }).catch((err: Error) => toast(err.message, 'error')); },
+    dialog: (kind, current) => { void chipDialog(ed, kind, current).catch((err: Error) => toast(err.message, 'error')); },
+  });
+  add('insert.chip', 'Smart chip', 'Insert', `Insert a smart chip: kind date (date as YYYY-MM-DD, format ${DATE_FORMATS.join(', ')}), person (name, email), dropdown (options separated by commas, or preset ${DROPDOWN_PRESETS.map((p) => p.id).join(', ')}; value) or doc (doc id). With no kind, types @ and opens the chip menu; with a kind and nothing else, opens its dialog.`, async (p) => {
+    if (!ed.view) throw new Error('Open a document first.');
+    const view = ed.view;
+    if (p.kind === undefined) {
+      const { from, to } = view.state.selection;
+      view.dispatch(view.state.tr.insertText('@', from, to).setMeta(chipKey, { activate: from }));
+      await Promise.all([loadDocs(), loadAuthor()]);
+      view.dispatch(view.state.tr.setMeta('chipsRefresh', true));
+      view.focus();
+      return true;
+    }
+    const kind = String(p.kind);
+    if (!(CHIP_KINDS as readonly string[]).includes(kind)) throw new Error(`kind must be one of ${CHIP_KINDS.join(', ')}.`);
+    const keys = Object.keys(p).filter((k) => k !== 'kind' && p[k] !== undefined);
+    if (!keys.length) { await chipDialog(ed, kind, null); return true; }
+    let attrs: Partial<ChipAttrs>;
+    if (kind === 'date') {
+      const date = p.date === undefined || p.date === 'today' ? isoDate(new Date()) : String(p.date);
+      if (!parseIsoDate(date)) throw new Error('date must be YYYY-MM-DD or today.');
+      attrs = { kind, date, format: String(p.format ?? 'short') };
+    } else if (kind === 'person') attrs = { kind, name: String(p.name ?? ''), email: String(p.email ?? '') };
+    else if (kind === 'dropdown') {
+      const preset = DROPDOWN_PRESETS.find((x) => x.id === String(p.preset ?? p.options));
+      const options = preset ? preset.options : String(p.options ?? '').split(',').map((s) => s.trim()).filter(Boolean).map((label, i) => ({ label, color: CHIP_COLORS[i % CHIP_COLORS.length] }));
+      if (!options.length) throw new Error('options needs labels separated by commas, or a preset.');
+      attrs = { kind, options, value: String(p.value ?? options[0].label) };
+    } else {
+      await loadDocs();
+      const id = String(p.doc ?? '');
+      const hit = knownDocs().find((x) => x.id === id);
+      if (!hit) throw new Error('doc must be the id of a document in your library (see file.list).');
+      attrs = { kind, doc: hit.id, title: hit.title };
+    }
+    return ed.run((state, dispatch) => { if (dispatch) dispatch(state.tr.replaceSelectionWith(chipNode(attrs), false).insertText(' ').scrollIntoView()); return true; });
+  }, [{ name: 'kind', type: 'string', description: CHIP_KINDS.join(', ') }, { name: 'date', type: 'string', description: 'YYYY-MM-DD or today' }, { name: 'format', type: 'string', description: DATE_FORMATS.join(', ') }, { name: 'name', type: 'string', description: 'Person name' }, { name: 'email', type: 'string', description: 'Person email' }, { name: 'options', type: 'string', description: 'Comma-separated options or a preset id' }, { name: 'value', type: 'string', description: 'Chosen option' }, { name: 'doc', type: 'string', description: 'Document id' }]);
+  const needChip = (): { node: PMNode; pos: number } => {
+    const c = ed.view ? selectedChip(ed.view.state) : null;
+    if (!c) throw new Error('Select a smart chip first (click it, or run chip.select).');
+    return c;
+  };
+  add('chip.edit', 'Edit smart chip', 'Chip', 'Open the dialog for the selected chip.', async () => { const c = needChip(); await chipDialog(ed, String(c.node.attrs.kind), c); return true; });
+  add('chip.info', 'Chip at cursor', 'Chip', 'Kind, data and shown text of the selected chip.', () => { const c = ed.view ? selectedChip(ed.view.state) : null; return c ? { ...cleanChip(c.node.attrs), text: chipLabel(c.node.attrs), pos: c.pos } : null; });
+  add('chip.set', 'Set chip value', 'Chip', 'Change the selected chip: value for a dropdown, date and format for a date, name and email for a person.', (p) => {
+    const c = needChip();
+    const next = cleanChip({ ...(c.node.attrs as ChipAttrs), ...Object.fromEntries(Object.entries(p).filter(([k, v]) => v !== undefined && k !== 'kind' && k !== 'options')) });
+    if (!next) throw new Error('That value does not fit this chip.');
+    if (c.node.attrs.kind === 'dropdown' && p.value !== undefined && next.value !== String(p.value)) throw new Error(`value must be one of ${(c.node.attrs.options as ChipOption[]).map((o) => o.label).join(', ')}.`);
+    return ed.run((state, dispatch) => { if (dispatch) dispatch(state.tr.setNodeMarkup(c.pos, undefined, { ...c.node.attrs, ...next })); return true; });
+  }, [{ name: 'value', type: 'string', description: 'Dropdown option' }, { name: 'date', type: 'string', description: 'YYYY-MM-DD' }, { name: 'format', type: 'string', description: DATE_FORMATS.join(', ') }, { name: 'name', type: 'string', description: 'Person name' }, { name: 'email', type: 'string', description: 'Person email' }]);
+  add('chip.select', 'Select chip', 'Chip', 'Select the first smart chip, or the next one after the selection.', () => {
+    if (!ed.view) throw new Error('Open a document first.');
+    const { state } = ed.view;
+    const all: number[] = [];
+    state.doc.descendants((n, pos) => { if (n.type === schema.nodes.chip) all.push(pos); return true; });
+    if (!all.length) throw new Error('The document has no smart chips.');
+    const at = all.find((pos) => pos > state.selection.from) ?? all[0];
+    ed.view.dispatch(state.tr.setSelection(NodeSelection.create(state.doc, at)).scrollIntoView());
+    return at;
+  });
+  add('chips.list', 'List smart chips', 'Chip', 'Every smart chip with its kind, text and position.', () => {
+    const out: Array<Record<string, unknown>> = [];
+    ed.view?.state.doc.descendants((n, pos) => { if (n.type === schema.nodes.chip) out.push({ pos, ...cleanChip(n.attrs), text: chipLabel(n.attrs) }); return true; });
+    return out;
+  });
   add('insert.formula', 'Formula', 'Insert', 'Insert a formula field, such as =SUM(ABOVE) in a table cell; with no code, opens the formula dialog.', async (p) => {
     if (p.code === undefined) { formulaDialog(ed); return true; }
     const src = String(p.code).trim();
