@@ -80,6 +80,11 @@
 .ft-math { display: inline-block; padding: 0 1px; border-radius: 2px; }
 .ft-math[data-display="true"] { display: block; margin: 6px 0; text-align: center; }
 .ft-math .katex { font-size: 1.12em; }
+.ft-field { padding: 0 1px; border-radius: 2px; background: color-mix(in srgb, currentColor 9%, transparent); font-variant-numeric: tabular-nums; cursor: default; }
+.ft-field[data-error] { color: var(--danger); }
+.ft-field.ProseMirror-selectednode { outline: 1px solid var(--accent-color); background: color-mix(in srgb, var(--accent-color) 16%, transparent); }
+.ft-formula-preview { margin: 10px 0 0; font-variant-numeric: tabular-nums; }
+.ft-formula-preview.is-error { color: var(--danger); }
 .ft-math.is-selected { background: color-mix(in srgb, var(--accent-color) 16%, transparent); outline: 1px solid var(--accent-color); }
 .ft-pic-handle { display: none; position: absolute; width: 9px; height: 9px; box-sizing: border-box; border: 1.5px solid var(--accent-color); border-radius: 2px; background: #ffffff; }
 .ft-pic.is-selected .ft-pic-handle { display: block; }

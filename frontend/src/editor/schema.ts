@@ -174,6 +174,15 @@ const nodes: Record<string, NodeSpec> = {
     parseDOM: [{ tag: 'span.ft-shape', getAttrs: (dom: HTMLElement) => { try { return JSON.parse(dom.dataset.shape ?? '{}') as Record<string, unknown>; } catch { return {}; } } }],
     toDOM: (n) => ['span', { class: 'ft-shape', 'data-shape': JSON.stringify(n.attrs) }, String(n.attrs.text ?? '')],
   },
+  field: {
+    inline: true,
+    group: 'inline',
+    atom: true,
+    selectable: true,
+    attrs: { kind: { default: 'formula' }, code: { default: '' }, format: { default: '' }, result: { default: '' }, error: { default: '' } },
+    parseDOM: [{ tag: 'span.ft-field', getAttrs: (dom: HTMLElement) => ({ kind: dom.dataset.kind || 'formula', code: dom.dataset.code || '', format: dom.dataset.format || '', result: dom.textContent || '', error: dom.dataset.error || '' }) }],
+    toDOM: (n) => ['span', { class: 'ft-field', contenteditable: 'false', 'data-kind': String(n.attrs.kind), 'data-code': String(n.attrs.code), 'data-format': String(n.attrs.format), ...(n.attrs.error ? { 'data-error': String(n.attrs.error), title: String(n.attrs.error) } : { title: `${String(n.attrs.code)}${n.attrs.format ? ` \\# "${String(n.attrs.format)}"` : ''}` }) }, String(n.attrs.result || (n.attrs.error ? '!Error' : ''))],
+  },
   math: {
     inline: true,
     group: 'inline',

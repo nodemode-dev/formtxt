@@ -25,6 +25,7 @@ import { MathView, loadMathFonts } from './math';
 import { ShapeView, placeConnectors, shapeEditing } from './shape';
 import { InkTool } from './ink';
 import { DiagramView } from './diagram';
+import { updateFields } from './fields';
 import { api } from '../io/api';
 import { toast } from '../ui/toast';
 
@@ -133,7 +134,7 @@ ${TB('list.bullet', 'listBullet', 'Bulleted list', 'Ctrl+Shift+8')}${TB('list.nu
 <select class="ft-tb-select ft-tb-spacing" data-cmd="paragraph.lineSpacing" aria-label="Line spacing">${SPACINGS.map(([v, l]) => `<option value="${v}">${l}</option>`).join('')}</select>${SEP}
 ${TB('format.painter', 'painter', 'Format Painter', 'Ctrl+Shift+C')}${TB('format.paragraph', 'paragraph', 'Paragraph settings')}${TB('format.styles', 'styles', 'Styles')}${SEP}
 ${TB('insert.link', 'link', 'Link', 'Ctrl+K')}${TB('insert.codeBlock', 'code', 'Code block')}${TB('insert.pageBreak', 'pageBreak', 'Page break', 'Ctrl+Enter')}${TB('insert.sectionBreak', 'sectionBreak', 'Section break (next page)')}${TB('format.clear', 'clearFormat', 'Clear formatting', 'Ctrl+\\')}${SEP}
-${TB('insert.picture', 'image', 'Insert picture (or paste or drop one)')}${TB('insert.table', 'table', 'Insert table')}${TB('insert.chart', 'chart', 'Insert chart')}${TB('insert.diagram', 'diagram', 'Diagram (SmartArt)')}${TB('insert.shape', 'shapes', 'Shapes, text box and WordArt')}${TB('insert.icon', 'iconLibrary', 'Icons')}${TB('view.draw', 'pen', 'Draw with ink (Esc stops)')}${TB('insert.equation', 'equation', 'Equation', 'Alt+=')}${TB('insert.symbol', 'omega', 'Symbol')}<span class="ft-tb-group" data-group="table">${TB('table.properties', 'tableProps', 'Table properties (right-click a cell for rows, columns and merging)')}</span>${SEP}
+${TB('insert.picture', 'image', 'Insert picture (or paste or drop one)')}${TB('insert.table', 'table', 'Insert table')}${TB('insert.chart', 'chart', 'Insert chart')}${TB('insert.diagram', 'diagram', 'Diagram (SmartArt)')}${TB('insert.shape', 'shapes', 'Shapes, text box and WordArt')}${TB('insert.icon', 'iconLibrary', 'Icons')}${TB('view.draw', 'pen', 'Draw with ink (Esc stops)')}${TB('insert.equation', 'equation', 'Equation', 'Alt+=')}${TB('insert.symbol', 'omega', 'Symbol')}<span class="ft-tb-group" data-group="table">${TB('table.properties', 'tableProps', 'Table properties (right-click a cell for rows, columns and merging)')}${TB('insert.formula', 'sigma', 'Formula (F9 updates)')}</span>${SEP}
 ${TB('edit.find', 'search', 'Find and replace', 'Ctrl+F')}${TB('view.outline', 'outline', 'Outline')}${SEP}
 ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 'pageSetup', 'Page setup')}${TB('insert.headerFooter', 'headerFooter', 'Header and footer')}${TB('view.pageless', 'pageless', 'Pageless')}
 <select class="ft-tb-select ft-tb-zoom" data-cmd="view.zoom" aria-label="Zoom">${[50, 75, 90, 100, 110, 125, 150, 200].map((z) => `<option value="${z}"${z === 100 ? ' selected' : ''}>${z}%</option>`).join('')}<option value="" disabled hidden></option></select>
@@ -234,6 +235,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
         'Mod-f': () => { this.openFind(); return true; }, 'Mod-h': () => { this.openFind(true); return true; },
         'Mod-k': () => { this.promptLink(); return true; },
         'Alt-=': () => { this.onEquationKey?.(); return true; },
+        F9: () => { if (this.view) void updateFields(this.view); return true; },
       }),
       keymap(baseKeymap),
     ];
@@ -279,7 +281,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
           this.view.updateState(next);
           this.states.set(this.activeTab, next);
           this.syncToolbar();
-          if (tr.docChanged) { this.emitChange(); this.scheduleOutline(); if (!tr.getMeta(pagesKey)) this.paginator.schedule(); if (tr.getMeta('paste') || tr.getMeta('uiEvent') === 'drop') this.adoptForeignMedia(); }
+          if (tr.docChanged) { this.emitChange(); this.scheduleOutline(); if (!tr.getMeta(pagesKey)) this.paginator.schedule(); if (tr.getMeta('paste') || tr.getMeta('uiEvent') === 'drop') this.adoptForeignMedia(); if (!tr.getMeta('fields') && !tr.getMeta(pagesKey)) this.scheduleFields(); }
           if (tr.getMeta(findKey) || tr.docChanged) this.syncFind();
         },
       });
@@ -289,6 +291,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     this.syncToolbar();
     this.renderOutline();
     this.hooks.status(this.words());
+    this.scheduleFields(0);
     (this.root.querySelector('.ft-scroll') as HTMLElement).scrollTop = 0;
   }
 
@@ -331,6 +334,17 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
   }
 
   onEquationKey: (() => void) | null = null;
+  private fieldTimer = 0;
+
+  scheduleFields(delay = 400): void {
+    window.clearTimeout(this.fieldTimer);
+    this.fieldTimer = window.setTimeout(() => {
+      if (!this.view) return;
+      let any = false;
+      this.view.state.doc.descendants((n) => { if (n.type === schema.nodes.field) any = true; return !any; });
+      if (any) void updateFields(this.view).catch(() => undefined);
+    }, delay);
+  }
 
   placePageAnchored(): void {
     if (!this.view) return;

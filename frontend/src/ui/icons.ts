@@ -63,6 +63,7 @@ export const ICONS: Record<string, string> = {
   pen: L('<path d="M15 4.5l4.5 4.5L9 19.5H4.5V15z"/><path d="M12.5 7l4.5 4.5"/>'),
   omega: L('<path d="M5 19.5h4.5v-2.2a6.5 6.5 0 1 1 5 0v2.2H19"/>'),
   table: L('<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 9.5v10M15 9.5v10"/>'),
+  sigma: L('<path d="M17.5 6.5V4.5h-11l6 7.5-6 7.5h11v-2"/>'),
   tableProps: L('<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M9.5 9.5v10"/><circle cx="15" cy="14.5" r="2"/>'),
   chevronUp: L('<path d="M6 15l6-6 6 6"/>'),
   chevronDown: L('<path d="M6 9l6 6 6-6"/>'),

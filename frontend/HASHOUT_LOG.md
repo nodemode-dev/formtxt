@@ -368,6 +368,24 @@ frontend/
 - logged: v0.3.0 · 2026-10-21
 - Toolbar buttons cancel mousedown so the selection never leaves the page; selects and colour inputs run their command on change with the chosen value.
 
+### fields · recalculation
+- refers-to: src/editor/fields.ts :: updateFields(); src/editor/editor.ts :: scheduleFields()
+- kind: rationale
+- logged: v0.16.0 · 2026-10-21
+- Formula fields are plain inline atoms rendered by `toDOM`; only their `result` attr changes, so a recalculation swaps one text node and nothing reflows beyond the cell. Any document change (other than the paginator's and the fields' own) schedules a 400 ms debounced pass; opening a document runs one at once, and F9 or `fields.update` forces one. A pass sends every formula with its table grid in one request and repeats up to three times so a formula that reads another formula's cell settles. Result updates skip the undo history, and a pass whose document changed under it is dropped and left to the next one.
+
+### fields · grid text
+- refers-to: src/editor/fields.ts :: gridOf()
+- kind: explainer
+- logged: v0.16.0 · 2026-10-21
+- The grid is built from `TableMap`, so merged cells report their text at their top-left slot and blanks elsewhere, and a cell that holds a field contributes the field's last result, which is what lets `=SUM(ABOVE)` see a subtotal formula above it.
+
+### fields · dialog preview
+- refers-to: src/editor/dialogs.ts :: formulaDialog()
+- kind: explainer
+- logged: v0.16.0 · 2026-10-21
+- The preview places a probe field at the selection in a throwaway transaction to learn its table cell, then asks the engine for the result, so the dialog shows exactly what Insert will produce, including syntax errors and their message.
+
 ## index.html {#index}
 
 ### index · theme before first paint

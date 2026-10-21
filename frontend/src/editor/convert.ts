@@ -34,6 +34,10 @@ function inlineNodes(content: TextRun[] | undefined): PMNode[] {
     const run = r as unknown as { type: string; text: string; marks?: Record<string, unknown> };
     if (run.type === 'break') out.push(schema.nodes.hard_break.create());
     else if (run.type === 'tab') out.push(schema.nodes.tab.create());
+    else if (run.type === 'field') {
+      const f = r as unknown as Record<string, unknown>;
+      out.push(schema.nodes.field.create({ kind: String(f.kind ?? 'formula'), code: String(f.code ?? ''), format: String(f.format ?? ''), result: String(f.result ?? ''), error: String(f.error ?? '') }));
+    }
     else if (run.type === 'math') {
       const m = r as unknown as { latex?: string; display?: boolean };
       out.push(schema.nodes.math.create({ latex: String(m.latex ?? ''), display: !!m.display }));
@@ -134,6 +138,12 @@ export function toPM(doc: FtxtDocument, tabIndex = 0): PMNode {
 function runFrom(node: PMNode): Record<string, unknown> {
   if (node.type.name === 'hard_break') return { type: 'break' };
   if (node.type.name === 'tab') return { type: 'tab' };
+  if (node.type.name === 'field') {
+    const out: Record<string, unknown> = { type: 'field', kind: node.attrs.kind, code: node.attrs.code, result: node.attrs.result };
+    if (node.attrs.format) out.format = node.attrs.format;
+    if (node.attrs.error) out.error = node.attrs.error;
+    return out;
+  }
   if (node.type.name === 'math') return node.attrs.display ? { type: 'math', latex: node.attrs.latex, display: true } : { type: 'math', latex: node.attrs.latex };
   if (node.type.name === 'shape') {
     const out: Record<string, unknown> = { type: 'shape' };

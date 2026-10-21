@@ -83,7 +83,7 @@ def render(doc: dict) -> str:
                 if header:
                     out.append(f'<rect x="{left:.1f}" y="{y:.1f}" width="{right - left:.1f}" height="{row_h:.1f}" fill="#eceae4"/>')
                 for c, cell in enumerate((row or {}).get("cells") or []):
-                    text = "".join(str(r.get("text", "")) for r in model.iter_runs((cell or {}).get("body") or []) if r.get("type") == "text")
+                    text = "".join(str(r.get("text", "")) if r.get("type") == "text" else str(r.get("result", "")) for r in model.iter_runs((cell or {}).get("body") or []) if r.get("type") in ("text", "field"))
                     if text:
                         frac = min(0.85, 0.2 + len(text) / 40)
                         out.append(f'<rect x="{left + c * cell_w + 4:.1f}" y="{y + row_h * 0.3:.1f}" width="{(cell_w - 8) * frac:.1f}" height="{row_h * 0.38:.1f}" rx="1" fill="{DARK if header else GREY}"/>')

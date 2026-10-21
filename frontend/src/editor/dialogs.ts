@@ -7,6 +7,8 @@ import { selectedPicture, setPicture } from './picture';
 import { CHART_FNS, CHART_LABELS, type ChartData, type ChartOptions, SAMPLE, SERIES_COLORS, gridText, insertChart, paint, parseGrid, selectedChart, setChart } from './chart/chart';
 import { CHART_KINDS } from './chart/types';
 import { SYMBOL_GROUPS } from './symbols';
+import { FORMAT_PRESETS, defaultFormula, evaluate, formulaSites, selectedField, updateFields } from './fields';
+import { schema } from './schema';
 import { SHAPES, SHAPE_LABELS, WORDART, insertShape, selectedShape, setShape, shapeDefaults, shapePath } from './shape';
 import { MATH_SNIPPETS, loadMathFonts, putMath, renderMath, selectedMath } from './math';
 import { DIAGRAM_CATEGORIES, DIAGRAM_LAYOUTS, type DiagramItem, insertDiagram, itemsToText, renderDiagram, sampleItems, selectedDiagram, setDiagram, textToItems } from './diagram';
@@ -597,6 +599,62 @@ export function diagramDialog(ed: DocEditor, insert: boolean): void {
     d.close();
   });
   d.open(items);
+  refresh();
+}
+
+export function formulaDialog(ed: DocEditor): void {
+  if (!ed.view) throw new Error('Open a document first.');
+  const cur = selectedField(ed.view.state);
+  const d = new Dialog(cur ? 'Edit formula' : 'Formula', 560);
+  const code = input('text', String(cur?.node.attrs.code ?? defaultFormula(ed.view.state)), 'spellcheck="false" aria-label="Formula"');
+  const format = el<HTMLInputElement>('<input class="ft-input" type="text" list="ft-num-formats" spellcheck="false" aria-label="Number format" placeholder="General">');
+  format.value = String(cur?.node.attrs.format ?? '');
+  const list = el(`<datalist id="ft-num-formats">${FORMAT_PRESETS.filter(([v]) => v).map(([v, l]) => `<option value="${escapeHtml(v)}">${escapeHtml(l)}</option>`).join('')}</datalist>`);
+  const fn = select([['', 'Paste function...'], ['SUM(', 'SUM'], ['AVERAGE(', 'AVERAGE'], ['MIN(', 'MIN'], ['MAX(', 'MAX'], ['COUNT(', 'COUNT'], ['PRODUCT(', 'PRODUCT'], ['ROUND(', 'ROUND'], ['ABS(', 'ABS'], ['IF(', 'IF'], ['AND(', 'AND'], ['OR(', 'OR'], ['NOT(', 'NOT'], ['MOD(', 'MOD'], ['INT(', 'INT']], '');
+  const preview = el('<p class="ft-formula-preview" aria-live="polite"></p>');
+  fn.addEventListener('change', () => {
+    if (!fn.value) return;
+    const at = code.selectionStart ?? code.value.length;
+    code.setRangeText(fn.value, at, code.selectionEnd ?? at, 'end');
+    fn.value = '';
+    code.focus();
+    refresh();
+  });
+  const site = (): { grid: string[][] | null; row: number; col: number } => {
+    const v = ed.view!;
+    const probe = schema.nodes.field.create({ code: code.value });
+    const tr = v.state.tr.replaceSelectionWith(probe, false);
+    const s = formulaSites(tr.doc).find((x) => x.node.attrs.code === code.value && Math.abs(x.pos - v.state.selection.from) < 3);
+    return s ? { grid: s.item.grid, row: s.item.row, col: s.item.col } : { grid: null, row: -1, col: -1 };
+  };
+  let timer = 0;
+  const refresh = (): void => {
+    window.clearTimeout(timer);
+    timer = window.setTimeout(() => {
+      const where = site();
+      void evaluate([{ code: code.value, format: format.value.trim(), ...where }]).then(([r]) => { setText(preview, r.ok ? `Result: ${r.text}` : `${r.error ?? 'Error'}`); preview.classList.toggle('is-error', !r.ok); }).catch(() => undefined);
+    }, 200);
+  };
+  code.addEventListener('input', refresh);
+  format.addEventListener('input', refresh);
+  d.field('Formula', code);
+  grid(d, [['Number format', format], ['Function', fn]]);
+  d.body.append(list, preview, el('<p class="ft-note">Refer to cells as A1 (column letter, row number) or ranges such as B2:B5, or to the numbers ABOVE, BELOW, LEFT or RIGHT of this cell. Results update as the table changes; F9 updates every formula.</p>'));
+  d.button('Cancel', 'ghost', () => d.close());
+  d.button(cur ? 'Apply' : 'Insert', 'primary', () => {
+    const src = code.value.trim();
+    if (!src || src === '=') { toast('Type a formula first.', 'error'); return; }
+    const attrs = { kind: 'formula', code: src.startsWith('=') ? src : `=${src}`, format: format.value.trim(), result: '', error: '' };
+    ed.run((state, dispatch) => {
+      if (!dispatch) return true;
+      const tr = cur ? state.tr.setNodeMarkup(cur.pos, undefined, attrs) : state.tr.replaceSelectionWith(schema.nodes.field.create(attrs), false);
+      dispatch(tr.scrollIntoView());
+      return true;
+    });
+    if (ed.view) void updateFields(ed.view);
+    d.close();
+  });
+  d.open(code);
   refresh();
 }
 

@@ -8,7 +8,8 @@ import { CHART_KINDS } from './chart/types';
 import { CellSelection, addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow, deleteTable, isInTable, mergeCells, setCellAttr, splitCell, toggleHeaderColumn, toggleHeaderRow } from 'prosemirror-tables';
 import { el, setHidden, setText } from '../ui/dom';
 import { toast } from '../ui/toast';
-import { chartDialog, diagramDialog, equationDialog, shapeGalleryDialog, shapePropertiesDialog, symbolDialog } from './dialogs';
+import { chartDialog, diagramDialog, equationDialog, formulaDialog, shapeGalleryDialog, shapePropertiesDialog, symbolDialog } from './dialogs';
+import { formulaSites, selectedField, updateFields } from './fields';
 import { SHAPES, SHAPE_WRAPS, WORDART, insertShape, newShapeId, selectedShape, setShape, shapeDefaults } from './shape';
 import { putMath, selectedMath } from './math';
 import { findIcon, iconAttrs, iconsDialog } from './icons-dialog';
@@ -436,6 +437,28 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   add('equation.edit', 'Edit equation', 'Equation', 'Edit the selected equation (or double-click it).', () => { equationDialog(ed); return true; });
   add('equation.info', 'Equation at cursor', 'Equation', 'The LaTeX of the selected equation.', () => { const m = ed.view ? selectedMath(ed.view.state) : null; return m ? { latex: m.node.attrs.latex, display: m.node.attrs.display, pos: m.pos } : null; });
   ed.onEquationKey = () => equationDialog(ed);
+  add('insert.formula', 'Formula', 'Insert', 'Insert a formula field, such as =SUM(ABOVE) in a table cell; with no code, opens the formula dialog.', async (p) => {
+    if (p.code === undefined) { formulaDialog(ed); return true; }
+    const src = String(p.code).trim();
+    if (!src || src === '=') throw new Error('code needs a formula, such as =SUM(ABOVE).');
+    const attrs = { kind: 'formula', code: src.startsWith('=') ? src : `=${src}`, format: String(p.format ?? ''), result: '', error: '' };
+    const ok = ed.run((state, dispatch) => { if (dispatch) dispatch(state.tr.replaceSelectionWith(schema.nodes.field.create(attrs), false).scrollIntoView()); return true; });
+    if (ed.view) await updateFields(ed.view);
+    return ok;
+  }, [{ name: 'code', type: 'string', description: 'Formula such as =SUM(ABOVE) or =B2*C2' }, { name: 'format', type: 'string', description: 'Number format such as #,##0.00, $#,##0.00 or 0%' }]);
+  add('fields.update', 'Update fields', 'Fields', 'Recalculate every formula in the document (F9).', async () => (ed.view ? { updated: await updateFields(ed.view) } : null), [], ['F9']);
+  add('field.edit', 'Edit formula', 'Fields', 'Edit the selected formula field (or double-click it).', () => { formulaDialog(ed); return true; });
+  add('field.info', 'Field at cursor', 'Fields', 'Code, format and result of the selected formula field.', () => { const f = ed.view ? selectedField(ed.view.state) : null; return f ? { ...f.node.attrs, pos: f.pos } : null; });
+  add('fields.list', 'List fields', 'Fields', 'Every formula field with its code, result and table cell.', () => (ed.view ? formulaSites(ed.view.state.doc).map((s) => ({ pos: s.pos, code: s.node.attrs.code, format: s.node.attrs.format, result: s.node.attrs.result, error: s.node.attrs.error, row: s.item.row, col: s.item.col })) : []));
+  ed.root.addEventListener('dblclick', (e) => {
+    const span = (e.target as HTMLElement).closest<HTMLElement>('.ft-pm-root .ft-field');
+    if (!span || !ed.view || !ed.view.editable) return;
+    e.preventDefault();
+    const pos = ed.view.posAtDOM(span, 0);
+    const at = ed.view.state.doc.resolve(pos).nodeAfter?.type === schema.nodes.field ? pos : pos - 1;
+    ed.view.dispatch(ed.view.state.tr.setSelection(NodeSelection.create(ed.view.state.doc, at)));
+    formulaDialog(ed);
+  });
   const layoutOf = (v: unknown): string => {
     const id = String(v ?? '');
     if (!DIAGRAM_LAYOUTS.some((l) => l.id === id)) throw new Error(`layout must be one of ${DIAGRAM_LAYOUTS.map((l) => l.id).join(', ')}.`);
@@ -530,7 +553,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   const closeMenu = (): void => { if (!menu.hidden) setHidden(menu, true); };
   const TABLE_MENU: Array<[string, string] | null> = [['table.rowAbove', 'Insert row above'], ['table.rowBelow', 'Insert row below'], ['table.colLeft', 'Insert column left'], ['table.colRight', 'Insert column right'], null,
     ['table.deleteRow', 'Delete row'], ['table.deleteColumn', 'Delete column'], ['table.delete', 'Delete table'], null,
-    ['table.merge', 'Merge cells'], ['table.split', 'Split cell'], ['table.headerRow', 'Header row on or off'], null, ['table.properties', 'Table properties']];
+    ['table.merge', 'Merge cells'], ['table.split', 'Split cell'], ['table.headerRow', 'Header row on or off'], null, ['insert.formula', 'Formula...'], ['fields.update', 'Update fields'], null, ['table.properties', 'Table properties']];
   for (const row of TABLE_MENU) {
     if (!row) { menu.appendChild(el('<div class="ft-menu-sep" role="separator"></div>')); continue; }
     const b = el<HTMLButtonElement>(`<button class="ft-menu-item" role="menuitem" type="button" data-cmd-menu="${row[0]}"></button>`);
