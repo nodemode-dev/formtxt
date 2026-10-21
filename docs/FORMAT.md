@@ -107,7 +107,7 @@ A link mark whose address starts with `#` points inside the document: `#` plus a
 
 ### Sources and citation style
 
-The document's top-level `sources` is a list of `{id, type, authors, title, year, month, day, container, publisher, place, edition, volume, issue, pages, number, url, doi, accessed}`. `id` is `s_` plus letters and digits; `type` is `book`, `article`, `website` or `report`; `authors` is a list of `{family, given}` (an organisation is one `family` with an empty `given`); all other values are text. `container` is the journal or the website name. `settings.citationStyle` is `apa` (APA 7), `mla` (MLA 9), `chicago` (Chicago author-date) or `ieee`; absent means `apa`. Writers keep unknown keys of a source.
+The document's top-level `sources` is a list of `{id, type, authors, title, year, month, day, container, publisher, place, edition, volume, issue, pages, number, url, doi, accessed}`. `id` is `s_` plus letters and digits; `type` is `book`, `chapter` (a section of a book), `article`, `newspaper` (a newspaper or magazine article), `conference` (a paper in proceedings), `website`, `report` or `thesis`; `authors` is a list of `{family, given}` (an organisation is one `family` with an empty `given`); all other values are text. `container` is the journal, book, proceedings, newspaper or website name; for a `thesis`, `publisher` is the university and `number` the kind of thesis. A `citation` run may list several sources in `items`, each with its own `locator`. `settings.citationStyle` is `apa` (APA 7), `mla` (MLA 9), `chicago` (Chicago author-date) or `ieee`; absent means `apa`. Writers keep unknown keys of a source.
 
 ## Review
 

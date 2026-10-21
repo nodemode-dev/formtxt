@@ -1,5 +1,5 @@
 export const STYLES = [['apa', 'APA 7'], ['mla', 'MLA 9'], ['chicago', 'Chicago author-date'], ['ieee', 'IEEE']] as const;
-export const SOURCE_TYPES = [['book', 'Book'], ['article', 'Journal article'], ['website', 'Website'], ['report', 'Report']] as const;
+export const SOURCE_TYPES = [['book', 'Book'], ['chapter', 'Book section'], ['article', 'Journal article'], ['newspaper', 'Newspaper or magazine article'], ['conference', 'Conference paper'], ['website', 'Website'], ['report', 'Report'], ['thesis', 'Thesis or dissertation']] as const;
 
 export interface Person { family: string; given: string }
 export interface Source {
@@ -128,13 +128,16 @@ export function reference(style: string, s: Source): Formatted {
   let text = '';
   if (style === 'apa') {
     const who = apaNames(s.authors);
-    const when = s.type === 'website' && s.month ? `${s.year || 'n.d.'}, ${monthName(s.month)}${s.day ? ` ${s.day}` : ''}` : s.year || 'n.d.';
+    const when = (s.type === 'website' || s.type === 'newspaper') && s.month ? `${s.year || 'n.d.'}, ${monthName(s.month)}${s.day ? ` ${s.day}` : ''}` : s.year || 'n.d.';
     const head = who ? `${end(who)} (${when}). ` : '';
     const dt = who ? '' : ` (${when}).`;
     const pub = s.publisher ? ` ${end(s.publisher)}` : '';
     if (s.type === 'article') text = `${head}${end(t)}${dt} ${I(s.container)}${s.volume ? `, ${I(s.volume)}` : ''}${s.issue ? `(${s.issue})` : ''}${s.pages ? `, ${s.pages}` : ''}.${tail}`;
     else if (s.type === 'website') text = `${head}${I(t)}.${dt}${s.container ? ` ${end(s.container)}` : ''}${tail}`;
     else if (s.type === 'report') text = `${head}${I(t)}${s.number ? ` (Report No. ${s.number})` : ''}.${dt}${pub}${tail}`;
+    else if (s.type === 'chapter' || s.type === 'conference') text = `${head}${end(t)}${dt} In ${I(s.container)}${s.pages ? ` (pp. ${s.pages})` : ''}.${pub}${tail}`;
+    else if (s.type === 'newspaper') text = `${head}${end(t)}${dt} ${I(s.container)}${s.pages ? `, ${s.pages}` : ''}.${tail}`;
+    else if (s.type === 'thesis') text = `${head}${I(t)}${dt} [${s.number || 'Doctoral dissertation'}${s.publisher ? `, ${s.publisher}` : ''}].${tail}`;
     else text = `${head}${I(t)}${nth ? ` (${nth} ed.)` : ''}.${dt}${pub}${tail}`;
   } else if (style === 'mla') {
     const who = mlaNames(s.authors);
@@ -144,6 +147,9 @@ export function reference(style: string, s: Source): Formatted {
     if (s.type === 'article') text = `${head}"${end(t)}" ${I(s.container)}, ${[s.volume ? `vol. ${s.volume}` : '', s.issue ? `no. ${s.issue}` : '', s.year, s.pages ? `pp. ${s.pages}` : ''].filter(Boolean).join(', ')}.${bare ? ` ${bare}.` : ''}`;
     else if (s.type === 'website') text = `${head}"${end(t)}" ${s.container ? `${I(s.container)}, ` : ''}${date}${bare ? `, ${bare}` : ''}.${s.accessed ? ` Accessed ${s.accessed}.` : ''}`;
     else if (s.type === 'report') text = `${head}${I(t)}. ${[s.publisher, s.year].filter(Boolean).join(', ')}.${bare ? ` ${bare}.` : ''}`;
+    else if (s.type === 'chapter' || s.type === 'conference') text = `${head}"${end(t)}" ${I(s.container)}, ${[s.publisher, s.year, s.pages ? `pp. ${s.pages}` : ''].filter(Boolean).join(', ')}.${bare ? ` ${bare}.` : ''}`;
+    else if (s.type === 'newspaper') text = `${head}"${end(t)}" ${I(s.container)}, ${date}${s.pages ? `, p. ${s.pages}` : ''}.${bare ? ` ${bare}.` : ''}`;
+    else if (s.type === 'thesis') text = `${head}${I(t)}. ${[s.year, s.publisher, s.number || 'PhD dissertation'].filter(Boolean).join(', ')}.`;
     else text = `${head}${I(t)}. ${[nth ? `${nth} ed.` : '', s.publisher, s.year].filter(Boolean).join(', ')}.`;
   } else if (style === 'chicago') {
     const who = chicagoNames(s.authors);
@@ -152,6 +158,9 @@ export function reference(style: string, s: Source): Formatted {
     if (s.type === 'article') text = `${head}"${end(t)}" ${I(s.container)}${s.volume ? ` ${s.volume}` : ''}${s.issue ? ` (${s.issue})` : ''}${s.pages ? `: ${s.pages}` : ''}.${link ? ` ${link}.` : ''}`;
     else if (s.type === 'website') text = `${head}"${end(t)}" ${s.container ? `${end(s.container)} ` : ''}${s.month ? `${monthName(s.month)}${s.day ? ` ${s.day}` : ''}, ${s.year}. ` : ''}${link ? `${link}.` : ''}`;
     else if (s.type === 'report') text = `${head}${I(t)}.${where ? ` ${end(where)}` : ''}${link ? ` ${link}.` : ''}`;
+    else if (s.type === 'chapter' || s.type === 'conference') text = `${head}"${end(t)}" In ${I(s.container)}${s.pages ? `, ${s.pages}` : ''}.${where ? ` ${end(where)}` : ''}${link ? ` ${link}.` : ''}`;
+    else if (s.type === 'newspaper') text = `${head}"${end(t)}" ${I(s.container)}${s.month ? `, ${monthName(s.month)}${s.day ? ` ${s.day}` : ''}` : ''}.${link ? ` ${link}.` : ''}`;
+    else if (s.type === 'thesis') text = `${head}"${end(t)}" ${[s.number || 'PhD diss.', s.publisher].filter(Boolean).join(', ')}.`;
     else text = `${head}${I(t)}.${nth ? ` ${nth} ed.` : ''}${where ? ` ${end(where)}` : ''}`;
   } else {
     const who = ieeeNames(s.authors);
@@ -160,6 +169,10 @@ export function reference(style: string, s: Source): Formatted {
     if (s.type === 'article') text = `${head}"${t}," ${I(s.container)}${s.volume ? `, vol. ${s.volume}` : ''}${s.issue ? `, no. ${s.issue}` : ''}${s.pages ? `, pp. ${s.pages}` : ''}, ${mon}${s.year}${s.doi ? `, doi: ${s.doi.replace(/^https?:\/\/(dx\.)?doi\.org\//, '')}` : ''}.`;
     else if (s.type === 'website') text = `${head}"${t}," ${s.container ? end(s.container) : ''}${tail}${s.accessed ? ` (accessed ${s.accessed}).` : ''}`;
     else if (s.type === 'report') text = `${head}"${t}," ${[s.publisher, s.place, s.number ? `Rep. ${s.number}` : '', s.year].filter(Boolean).join(', ')}.${tail}`;
+    else if (s.type === 'chapter') text = `${head}"${t}," in ${I(s.container)}. ${s.place && s.publisher ? `${s.place}: ${s.publisher}` : s.publisher || s.place}${s.year ? `, ${s.year}` : ''}${s.pages ? `, pp. ${s.pages}` : ''}.`;
+    else if (s.type === 'conference') text = `${head}"${t}," in ${I(s.container)}${s.place ? `, ${s.place}` : ''}${s.year ? `, ${s.year}` : ''}${s.pages ? `, pp. ${s.pages}` : ''}.${tail}`;
+    else if (s.type === 'newspaper') text = `${head}"${t}," ${I(s.container)}, ${mon}${s.day ? `${s.day}, ` : ''}${s.year}.${tail}`;
+    else if (s.type === 'thesis') text = `${head}"${t}," ${[s.number || 'Ph.D. dissertation', s.publisher, s.place, s.year].filter(Boolean).join(', ')}.`;
     else text = `${head}${I(t)}${nth ? `, ${nth} ed` : ''}. ${s.place && s.publisher ? `${s.place}: ${s.publisher}` : s.publisher || s.place}${s.year ? `, ${s.year}` : ''}.`;
   }
   return { text: text.replace(/\s+/g, ' ').replace(/\.\./g, '.').replace(/ ,/g, ',').replace(/, \./g, '.').trim(), em };

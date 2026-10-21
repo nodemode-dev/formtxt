@@ -163,8 +163,11 @@ export function selectedText(ed: DocEditor): string {
 }
 
 export function insertCitation(ed: DocEditor, id: string, locator: string): string | void {
-  if (!sourcesOf(ed).some((s) => s.id === id)) return 'Choose a source.';
-  const items: CiteItem[] = [{ id, ...(locator.trim() ? { locator: locator.trim() } : {}) }];
+  const ids = id.split(/[,\s]+/).map((x) => x.trim()).filter(Boolean);
+  const known = new Set(sourcesOf(ed).map((s) => s.id));
+  if (!ids.length || ids.some((x) => !known.has(x))) return 'Choose a source.';
+  const locs = locator.split(';').map((x) => x.trim());
+  const items: CiteItem[] = ids.filter((x, i) => ids.indexOf(x) === i).map((x, i) => ({ id: x, ...(locs[i] ? { locator: locs[i] } : {}) }));
   insertInline(ed, schema.nodes.citation.create({ items, result: '' }));
   refreshAll(ed);
 }

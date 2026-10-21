@@ -152,9 +152,12 @@ export function register(reg: CommandRegistry, ed: DocEditor): void {
     return refreshAll(ed);
   }, [P('style', 'string', 'apa, mla, chicago or ieee')]);
   const citeForm = new FormDialog('Insert citation', [
-    { key: 'source', label: 'Source', kind: 'select' },
-    { key: 'locator', label: 'Page or locator (optional)', kind: 'text', placeholder: '45' },
+    { key: 'source', label: 'Sources (Ctrl+click to cite several together)', kind: 'select' },
+    { key: 'locator', label: 'Page or locator (optional; separate with ; for several sources)', kind: 'text', placeholder: '45' },
   ], 'Insert');
+  const citeSelect = citeForm.inputs.source as HTMLSelectElement;
+  citeSelect.multiple = true;
+  citeSelect.size = 5;
   add('references.insertCitation', 'Insert citation', 'Insert a citation to a source at the caret, formatted in the document citation style.', (p) => {
     if (has(p, 'source')) { const m = insertCitation(ed, String(p.source), String(p.locator ?? '')); if (m) fail(m); return true; }
     const list = sourcesOf(ed);

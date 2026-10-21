@@ -58,7 +58,7 @@ export class FormDialog {
 
   values(): Values {
     const out: Values = {};
-    for (const [k, i] of Object.entries(this.inputs)) out[k] = i instanceof HTMLInputElement && i.type === 'checkbox' ? i.checked : i.value;
+    for (const [k, i] of Object.entries(this.inputs)) out[k] = i instanceof HTMLInputElement && i.type === 'checkbox' ? i.checked : i instanceof HTMLSelectElement && i.multiple ? Array.from(i.selectedOptions, (o) => o.value).join(',') : i.value;
     return out;
   }
 
