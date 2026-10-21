@@ -10,7 +10,7 @@ export interface MenuItem {
   params?: Record<string, unknown>;
 }
 
-const ORDER = ['File', 'Insert', 'References', 'Review', 'Tools', 'AI', 'View', 'Share'];
+const ORDER = ['File', 'Insert', 'Format', 'References', 'Review', 'Tools', 'AI', 'View', 'Share'];
 const menus = new Map<string, Array<MenuItem | null>>();
 let bar: HTMLElement | null = null;
 let pop: HTMLElement | null = null;
