@@ -500,6 +500,18 @@ frontend/
 - logged: v0.22.0 · 2026-10-21
 - The story lives once, in the chain's first box, so editing, undo and saving stay one node's attrs. After every layout the flow pass walks each chain: the first box shows the whole story; the first character (or atom, or line break) whose bottom passes the box's padding edge is found by binary search over the rendered text, and the next box shows the story cut at that character's position, at its own width, and so on. Characters and inline atoms are counted the same way in the DOM and in the document (text characters one each, chips, fields, tabs and breaks one each), which is what lets a DOM index become a cut position. Each box is clipped with clip-path at the top of the first line that went on, so no half line shows twice. A box only re-renders when its slice changes, so layouts that move nothing repaint nothing. Double-clicking any box edits the first box (deferred one tick so the double-click's own focus handling cannot pull focus back to the page) with its clip lifted and a dashed outline; Ctrl+Home and Ctrl+End stay inside the box editor, because Chrome otherwise moves the caret to the end of the outer page and typing replaces the selected box. Linking requires an empty target and refuses cycles and a box that already continues another. Rotated boxes are measured unrotated.
 
+### pages · page geometry by section
+- refers-to: src/editor/pages.ts :: layout() pageTop, bodyTop, bottomOf, secAt, startAt; paint() sheetGeo
+- kind: rationale
+- logged: v0.23.0 · 2026-10-21
+- The paginator no longer assumes one page height: page p's top is the sum of the earlier pages' own heights plus the gaps, measured from page 0's body top (the root's origin), and its body runs from its section's top margin to its bottom margin. A section break records which page the new section owns from (moved one page on when an odd or even start needs a blank page), and the page-top cache is cut back from that page so later pages are recomputed with the new height. Everything that used `page * stride` now asks `bodyTop(page)`, which keeps one code path for single-section documents (the 28-page regression is unchanged). Sheets are drawn at their own size and centred in the widest page, each carrying its section's header and footer insets; page-anchored pictures and shapes measure from their own page's corner.
+
+### sections · width and side margins
+- refers-to: src/editor/sections.ts :: sectionsPlugin, sectionGeometry()
+- kind: rationale
+- logged: v0.23.0 · 2026-10-21
+- The editable flow is one column sized to the first section's body, centred in the widest page. A later section whose body width or left edge differs gets node decorations on its top-level blocks: `position: relative; left` moves the block to its page's left margin and a `margin-right` adjustment (on top of the paragraph's own right indent) sets its width, which leaves paragraph indents, list markers and alignment untouched. The decorations are rebuilt only when the document or the section geometry changes, so pagination passes never add or remove them. Known gap: centred figures and charts in a different-width section line up from the left edge of the new width; the ruler still shows the first section.
+
 ## index.html {#index}
 
 ### index · theme before first paint

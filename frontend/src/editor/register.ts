@@ -31,6 +31,7 @@ import { saveTableStyle, saveTableStyleDialog, tableStyleList } from './dialogs'
 import { BORDER_TARGETS, distributeColumns, insertTable, setCellBorders, setCellShading, setTableAttr, sortTable, tableInfo, tableToText, textToTable } from './table';
 
 const schemaTab = () => schema.nodes.tab.create();
+const SECTION_STARTS = ['nextPage', 'continuous', 'oddPage', 'evenPage'];
 
 export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): void {
   const add = (id: string, label: string, group: string, description: string, run: (p: Record<string, unknown>) => unknown, params: Array<{ name: string; type: 'string' | 'number' | 'boolean'; description: string }> = [], keys: string[] = []): void =>
@@ -105,13 +106,19 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   ]);
 
   add('layout.pageSetup', 'Page setup', 'Layout', 'Paper size, orientation, margins, page colour, border, watermark and pageless.', () => { pageSetupDialog(ed); return true; });
-  add('layout.setPage', 'Set page', 'Layout', 'Set paper size, orientation and margins (inches) without a dialog.', (p) => {
-    const s = ed.section();
-    if (!s) throw new Error('Open a document first.');
-    const m = { ...s.margins };
-    for (const k of ['top', 'bottom', 'left', 'right', 'header', 'footer'] as const) if (p[k] !== undefined) m[k] = Number(p[k]) * 72;
-    return ed.updatePage({ page: pageGeometry(String(p.size ?? s.page.size), String(p.orientation ?? s.page.orientation)), margins: m });
+  add('layout.setPage', 'Set page', 'Layout', 'Set paper size, orientation and margins (inches) without a dialog; section is current (the cursor\'s section, default when the document has sections), all, or a section id.', (p) => {
+    if (!ed.doc) throw new Error('Open a document first.');
+    const want = p.section === undefined ? (ed.doc.sections.length > 1 ? 'current' : 'all') : String(p.section);
+    const ids = want === 'all' ? ed.doc.sections.map((x) => x.id) : [want === 'current' ? ed.currentSectionId() : want];
+    for (const id of ids) {
+      const s = ed.sectionById(id);
+      const m = { ...s.margins };
+      for (const k of ['top', 'bottom', 'left', 'right', 'header', 'footer'] as const) if (p[k] !== undefined) m[k] = Number(p[k]) * 72;
+      ed.updateSectionById(id, { page: pageGeometry(String(p.size ?? s.page.size), String(p.orientation ?? s.page.orientation)), margins: m });
+    }
+    return true;
   }, [
+    { name: 'section', type: 'string', description: 'current, all or a section id' },
     { name: 'size', type: 'string', description: 'letter, legal, a4, a5, executive or tabloid' }, { name: 'orientation', type: 'string', description: 'portrait or landscape' },
     { name: 'top', type: 'number', description: 'Top margin in inches' }, { name: 'bottom', type: 'number', description: 'Bottom margin in inches' },
     { name: 'left', type: 'number', description: 'Left margin in inches' }, { name: 'right', type: 'number', description: 'Right margin in inches' },
@@ -147,9 +154,23 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   ]);
   add('insert.coverPageDefault', 'Cover page with the title', 'Insert', 'Insert a cover page using the document title.', () => ed.insertCover('', '', new Date().toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric' })));
 
-  add('insert.sectionBreak', 'Section break (next page)', 'Insert', 'Start a new section on the next page; it can have its own headers, footers and page numbering.', () => ed.insertSectionBreak());
+  add('insert.sectionBreak', 'Section break', 'Insert', 'Start a new section, which can have its own page size, orientation, margins, headers, footers and page numbering; start is nextPage (default), continuous, oddPage or evenPage.', (p) => {
+    const start = p.start === undefined ? 'nextPage' : String(p.start);
+    if (!SECTION_STARTS.includes(start)) throw new Error(`start must be one of ${SECTION_STARTS.join(', ')}.`);
+    const id = ed.insertSectionBreak();
+    if (start !== 'nextPage') ed.updateSectionById(id, { start });
+    return id;
+  }, [{ name: 'start', type: 'string', description: 'nextPage, continuous, oddPage or evenPage' }]);
+  add('layout.sectionStart', 'Section start', 'Layout', 'Where the section at the cursor starts: nextPage, continuous, oddPage or evenPage (the first section always starts the document).', (p) => {
+    if (!ed.doc) throw new Error('Open a document first.');
+    const id = ed.currentSectionId();
+    if (id === ed.doc.sections[0].id) throw new Error('The first section starts the document; put the cursor after a section break.');
+    const start = String(p.start ?? '');
+    if (!SECTION_STARTS.includes(start)) throw new Error(`start must be one of ${SECTION_STARTS.join(', ')}.`);
+    return ed.updateSectionById(id, { start });
+  }, [{ name: 'start', type: 'string', description: 'nextPage, continuous, oddPage or evenPage' }]);
   add('insert.tab', 'Tab', 'Insert', 'Insert a tab character that aligns to the next tab stop.', () => ed.run((state, dispatch) => { dispatch?.(state.tr.replaceSelectionWith(schemaTab()).scrollIntoView()); return true; }));
-  add('layout.sections', 'List sections', 'Layout', 'List the document sections with their headers and footers.', () => (ed.doc?.sections ?? []).map((s) => ({ id: s.id, headers: s.headers, footers: s.footers, titlePage: s.titlePage, pageNumberStart: s.pageNumberStart ?? null })));
+  add('layout.sections', 'List sections', 'Layout', 'List the document sections with their page size, orientation, margins, start, headers and footers.', () => (ed.doc?.sections ?? []).map((s) => ({ id: s.id, size: s.page.size, orientation: s.page.orientation, margins: s.margins, start: s.start || 'nextPage', headers: s.headers, footers: s.footers, titlePage: s.titlePage, pageNumberStart: s.pageNumberStart ?? null })));
   add('layout.setHeaderFooter', 'Set header or footer', 'Layout', 'Set a header or footer text in a section; {PAGE} and {NUMPAGES} are fields.', (p) => {
     const id = String(p.section ?? ed.currentSectionId());
     const where = p.part === 'footer' ? 'footers' : 'headers';

@@ -28,6 +28,7 @@ import { DiagramView } from './diagram';
 import { MermaidView } from './mermaid';
 import { syncVariables, updateFields } from './fields';
 import { chipPlugin } from './chips';
+import { sectionGeometry, sectionsKey, sectionsPlugin } from './sections';
 import { STYLE_SETS, applyStyleSet, setFonts } from './stylesets';
 import { api } from '../io/api';
 import { toast } from '../ui/toast';
@@ -291,6 +292,8 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     } else {
       this.view.updateState(state);
     }
+    this.sectionKey = '';
+    this.applyGeometry();
     this.syncToolbar();
     this.renderOutline();
     this.hooks.status(this.words());
@@ -310,15 +313,18 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     const ext = s as unknown as { pageColor?: string; pageBorder?: string };
     const pageless = !!(this.doc.settings as unknown as { pageless?: boolean }).pageless || this.viewMode === 'draft';
     const W = s.page.width * PX;
+    const maxW = Math.max(W, ...this.doc.sections.map((x) => x.page.width * PX));
+    const side = (maxW - W) / 2;
     const css = pageless
       ? `width:${Math.max(W, 816).toFixed(0)}px;padding:48px 64px 96px;min-height:${(s.page.height * PX).toFixed(0)}px`
-      : `width:${W.toFixed(0)}px;padding:${(m.top * PX).toFixed(0)}px ${(m.right * PX).toFixed(0)}px 0 ${(m.left * PX).toFixed(0)}px`;
+      : `width:${maxW.toFixed(0)}px;padding:${(m.top * PX).toFixed(0)}px ${(side + m.right * PX).toFixed(0)}px 0 ${(side + m.left * PX).toFixed(0)}px`;
     if (this.page.getAttribute('style')?.split(';--doc-accent')[0] !== css) {
       const accent = this.page.style.getPropertyValue('--doc-accent');
       this.page.setAttribute('style', css);
       if (accent) this.page.style.setProperty('--doc-accent', accent);
     }
-    this.pagesEl.style.width = pageless ? '' : `${W.toFixed(0)}px`;
+    this.pagesEl.style.width = pageless ? '' : `${maxW.toFixed(0)}px`;
+    this.setSectionGeometry(pageless);
     this.pagesEl.style.setProperty('--page-color', ext.pageColor || '#ffffff');
     this.pagesEl.style.setProperty('--page-pad-top', `${(m.header * PX).toFixed(0)}px`);
     this.pagesEl.style.setProperty('--page-pad-bottom', `${(m.footer * PX).toFixed(0)}px`);
@@ -327,6 +333,17 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     this.pagesEl.dataset.border = ext.pageBorder || '';
     const scale = this.zoom === 1 ? '' : `scale(${this.zoom})`;
     if (this.pagesEl.style.transform !== scale) { this.pagesEl.style.transform = scale; this.pagesEl.style.transformOrigin = 'top center'; }
+  }
+
+  private sectionKey = '';
+
+  private setSectionGeometry(pageless: boolean): void {
+    if (!this.doc || !this.view) return;
+    const g = sectionGeometry(this.doc.sections, pageless);
+    const key = JSON.stringify(g);
+    if (key === this.sectionKey) return;
+    this.sectionKey = key;
+    this.view.dispatch(this.view.state.tr.setMeta(sectionsKey, g).setMeta('addToHistory', false));
   }
 
   section(): Section | null { return this.doc?.sections[0] ?? null; }
@@ -360,13 +377,19 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     const stride = s.page.height * PX + GAP;
     const box = this.pagesEl.getBoundingClientRect();
     const ratio = box.width && this.pagesEl.offsetWidth ? box.width / this.pagesEl.offsetWidth : 1;
+    const geo = this.paginator.sheetGeo;
+    const maxW = Math.max(...this.doc!.sections.map((x) => x.page.width * PX));
     for (const n of items) {
       const p = n.offsetParent as HTMLElement | null;
       if (!p) continue;
       const r = p.getBoundingClientRect();
       const left = (r.left - box.left) / ratio, top = (r.top - box.top) / ratio;
-      const page = pageless ? 0 : Math.max(0, Math.floor(top / stride));
-      const ox = (-left).toFixed(2), oy = (page * stride - top).toFixed(2);
+      let page = 0;
+      if (!pageless) { if (geo.length) { while (page + 1 < geo.length && geo[page + 1].top <= top) page++; } else page = Math.max(0, Math.floor(top / stride)); }
+      const g = geo[page];
+      const pageTop = pageless ? 0 : g ? g.top : page * stride;
+      const pageLeft = !pageless && g ? (maxW - g.sec.page.width * PX) / 2 : 0;
+      const ox = (pageLeft - left).toFixed(2), oy = (pageTop - top).toFixed(2);
       if (n.dataset.ox === ox && n.dataset.oy === oy) continue;
       const x = parseFloat(n.style.left) - (Number(n.dataset.ox) || 0), y = parseFloat(n.style.top) - (Number(n.dataset.oy) || 0);
       n.dataset.ox = ox;
@@ -452,6 +475,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     if (!this.doc) throw new Error('Open a document first.');
     if (this.doc.sections[0].id === id) return this.updatePage(patch, settings);
     this.doc = { ...this.doc, sections: this.doc.sections.map((s) => (s.id === id ? ({ ...s, ...patch } as Section) : s)), settings: { ...this.doc.settings, ...settings } };
+    this.applyGeometry();
     this.paginator.layoutNow();
     this.emitChange();
     return true;
@@ -526,7 +550,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
   }
 
   private makeState(index: number): EditorState {
-    return EditorState.create({ doc: toPM(this.doc!, index), plugins: [chipPlugin, rules, ...this.keys(), history(), dropCursor(), gapCursor(), uniqueIds, findPlugin, collapsePlugin, pagesPlugin, ...tablePlugins()] });
+    return EditorState.create({ doc: toPM(this.doc!, index), plugins: [chipPlugin, rules, ...this.keys(), history(), dropCursor(), gapCursor(), uniqueIds, findPlugin, collapsePlugin, pagesPlugin, sectionsPlugin, ...tablePlugins()] });
   }
 
   tabs(): DocTab[] { return this.doc?.tabs ?? []; }
@@ -541,6 +565,8 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     let state = this.states.get(id);
     if (!state) { state = this.makeState(index); this.states.set(id, state); }
     this.view.updateState(state);
+    this.sectionKey = '';
+    this.applyGeometry();
     this.paginator.layoutNow();
     this.renderTabs();
     this.renderOutline();
