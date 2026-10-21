@@ -16,4 +16,4 @@ Documents in the form family: an open, local-first Word and Google Docs alternat
 
 ## Commands
 
-`./formtxt_oc_install`, then `./formtxt` boots both sides. `./formtxt cli list` reads the command catalogue while the window is open.
+`./formtxt_oc_install`, then `./formtxt` boots both sides. With the window open, `./formtxt cli list` reads the command catalogue and `./formtxt cli run <id> key=value` runs a command in the window through the `/api/live` bridge (`POST /api/commands/<id>` and `/api/commands/batch` do the same over HTTP).
