@@ -2,6 +2,9 @@ import type { CommandRegistry } from '../engine/registry';
 import type { Section } from '../engine/model';
 import { headerFooterDialog, pageGeometry, pageSetupDialog, paragraphDialog, parseTabs, stylesDialog, wordCountDialog } from './dialogs';
 import { type DocEditor, FONTS } from './editor';
+import { schema } from './schema';
+
+const schemaTab = () => schema.nodes.tab.create();
 
 export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): void {
   const add = (id: string, label: string, group: string, description: string, run: (p: Record<string, unknown>) => unknown, params: Array<{ name: string; type: 'string' | 'number' | 'boolean'; description: string }> = [], keys: string[] = []): void =>
@@ -29,7 +32,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
 
   add('paragraph.style', 'Paragraph style', 'Paragraph', 'Apply a paragraph style such as Normal, Title or Heading1.', (p) => ed.style(String(p.style ?? 'Normal')), [{ name: 'style', type: 'string', description: 'Style id' }], ['Ctrl+Alt+0..6']);
   for (const a of ['left', 'center', 'right', 'justify']) add(`paragraph.align.${a}`, `Align ${a}`, 'Paragraph', `Align the selected paragraphs ${a}.`, () => ed.align(a));
-  add('paragraph.indent', 'Increase indent', 'Paragraph', 'Indent the paragraph, or move a list item one level deeper.', () => ed.indent(1), [], ['Tab']);
+  add('paragraph.indent', 'Increase indent', 'Paragraph', 'Indent the paragraph, or move a list item one level deeper.', () => ed.indent(1), [], ['Tab in a list']);
   add('paragraph.outdent', 'Decrease indent', 'Paragraph', 'Outdent the paragraph, or move a list item one level up.', () => ed.indent(-1), [], ['Shift+Tab']);
   add('paragraph.lineSpacing', 'Line spacing', 'Paragraph', 'Set line spacing as a multiple; 0 returns to the style.', (p) => ed.spacing(Number(p.value) > 0 ? Number(p.value) : null), [{ name: 'value', type: 'number', description: 'Multiple such as 1, 1.15, 1.5 or 2' }]);
   add('list.bullet', 'Bulleted list', 'Paragraph', 'Turn the selected paragraphs into a bulleted list, or back.', () => ed.list('bullet'), [], ['Ctrl+Shift+8']);
@@ -106,9 +109,60 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   ]);
   add('insert.coverPageDefault', 'Cover page with the title', 'Insert', 'Insert a cover page using the document title.', () => ed.insertCover('', '', new Date().toLocaleDateString([], { year: 'numeric', month: 'long', day: 'numeric' })));
 
+  add('insert.sectionBreak', 'Section break (next page)', 'Insert', 'Start a new section on the next page; it can have its own headers, footers and page numbering.', () => ed.insertSectionBreak());
+  add('insert.tab', 'Tab', 'Insert', 'Insert a tab character that aligns to the next tab stop.', () => ed.run((state, dispatch) => { dispatch?.(state.tr.replaceSelectionWith(schemaTab()).scrollIntoView()); return true; }));
+  add('layout.sections', 'List sections', 'Layout', 'List the document sections with their headers and footers.', () => (ed.doc?.sections ?? []).map((s) => ({ id: s.id, headers: s.headers, footers: s.footers, titlePage: s.titlePage, pageNumberStart: s.pageNumberStart ?? null })));
+  add('layout.setHeaderFooter', 'Set header or footer', 'Layout', 'Set a header or footer text in a section; {PAGE} and {NUMPAGES} are fields.', (p) => {
+    const id = String(p.section ?? ed.currentSectionId());
+    const where = p.part === 'footer' ? 'footers' : 'headers';
+    const which = ['first', 'even'].includes(String(p.which)) ? String(p.which) : 'default';
+    const s = ed.sectionById(id);
+    return ed.updateSectionById(s.id, { [where]: { ...(s[where] as Record<string, unknown>), [which]: { text: String(p.text ?? ''), align: String(p.align ?? (where === 'footers' ? 'center' : 'left')) } } } as Partial<Section>);
+  }, [{ name: 'part', type: 'string', description: 'header or footer' }, { name: 'text', type: 'string', description: 'Text with optional {PAGE} and {NUMPAGES}' }, { name: 'which', type: 'string', description: 'default, first or even' }, { name: 'section', type: 'string', description: 'Section id; defaults to the section at the cursor' }, { name: 'align', type: 'string', description: 'left, center or right' }]);
+
+  add('layout.restartNumbering', 'Restart page numbering', 'Layout', 'Restart page numbers at the start of a section, or continue from the previous one.', (p) => {
+    const id = String(p.section ?? ed.currentSectionId());
+    const start = p.start === undefined || p.start === null || p.start === '' ? undefined : Math.max(0, Math.round(Number(p.start)));
+    return ed.updateSectionById(id, { pageNumberStart: start } as Partial<Section>);
+  }, [{ name: 'section', type: 'string', description: 'Section id; defaults to the section at the cursor' }, { name: 'start', type: 'number', description: 'First page number; empty continues' }]);
+
   ed.root.addEventListener('dblclick', (e) => {
     const part = (e.target as HTMLElement).closest<HTMLElement>('.ft-sheet-header, .ft-sheet-footer');
-    if (part) headerFooterDialog(ed, part.dataset.part === 'footers' ? 'footers' : 'headers');
+    if (!part || part.isContentEditable) return;
+    const sheet = part.closest<HTMLElement>('.ft-sheet');
+    const sid = sheet?.dataset.section ?? ed.currentSectionId();
+    const where = part.dataset.part === 'footers' ? 'footers' : 'headers';
+    const which = part.dataset.which ?? 'default';
+    const s = ed.sectionById(sid);
+    const current = ((s[where] as Record<string, { text: string; align: string }>)?.[which]) ?? { text: '', align: where === 'footers' ? 'center' : 'left' };
+    part.textContent = current.text;
+    part.setAttribute('contenteditable', 'plaintext-only');
+    part.focus();
+    const sel = window.getSelection();
+    sel?.selectAllChildren(part);
+    sel?.collapseToEnd();
+    let done = false;
+    const finish = (save: boolean): void => {
+      if (done) return;
+      done = true;
+      part.removeAttribute('contenteditable');
+      part.removeEventListener('keydown', keys);
+      if (save) {
+        const text = (part.textContent ?? '').replace(/\n+$/, '');
+        const fresh = ed.sectionById(sid);
+        ed.updateSectionById(sid, { [where]: { ...(fresh[where] as Record<string, unknown>), [which]: { text, align: current.align || (where === 'footers' ? 'center' : 'left') } } } as Partial<Section>);
+      } else {
+        ed.paginator.layoutNow();
+      }
+      ed.view?.focus();
+    };
+    const keys = (ev: KeyboardEvent): void => {
+      ev.stopPropagation();
+      if (ev.key === 'Enter' && !ev.shiftKey) { ev.preventDefault(); finish(true); }
+      else if (ev.key === 'Escape') { ev.preventDefault(); finish(false); }
+    };
+    part.addEventListener('keydown', keys);
+    part.addEventListener('blur', () => finish(true), { once: true });
   });
   document.addEventListener('keydown', (e) => {
     if (e.key === 'Escape' && (ed.viewMode === 'focus' || ed.viewMode === 'read') && !document.querySelector('.ft-scrim:not([hidden])')) ed.setView('print');

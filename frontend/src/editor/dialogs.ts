@@ -58,7 +58,7 @@ export function paragraphDialog(ed: DocEditor): void {
   grid(d, [['Alignment', align], ['Left indent (pt)', left], ['Right indent (pt)', right], ['First line (pt, negative hangs)', first],
     ['Space before (pt)', before], ['Space after (pt)', after], ['Line spacing (multiple)', line], ['Border', border],
     ['Shading', shading], ['No shading', noShade], ['Keep with next', keepNext], ['Keep lines together', keepLines], ['Widow and orphan control', widow]]);
-  d.field('Tab stops (points, alignment, optional dot or dash leader)', tabs);
+  d.field('Tab stops (points, alignment, optional dot, dash or underline leader)', tabs);
   d.body.appendChild(el('<p class="ft-note">Keep with next, keep lines together, widow and orphan control and tab stop positions take effect when pages are laid out (Phase 3); they are saved now and exported to Word later.</p>'));
   d.button('Cancel', 'ghost', () => d.close());
   d.button('Apply', 'primary', () => {
@@ -166,8 +166,8 @@ export function pageSetupDialog(ed: DocEditor): void {
   d.open(size);
 }
 
-export function headerFooterDialog(ed: DocEditor, focus: 'headers' | 'footers' = 'headers'): void {
-  const s = ed.section();
+export function headerFooterDialog(ed: DocEditor, focus: 'headers' | 'footers' = 'headers', sectionId?: string): void {
+  const s = ed.sectionById(sectionId ?? ed.currentSectionId());
   if (!s) throw new Error('Open a document first.');
   const settings = (ed.doc?.settings ?? {}) as unknown as Record<string, unknown>;
   const d = new Dialog('Header and footer', 640);
@@ -187,7 +187,8 @@ export function headerFooterDialog(ed: DocEditor, focus: 'headers' | 'footers' =
   const titlePage = input('checkbox', String(!!s.titlePage));
   const evenOdd = input('checkbox', String(!!settings.evenOdd));
   const fmt = select([['decimal', '1, 2, 3'], ['lowerRoman', 'i, ii, iii'], ['upperRoman', 'I, II, III'], ['lowerLetter', 'a, b, c'], ['upperLetter', 'A, B, C']], s.pageNumberFormat ?? 'decimal');
-  const start = input('number', String(s.pageNumberStart ?? 1), 'min="0" step="1"');
+  const firstSection = ed.doc?.sections[0]?.id === s.id;
+  const start = input('number', s.pageNumberStart === undefined ? (firstSection ? '1' : '') : String(s.pageNumberStart), `min="0" step="1"${firstSection ? '' : ' placeholder="Continue from the previous section"'}`);
   grid(d, [...rows, ['Different first page', titlePage], ['Different odd and even pages', evenOdd], ['Page number format', fmt], ['Start numbering at', start]]);
   d.button('Cancel', 'ghost', () => d.close());
   d.button('Apply', 'primary', () => {
@@ -199,7 +200,7 @@ export function headerFooterDialog(ed: DocEditor, focus: 'headers' | 'footers' =
       }
       return out;
     };
-    ed.updatePage({ headers: collect('headers'), footers: collect('footers'), titlePage: titlePage.checked, pageNumberFormat: fmt.value, pageNumberStart: Math.max(0, Math.round(Number(start.value) || 1)) }, { evenOdd: evenOdd.checked });
+    ed.updateSectionById(s.id, { headers: collect('headers'), footers: collect('footers'), titlePage: titlePage.checked, pageNumberFormat: fmt.value, pageNumberStart: start.value.trim() === '' ? undefined : Math.max(0, Math.round(Number(start.value) || 1)) }, { evenOdd: evenOdd.checked });
     d.close();
   });
   d.open(fields[`${focus}.default`].text);
