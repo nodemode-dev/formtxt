@@ -48,6 +48,20 @@ def render(doc: dict) -> str:
     for block in (doc.get("tabs") or [{}])[0].get("body", []):
         if y > bottom:
             break
+        if block.get("type") == "chart":
+            cw = min(right - left, float(block.get("width") or 468) * scale)
+            ch = float(block.get("height") or 252) * scale * (cw / max(float(block.get("width") or 468) * scale, 0.01))
+            cx = left + (right - left - cw) / 2
+            series = ((block.get("data") or {}).get("series") or [{}])[0].get("values") or []
+            nums = [float(v) for v in series if isinstance(v, (int, float))][:12] or [3, 5, 4, 6]
+            top = max(nums) or 1
+            bw = cw / (len(nums) * 1.6)
+            for i, v in enumerate(nums):
+                bh = max(0.0, v) / top * ch * 0.85
+                out.append(f'<rect x="{cx + bw * 0.3 + i * bw * 1.6:.1f}" y="{y + ch - bh:.1f}" width="{bw:.1f}" height="{bh:.1f}" fill="{escape(accent)}" opacity="0.7"/>')
+            out.append(f'<line x1="{cx:.1f}" y1="{y + ch:.1f}" x2="{cx + cw:.1f}" y2="{y + ch:.1f}" stroke="#b9b6ae" stroke-width="0.8"/>')
+            y += ch + 10 * scale
+            continue
         if block.get("type") == "table":
             rows = block.get("rows") or []
             cols = max((len((r or {}).get("cells") or []) for r in rows), default=1) or 1
