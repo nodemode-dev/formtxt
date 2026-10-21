@@ -1,4 +1,4 @@
-import { Plugin, PluginKey } from 'prosemirror-state';
+import { Plugin, PluginKey, type Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import type { Section } from '../engine/model';
 import { el, patchList, setHtml, setText } from '../ui/dom';
@@ -152,9 +152,65 @@ export class Paginator {
     container.prepend(this.sheets);
   }
 
+  private dirty: Set<HTMLElement> | null = null;
+  private heights = new WeakMap<HTMLElement, number>();
+  private kidCount = -1;
+  skipped = 0;
+
   schedule(): void {
+    this.dirty = null;
     if (this.frame) return;
     this.frame = requestAnimationFrame(() => { this.frame = 0; this.layout(); });
+  }
+
+  scheduleEdit(tr: Transaction): void {
+    const view = this.view();
+    if (!view || tr.doc.childCount !== tr.before.childCount) { this.schedule(); return; }
+    const touched = new Set<number>();
+    tr.mapping.maps.forEach((map, i) => map.forEach((_os, _oe, ns, ne) => {
+      let a = ns, b = ne;
+      for (let j = i + 1; j < tr.mapping.maps.length; j++) { a = tr.mapping.maps[j].map(a, -1); b = tr.mapping.maps[j].map(b, 1); }
+      tr.doc.forEach((node, pos, index) => { if (pos + node.nodeSize >= a && pos <= b) touched.add(index); });
+    }));
+    const els: HTMLElement[] = [];
+    let ok = touched.size > 0;
+    if (ok) {
+      let index = 0;
+      tr.doc.forEach((_node, pos) => {
+        if (touched.has(index)) { const d = view.nodeDOM(pos); if (d instanceof HTMLElement) els.push(d); else ok = false; }
+        index++;
+      });
+    }
+    if (!ok || this.dirty === null && this.frame) { this.schedule(); return; }
+    if (!this.dirty) this.dirty = new Set();
+    for (const e of els) this.dirty.add(e);
+    if (this.frame) return;
+    this.frame = requestAnimationFrame(() => { this.frame = 0; this.layout(); });
+  }
+
+  private unchanged(root: HTMLElement, ratio: number): boolean {
+    const dirty = this.dirty;
+    this.dirty = null;
+    if (!dirty || !dirty.size || this.kidCount < 0) return false;
+    let count = 0;
+    for (const k of Array.from(root.children)) if (!(k as HTMLElement).classList.contains('ft-pg-spacer')) count++;
+    if (count !== this.kidCount) return false;
+    for (const e of dirty) {
+      if (!e.isConnected || e.parentElement !== root || e.matches('[data-masked]') || e.querySelector('.ft-pg-spacer, .ft-pg-repeat, [data-masked]')) return false;
+      const h = this.heights.get(e);
+      if (h === undefined || Math.abs(e.getBoundingClientRect().height / ratio - h) > 0.5) return false;
+    }
+    return true;
+  }
+
+  private remember(root: HTMLElement, ratio: number): void {
+    let count = 0;
+    for (const k of Array.from(root.children) as HTMLElement[]) {
+      if (k.classList.contains('ft-pg-spacer')) continue;
+      count++;
+      this.heights.set(k, k.getBoundingClientRect().height / ratio);
+    }
+    this.kidCount = count;
   }
 
   layoutNow(): void {
@@ -176,6 +232,8 @@ export class Paginator {
     const pageless = !!this.settings().pageless;
     const mode = pageless ? 'pageless' : 'paged';
     if (this.container.dataset.mode !== mode) this.container.dataset.mode = mode;
+    const fast = this.unchanged(view.dom as HTMLElement, this.zoom());
+    if (fast && !pageless) { this.skipped++; this.onLayout?.(); return; }
     const empty = pagesKey.getState(view.state);
     if (empty && empty !== DecorationSet.empty) view.dispatch(view.state.tr.setMeta(pagesKey, DecorationSet.empty).setMeta('addToHistory', false));
     this.sectionStarts = [{ page: 0, id: this.section()!.id }];
@@ -429,6 +487,7 @@ export class Paginator {
       }
     }
     this.sheetGeo = Array.from({ length: this.pages }, (_, i) => ({ top: pageTop(i) - pageTop(0), sec: secAt(i) }));
+    this.remember(root, ratio);
     this.paint(g, false);
     this.onLayout?.();
   }
