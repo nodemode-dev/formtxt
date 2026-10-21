@@ -121,6 +121,12 @@ export function register(reg: CommandRegistry, ed: DocEditor): void {
     get().show('image');
     return get().image(String(p.prompt), String(p.size ?? '1024x1024'));
   }, [S('prompt', 'What the picture shows'), S('size', '1024x1024 (default), 1536x1024 or 1024x1536')]);
+  add('ai.imageOptions', 'Generate image options', 'Generate up to four pictures from a prompt and show them in the AI panel to pick one; pick inserts an option by name.', async (p) => {
+    get().show('image');
+    if (p.pick) return get().pickOption(String(p.pick));
+    if (!p.prompt) { get().focusInput('image', 'imgPrompt'); return true; }
+    return get().imageOptions(String(p.prompt), String(p.size ?? '1024x1024'), Number(p.count) || 3);
+  }, [S('prompt', 'What the picture shows'), S('size', '1024x1024 (default), 1536x1024 or 1024x1536'), { name: 'count', type: 'number', description: 'How many options, 1 to 4 (default 3)' }, S('pick', 'Insert the option with this media name')]);
   add('ai.banner', 'Insert a banner', 'Generate a wide picture and put it with a title at the top of the document.', async (p) => {
     if (!p.prompt) { get().focusInput('image', 'imgPrompt'); return true; }
     get().show('image');

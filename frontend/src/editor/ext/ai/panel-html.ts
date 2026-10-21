@@ -96,7 +96,8 @@ export const PANEL_HTML = `<div class="ft-ai">
 <section class="ft-ai-view" data-view="image" role="tabpanel" hidden>
   <div class="ft-ai-off" data-q="noImage" hidden><span>This provider has no image endpoint.</span><button type="button" class="ft-btn sm" data-act="stock">Stock images</button></div>
   <textarea class="ft-input ft-ai-text" data-q="imgPrompt" rows="4" placeholder="Describe the picture" aria-label="Picture description"></textarea>
-  <div class="ft-ai-row"><select class="ft-input ft-ai-select" data-q="imgSize" aria-label="Shape"><option value="1024x1024">Square</option><option value="1536x1024">Wide</option><option value="1024x1536">Tall</option></select><button type="button" class="ft-btn sm primary" data-ai data-act="image">Generate and insert</button></div>
+  <div class="ft-ai-row"><select class="ft-input ft-ai-select" data-q="imgSize" aria-label="Shape"><option value="1024x1024">Square</option><option value="1536x1024">Wide</option><option value="1024x1536">Tall</option></select><button type="button" class="ft-btn sm primary" data-ai data-act="image">Generate and insert</button><button type="button" class="ft-btn sm" data-ai data-act="imageOptions">Show three options</button></div>
+  <div class="ft-ai-imgs" data-q="imgOptions" aria-label="Picture options"></div>
   <div class="ft-ai-sub">Banner</div>
   <div class="ft-ai-row"><input class="ft-input" data-q="bannerTitle" type="text" placeholder="Title under the banner (optional)" aria-label="Banner title"></div>
   <div class="ft-ai-row"><button type="button" class="ft-btn sm" data-ai data-act="banner">Insert banner at the top</button></div>

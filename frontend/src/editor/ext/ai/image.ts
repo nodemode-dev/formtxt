@@ -22,6 +22,25 @@ async function generate(ed: DocEditor, prompt: string, size: string): Promise<Ma
   return { name: m.name, w, h };
 }
 
+export type { Made };
+
+export async function generateOptions(ed: DocEditor, prompt: string, size: string, count = 3): Promise<Made[]> {
+  const all = await Promise.allSettled(Array.from({ length: Math.max(1, Math.min(4, count)) }, () => generate(ed, prompt, size)));
+  const ok = all.filter((r): r is PromiseFulfilledResult<Made> => r.status === 'fulfilled').map((r) => r.value);
+  if (!ok.length) throw (all[0] as PromiseRejectedResult).reason instanceof Error ? (all[0] as PromiseRejectedResult).reason : new Error('No picture came back.');
+  return ok.filter((m, i) => ok.findIndex((x) => x.name === m.name) === i);
+}
+
+export function insertMade(ed: DocEditor, made: Made, alt: string): string {
+  const view = ed.view;
+  if (!view) throw new Error('Open a document first.');
+  const sel = view.state.selection;
+  if (sel instanceof NodeSelection) view.dispatch(view.state.tr.setSelection(TextSelection.near(view.state.doc.resolve(sel.to))));
+  const fit = fitSize(made.w, made.h, ed.bodyWidth(), ed.bodyHeight() - 24);
+  ed.run(insertPicture({ media: made.name, alt: alt.slice(0, 200), ...fit }));
+  return made.name;
+}
+
 export async function insertGenerated(ed: DocEditor, prompt: string, size: string): Promise<string> {
   const made = await generate(ed, prompt, size);
   const view = ed.view;

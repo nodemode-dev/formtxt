@@ -5,7 +5,8 @@ import { toast } from '../../../ui/toast';
 import type { DocEditor } from '../../editor';
 import { openPanel, panelOpen, closePanel } from '../ui';
 import { libraryDocs, matchFormat } from './format';
-import { insertBanner, insertGenerated } from './image';
+import { type Made, generateOptions, insertBanner, insertGenerated, insertMade } from './image';
+import { mediaUrl } from '../../schema';
 import { applyParagraphText, collectParagraphs, docMarkdown, insertAtCaret, insertBelow, insertQuote, replaceInline, replaceRange, selectionRange, setSummary, summaryRange, wordCount, wordRange, type Range } from './insert';
 import { Listener, speechAvailable, voiceList, type ListenState } from './listen';
 import { stripMarkdown } from './markdown';
@@ -201,6 +202,7 @@ export class AIPanel {
       case 'search': void this.guard(() => this.search(v('rsInput'))); break;
       case 'rsAskGo': void this.guard(() => this.askResults(v('rsAsk'))); break;
       case 'image': void this.guard(() => this.image(v('imgPrompt'), v('imgSize'))); break;
+      case 'imageOptions': void this.guard(() => this.imageOptions(v('imgPrompt'), v('imgSize'))); break;
       case 'banner': void this.guard(() => this.banner(v('imgPrompt'), v('bannerTitle'))); break;
       case 'stock': void commands.run('insert.stockImage').catch((e: Error) => toast(e.message, 'error')); break;
       default: break;
@@ -671,6 +673,45 @@ export class AIPanel {
     const name = await insertGenerated(this.ed, text, size);
     setText(this.q('imgNote'), 'Inserted at the caret. Undo takes it back.');
     this.say('Picture inserted.');
+    return name;
+  }
+
+  private options: Made[] = [];
+  private optionPrompt = '';
+
+  async imageOptions(prompt: string, size: string, count = 3): Promise<string[]> {
+    const text = prompt.trim();
+    if (!text) throw new Error('Describe the picture first.');
+    this.say('Generating options. This can take a minute...');
+    this.options = await generateOptions(this.ed, text, size, count);
+    this.optionPrompt = text;
+    const box = this.q('imgOptions');
+    patchList(box, this.options, {
+      key: (m) => m.name,
+      create: (m) => {
+        const b = el<HTMLButtonElement>(`<button type="button" class="ft-ai-img" title="Insert this picture" aria-label="Insert this picture"><img alt="" width="96" height="96"></button>`);
+        b.dataset.media = m.name;
+        (b.querySelector('img') as HTMLImageElement).src = mediaUrl(m.name);
+        return b;
+      },
+      update: () => undefined,
+    });
+    if (!box.dataset.wired) {
+      box.dataset.wired = '1';
+      box.addEventListener('click', (e) => {
+        const b = (e.target as HTMLElement).closest<HTMLElement>('[data-media]');
+        if (b?.dataset.media) void this.guard(async () => this.pickOption(b.dataset.media ?? ''));
+      });
+    }
+    this.say(`${this.options.length} option${this.options.length === 1 ? '' : 's'}. Click one to insert it.`);
+    return this.options.map((m) => m.name);
+  }
+
+  pickOption(name: string): string {
+    const m = this.options.find((x) => x.name === name);
+    if (!m) throw new Error('That option is no longer available; generate again.');
+    insertMade(this.ed, m, this.optionPrompt);
+    this.say('Picture inserted. Undo takes it back.');
     return name;
   }
 

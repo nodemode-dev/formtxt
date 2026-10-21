@@ -70,3 +70,8 @@ textarea.ft-ai-text { width: 100%; box-sizing: border-box; font-family: inherit;
 .ft-ai-status.is-error { color: var(--danger); }
 .ft-ai-empty::before { content: "Press Ctrl+Alt+J to write with AI"; float: left; height: 0; color: var(--text-muted); pointer-events: none; }
 .ft-ai-block { background: color-mix(in srgb, var(--accent-color) 7%, transparent); border-left: 3px solid var(--accent-color); padding-left: 8px; }
+.ft-ai-imgs { display: grid; grid-template-columns: repeat(3, 1fr); gap: var(--space-2); }
+.ft-ai-imgs:empty { display: none; }
+.ft-ai-img { aspect-ratio: 1; padding: 0; overflow: hidden; border: 1px solid var(--border-color); border-radius: var(--radius); background: var(--bg-tertiary); cursor: pointer; }
+.ft-ai-img:hover, .ft-ai-img:focus-visible { border-color: var(--accent-color); outline: none; }
+.ft-ai-img img { display: block; width: 100%; height: 100%; object-fit: cover; }
