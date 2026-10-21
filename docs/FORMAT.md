@@ -74,3 +74,21 @@ A `math` run is an equation: `latex` (the source, in the LaTeX subset KaTeX rend
 A `field` run is a computed value: `kind` (`formula` or `variable`), `code` (the formula, starting with `=`, or for `variable` the variable's name, whose value from the top-level `variables` is copied into `result`, or `!name` with an `error` when the variable is missing), optional `format` (a number picture), and `result` (the last computed text, always written so readers that do not calculate still show the value) and `error` (the message when the formula failed; `result` then starts with `!`). A formula combines numbers, quoted text, `TRUE` and `FALSE` with `+ - * / ^`, `%` (remainder), `&` (joins text), comparisons (`= <> < <= > >=`) and functions (`SUM`, `AVERAGE`, `MIN`, `MAX`, `COUNT`, `PRODUCT`, `MEDIAN`, `IF`, `AND`, `OR`, `NOT`, `ABS`, `INT`, `ROUND`, `MOD`, `POWER`, `SQRT`, `SIGN`, `CONCAT`, `UPPER`, `LOWER`, `LEN` and the rest listed in the engine), with `,` or `;` between arguments. Inside a table it can name cells as `A1` (column letter, row number from the top of the table, merged cells read from their top left), ranges as `B2:B5`, and `ABOVE`, `BELOW`, `LEFT` and `RIGHT` for the run of numbers next to its cell in that direction. Cell text is read as a number when it is one, allowing `$`, thousands commas, a trailing `%` and brackets for negatives. `format` follows Word's number pictures: `0` and `#` digits, `,` grouping, `.` decimals, a literal prefix or suffix such as `$`, and a trailing `%` to show a percentage. Writers recalculate on open and whenever the table changes; Word export writes the field as `= code \# "format"` with `result` as its cached value (Phase 7).
 
 A `chip` run is a smart chip: `kind` and its data, plus `text` (the label as last shown, written so readers without chips still show it). `date` has `date` (`YYYY-MM-DD`) and `format` (`short`, `long`, `numeric` or `iso`; shown in the reader's locale). `person` has `name` and `email` (either may be empty, not both). `dropdown` has `options` (up to 30 of `{label, color}`, `color` `#rrggbb` or empty) and `value` (one of the labels, or empty for none chosen). `placeholder` has `name` (up to 60 characters; filling in a name replaces every placeholder with that name by plain text). `doc` has `doc` (the id of another document in the same library) and `title` (its title when linked; the link follows the id, so it still opens after a rename, while the chip keeps showing the stored title until it is changed). Word export writes dates and people as text, dropdowns as a dropdown content control and document links as hyperlinks (Phase 7).
+
+## References
+
+## Review
+
+## Versions and protection
+
+## Exchange
+
+## Print
+
+## Proofing and language
+
+## AI
+
+## Objects, fields and forms
+
+## Live and views
