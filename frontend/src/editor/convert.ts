@@ -91,6 +91,12 @@ function blocksToPM(body: Block[], top: boolean): PMNode[] {
     const blk = b as Block & { type: string; text?: string; props?: Record<string, unknown>; list?: { kind: string; level: number; checked?: boolean } };
     if (blk.type === 'code') blocks.push(schema.nodes.code_block.create({ id: blk.id }, blk.text ? schema.text(blk.text) : null));
     else if (blk.type === 'table') { const t = tableToPM(blk as unknown as FtxtTable); if (t) blocks.push(t); }
+    else if (blk.type === 'diagram') {
+      const c = blk as unknown as Record<string, unknown>;
+      const attrs: Record<string, unknown> = { id: c.id || newId('g_') };
+      for (const k of ['layout', 'items', 'style', 'colors', 'width', 'height', 'align']) if (c[k] !== undefined && c[k] !== null) attrs[k] = c[k];
+      blocks.push(schema.nodes.diagram.create(attrs));
+    }
     else if (blk.type === 'chart') {
       const c = blk as unknown as Record<string, unknown>;
       const attrs: Record<string, unknown> = { id: c.id || newId('c_') };
@@ -197,6 +203,15 @@ export function fromPM(pm: PMNode, section: string): Block[] {
   const out: Block[] = [];
   pm.forEach((node) => {
     if (node.type.name === 'table') { out.push(tableFromPM(node, section) as unknown as Block); return; }
+    if (node.type.name === 'diagram') {
+      const a = node.attrs;
+      const g: Record<string, unknown> = { type: 'diagram', id: a.id || newId('g_'), layout: a.layout, items: a.items, width: a.width, height: a.height };
+      if (a.style && a.style !== 'flat') g.style = a.style;
+      if (a.colors && a.colors !== 'colorful') g.colors = a.colors;
+      if (a.align && a.align !== 'center') g.align = a.align;
+      out.push(g as unknown as Block);
+      return;
+    }
     if (node.type.name === 'chart') {
       const a = node.attrs;
       const c: Record<string, unknown> = { type: 'chart', id: a.id || newId('c_'), kind: a.kind, width: a.width, height: a.height, data: a.data };

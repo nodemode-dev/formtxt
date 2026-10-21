@@ -8,10 +8,11 @@ import { CHART_KINDS } from './chart/types';
 import { CellSelection, addColumnAfter, addColumnBefore, addRowAfter, addRowBefore, deleteColumn, deleteRow, deleteTable, isInTable, mergeCells, setCellAttr, splitCell, toggleHeaderColumn, toggleHeaderRow } from 'prosemirror-tables';
 import { el, setHidden, setText } from '../ui/dom';
 import { toast } from '../ui/toast';
-import { chartDialog, equationDialog, shapeGalleryDialog, shapePropertiesDialog, symbolDialog } from './dialogs';
+import { chartDialog, diagramDialog, equationDialog, shapeGalleryDialog, shapePropertiesDialog, symbolDialog } from './dialogs';
 import { SHAPES, SHAPE_WRAPS, WORDART, insertShape, selectedShape, setShape, shapeDefaults } from './shape';
 import { putMath, selectedMath } from './math';
 import { findIcon, iconAttrs, iconsDialog } from './icons-dialog';
+import { DIAGRAM_COLORS, DIAGRAM_LAYOUTS, DIAGRAM_STYLES, type DiagramItem, insertDiagram, itemsToText, sampleItems, selectedDiagram, setDiagram, textToItems } from './diagram';
 import { headerFooterDialog, insertTableDialog, pageGeometry, pageSetupDialog, paragraphDialog, parseTabs, picturePropertiesDialog, stylesDialog, tablePropertiesDialog, wordCountDialog } from './dialogs';
 import { type DocEditor, FONTS } from './editor';
 import { TABLE_LOOKS, schema } from './schema';
@@ -375,6 +376,56 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   add('equation.edit', 'Edit equation', 'Equation', 'Edit the selected equation (or double-click it).', () => { equationDialog(ed); return true; });
   add('equation.info', 'Equation at cursor', 'Equation', 'The LaTeX of the selected equation.', () => { const m = ed.view ? selectedMath(ed.view.state) : null; return m ? { latex: m.node.attrs.latex, display: m.node.attrs.display, pos: m.pos } : null; });
   ed.onEquationKey = () => equationDialog(ed);
+  const layoutOf = (v: unknown): string => {
+    const id = String(v ?? '');
+    if (!DIAGRAM_LAYOUTS.some((l) => l.id === id)) throw new Error(`layout must be one of ${DIAGRAM_LAYOUTS.map((l) => l.id).join(', ')}.`);
+    return id;
+  };
+  const needDiagram = (patch: (a: Record<string, unknown>, p: Record<string, unknown>) => Record<string, unknown>) => (p: Record<string, unknown>) => {
+    const g = ed.view ? selectedDiagram(ed.view.state) : null;
+    if (!g) throw new Error('Select a diagram first (click it, or run diagram.select).');
+    return ed.run(setDiagram(patch(g.node.attrs as Record<string, unknown>, p)));
+  };
+  add('insert.diagram', 'Diagram', 'Insert', `Insert a SmartArt-style diagram; with no layout, opens the diagram editor. Layouts: ${DIAGRAM_LAYOUTS.map((l) => l.id).join(', ')}.`, (p) => {
+    if (p.layout === undefined) { diagramDialog(ed, true); return true; }
+    const layout = layoutOf(p.layout);
+    const items = p.text !== undefined ? textToItems(String(p.text).replace(/\\n/g, '\n').replace(/\\t/g, '\t')) : sampleItems(layout);
+    if (!items.length) throw new Error('text needs at least one item.');
+    return ed.run(insertDiagram({ layout, items, width: Math.min(Number(p.width) || 468, ed.bodyWidth()), height: Number(p.height) || 216 }));
+  }, [{ name: 'layout', type: 'string', description: 'Layout id' }, { name: 'text', type: 'string', description: 'One item per line (\\n); two spaces indent a sub-item' }, { name: 'width', type: 'number', description: 'Points' }, { name: 'height', type: 'number', description: 'Points' }]);
+  add('diagram.properties', 'Diagram editor', 'Diagram', 'Layout, text, style, colours and size of the selected diagram (or double-click it).', () => { diagramDialog(ed, false); return true; });
+  add('diagram.layout', 'Diagram layout', 'Diagram', 'Change the layout and keep the text.', needDiagram((_a, p) => ({ layout: layoutOf(p.layout) })), [{ name: 'layout', type: 'string', description: 'Layout id' }]);
+  add('diagram.text', 'Diagram text', 'Diagram', 'Replace the items: one per line, two spaces indent a sub-item.', needDiagram((_a, p) => {
+    const items = textToItems(String(p.text ?? '').replace(/\\n/g, '\n').replace(/\\t/g, '\t'));
+    if (!items.length) throw new Error('text needs at least one item.');
+    return { items };
+  }), [{ name: 'text', type: 'string', description: 'Items; \\n between lines' }]);
+  add('diagram.style', 'Diagram style', 'Diagram', `Style (${DIAGRAM_STYLES.join(', ')}) and colours (${DIAGRAM_COLORS.join(', ')}).`, needDiagram((a, p) => {
+    if (p.style !== undefined && !(DIAGRAM_STYLES as readonly string[]).includes(String(p.style))) throw new Error(`style must be one of ${DIAGRAM_STYLES.join(', ')}.`);
+    if (p.colors !== undefined && !(DIAGRAM_COLORS as readonly string[]).includes(String(p.colors))) throw new Error(`colors must be one of ${DIAGRAM_COLORS.join(', ')}.`);
+    return { style: p.style ?? a.style, colors: p.colors ?? a.colors };
+  }), [{ name: 'style', type: 'string', description: DIAGRAM_STYLES.join(', ') }, { name: 'colors', type: 'string', description: DIAGRAM_COLORS.join(', ') }]);
+  add('diagram.size', 'Diagram size', 'Diagram', 'Width and height in points.', needDiagram((a, p) => ({ width: Math.max(120, Math.min(ed.bodyWidth(), Number(p.width) || Number(a.width))), height: Math.max(72, Number(p.height) || Number(a.height)) })), [{ name: 'width', type: 'number', description: 'Points' }, { name: 'height', type: 'number', description: 'Points' }]);
+  add('diagram.info', 'Diagram at cursor', 'Diagram', 'Layout, items, style and size of the selected diagram.', () => { const g = ed.view ? selectedDiagram(ed.view.state) : null; return g ? { ...g.node.attrs, text: itemsToText(g.node.attrs.items as DiagramItem[]), pos: g.pos } : null; });
+  add('diagram.select', 'Select diagram', 'Diagram', 'Select the first diagram, or the next one after the selection.', () => {
+    if (!ed.view) throw new Error('Open a document first.');
+    const { state } = ed.view;
+    const all: number[] = [];
+    state.doc.descendants((n, pos) => { if (n.type === schema.nodes.diagram) all.push(pos); return true; });
+    if (!all.length) throw new Error('The document has no diagrams.');
+    const at = all.find((pos) => pos > state.selection.from) ?? all[0];
+    ed.view.dispatch(state.tr.setSelection(NodeSelection.create(state.doc, at)).scrollIntoView());
+    return at;
+  });
+  ed.root.addEventListener('dblclick', (e) => {
+    const fig = (e.target as HTMLElement).closest<HTMLElement>('.ft-pm-root figure.ft-diagram');
+    if (!fig || !ed.view || !ed.view.editable) return;
+    e.preventDefault();
+    const pos = ed.view.posAtDOM(fig, 0);
+    const at = ed.view.state.doc.resolve(pos).nodeAfter?.type === schema.nodes.diagram ? pos : pos - 1;
+    ed.view.dispatch(ed.view.state.tr.setSelection(NodeSelection.create(ed.view.state.doc, at)));
+    diagramDialog(ed, false);
+  });
   add('insert.icon', 'Icon', 'Insert', 'Insert an icon from the Tabler library (4,808 outline and 1,009 filled); with no name, opens the icon picker.', async (p) => {
     if (p.name === undefined) { iconsDialog(ed); return true; }
     const entry = await findIcon(String(p.name));

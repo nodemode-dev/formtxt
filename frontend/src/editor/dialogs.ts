@@ -9,6 +9,7 @@ import { CHART_KINDS } from './chart/types';
 import { SYMBOL_GROUPS } from './symbols';
 import { SHAPES, SHAPE_LABELS, WORDART, insertShape, selectedShape, setShape, shapeDefaults, shapePath } from './shape';
 import { MATH_SNIPPETS, loadMathFonts, putMath, renderMath, selectedMath } from './math';
+import { DIAGRAM_CATEGORIES, DIAGRAM_LAYOUTS, type DiagramItem, insertDiagram, itemsToText, renderDiagram, sampleItems, selectedDiagram, setDiagram, textToItems } from './diagram';
 import { api } from '../io/api';
 import { toast } from '../ui/toast';
 import { distributeColumns, insertTable, setCellShading, setTableAttr, sortTable, tableInfo } from './table';
@@ -513,6 +514,81 @@ export function equationDialog(ed: DocEditor): void {
     d.close();
   });
   d.open(src);
+  refresh();
+}
+
+export function diagramDialog(ed: DocEditor, insert: boolean): void {
+  const cur = insert ? null : ed.view ? selectedDiagram(ed.view.state) : null;
+  if (!insert && !cur) throw new Error('Click a diagram first.');
+  const a = (cur?.node.attrs ?? { layout: 'process-basic', items: sampleItems('process-basic'), style: 'flat', colors: 'colorful', width: Math.min(468, ed.bodyWidth()), height: 216, align: 'center' }) as Record<string, unknown>;
+  const d = new Dialog(insert ? 'Insert diagram' : 'Diagram', 780);
+  const layout = el<HTMLSelectElement>('<select class="ft-input" aria-label="Layout"></select>');
+  for (const c of DIAGRAM_CATEGORIES) {
+    const g = document.createElement('optgroup');
+    g.label = c.label;
+    for (const l of DIAGRAM_LAYOUTS.filter((x) => x.category === c.id)) { const o = document.createElement('option'); o.value = l.id; o.textContent = l.label; g.appendChild(o); }
+    layout.appendChild(g);
+  }
+  layout.value = String(a.layout);
+  const style = select([['flat', 'Flat'], ['outline', 'Outline'], ['shadow', 'Soft shadow']], String(a.style ?? 'flat'));
+  const colors = select([['colorful', 'Colourful'], ['accent1', 'Accent shades'], ['accent2', 'Blue shades'], ['accent3', 'Teal shades'], ['accent4', 'Amber shades'], ['accent5', 'Violet shades'], ['accent6', 'Rose shades'], ['dark', 'Dark shades']], String(a.colors ?? 'colorful'));
+  const width = input('number', String(a.width), 'min="120" step="1"');
+  const height = input('number', String(a.height), 'min="72" step="1"');
+  const align = select([['left', 'Left'], ['center', 'Centre'], ['right', 'Right']], String(a.align ?? 'center'));
+  const items = el<HTMLTextAreaElement>('<textarea class="ft-input ft-dg-src" rows="10" spellcheck="true" aria-label="Diagram text"></textarea>');
+  items.value = itemsToText((a.items ?? []) as DiagramItem[]);
+  let edited = false;
+  items.addEventListener('input', () => { edited = true; });
+  items.addEventListener('keydown', (e) => {
+    if (e.key !== 'Tab') return;
+    e.preventDefault();
+    const s = items.selectionStart, start = items.value.lastIndexOf('\n', s - 1) + 1;
+    if (e.shiftKey) { if (items.value.startsWith('  ', start)) { items.setRangeText('', start, start + 2, 'preserve'); items.selectionStart = items.selectionEnd = Math.max(start, s - 2); } }
+    else { items.setRangeText('  ', start, start, 'preserve'); items.selectionStart = items.selectionEnd = s + 2; }
+    edited = true;
+    refresh();
+  });
+  layout.addEventListener('change', () => { if (!edited && insert) items.value = itemsToText(sampleItems(layout.value)); refresh(); });
+  const preview = el('<div class="ft-dg-preview"><figure class="ft-diagram"><svg role="img" aria-label="Preview"></svg><div class="ft-dg-text"></div></figure></div>');
+  const fig = preview.querySelector('figure') as HTMLElement;
+  const attrs = (): Record<string, unknown> => ({ layout: layout.value, items: textToItems(items.value), style: style.value, colors: colors.value, width: Math.max(120, Number(width.value) || 468), height: Math.max(72, Number(height.value) || 216), align: align.value });
+  let frame = 0;
+  const refresh = (): void => {
+    if (frame) return;
+    frame = requestAnimationFrame(() => {
+      frame = 0;
+      const at = attrs();
+      const scale = Math.min(1, 460 / (Number(at.width) * 96 / 72), 300 / (Number(at.height) * 96 / 72));
+      fig.style.width = `${(Number(at.width) * 96 / 72 * scale).toFixed(0)}px`;
+      fig.style.height = `${(Number(at.height) * 96 / 72 * scale).toFixed(0)}px`;
+      renderDiagram(fig.querySelector('svg') as SVGSVGElement, fig.querySelector('.ft-dg-text') as HTMLElement, at, ed.accent(), scale);
+    });
+  };
+  for (const n of [style, colors, width, height, items]) n.addEventListener('input', refresh);
+  const cols = el('<div class="ft-chart-dialog"></div>');
+  const left = el('<div></div>');
+  const right = el('<div></div>');
+  cols.append(left, right);
+  const g = el('<div class="ft-form-grid"></div>');
+  for (const [label, control] of [['Layout', layout], ['Style', style], ['Colours', colors], ['Width (pt)', width], ['Height (pt)', height], ['Alignment', align]] as Array<[string, HTMLElement]>) {
+    const l = el('<label class="ft-field"><span class="ft-field-label"></span></label>');
+    setText(l.querySelector('.ft-field-label'), label);
+    l.appendChild(control);
+    g.appendChild(l);
+  }
+  left.appendChild(g);
+  const note = el('<p class="ft-note"></p>');
+  setText(note, 'One item per line. Tab or two spaces indent a line under the one above (sub-points, or the next level of an organization chart).');
+  right.append(preview, items, note);
+  d.body.appendChild(cols);
+  d.button('Cancel', 'ghost', () => d.close());
+  d.button(insert ? 'Insert' : 'Apply', 'primary', () => {
+    const at = attrs();
+    if (!(at.items as DiagramItem[]).length) { toast('Type at least one item.', 'error'); return; }
+    ed.run(insert ? insertDiagram(at) : setDiagram(at));
+    d.close();
+  });
+  d.open(items);
   refresh();
 }
 

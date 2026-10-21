@@ -64,7 +64,7 @@ const cellAttr = (name: string, css: string) => ({
 
 const tables = tableNodes({
   tableGroup: 'block',
-  cellContent: '(paragraph | code_block | table | chart)+',
+  cellContent: '(paragraph | code_block | table | chart | diagram)+',
   cellAttributes: { shading: cellAttr('shading', 'background'), valign: cellAttr('valign', 'vertical-align') },
 });
 
@@ -205,6 +205,15 @@ const nodes: Record<string, NodeSpec> = {
     attrs: { id: { default: null }, kind: { default: 'bar' }, title: { default: '' }, width: { default: 468 }, height: { default: 252 }, align: { default: 'center' }, options: { default: {} }, data: { default: { categories: [], series: [] } } },
     parseDOM: [{ tag: 'figure.ft-chart', getAttrs: (dom: HTMLElement) => { try { return JSON.parse(dom.dataset.chart ?? '{}') as Record<string, unknown>; } catch { return {}; } } }],
     toDOM: (n) => ['figure', { class: 'ft-chart', 'data-chart': JSON.stringify({ ...n.attrs, id: null }) }],
+  },
+  diagram: {
+    group: 'block',
+    atom: true,
+    selectable: true,
+    draggable: true,
+    attrs: { id: { default: null }, layout: { default: 'list-block' }, items: { default: [] }, style: { default: 'flat' }, colors: { default: 'colorful' }, width: { default: 468 }, height: { default: 216 }, align: { default: 'center' } },
+    parseDOM: [{ tag: 'figure.ft-diagram', getAttrs: (dom: HTMLElement) => { try { return JSON.parse(dom.dataset.diagram ?? '{}') as Record<string, unknown>; } catch { return {}; } } }],
+    toDOM: (n) => ['figure', { class: 'ft-diagram', 'data-diagram': JSON.stringify({ ...n.attrs, id: null }) }],
   },
   table: {
     ...tables.table,

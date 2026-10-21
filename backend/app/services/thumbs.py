@@ -48,6 +48,16 @@ def render(doc: dict) -> str:
     for block in (doc.get("tabs") or [{}])[0].get("body", []):
         if y > bottom:
             break
+        if block.get("type") == "diagram":
+            dw = min(right - left, float(block.get("width") or 468) * scale)
+            dh = float(block.get("height") or 216) * scale * (dw / max(float(block.get("width") or 468) * scale, 0.01))
+            dx = left + (right - left - dw) / 2
+            n = max(1, min(6, len(block.get("items") or [])))
+            bw = dw / (n + (n - 1) * 0.25)
+            for i in range(n):
+                out.append(f'<rect x="{dx + i * bw * 1.25:.1f}" y="{y + dh * 0.25:.1f}" width="{bw:.1f}" height="{dh * 0.5:.1f}" rx="3" fill="{escape(accent)}" opacity="{0.85 - i * 0.1:.2f}"/>')
+            y += dh + 10 * scale
+            continue
         if block.get("type") == "chart":
             cw = min(right - left, float(block.get("width") or 468) * scale)
             ch = float(block.get("height") or 252) * scale * (cw / max(float(block.get("width") or 468) * scale, 0.01))

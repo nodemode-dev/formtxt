@@ -56,6 +56,7 @@ export const ICONS: Record<string, string> = {
   pageless: L('<path d="M5 3.5v17M19 3.5v17M8.5 7.5h7M8.5 11h7M8.5 14.5h5"/>'),
   image: L('<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><circle cx="9" cy="9.5" r="1.6"/><path d="M4 17l5-5 3.5 3.5 2.5-2.5 5 5"/>'),
   chart: L('<path d="M4.5 4.5v15h15"/><path d="M8.5 16v-4M12.5 16V8.5M16.5 16v-6"/>'),
+  diagram: L('<rect x="9" y="3.5" width="6" height="5" rx="1"/><rect x="3.5" y="15.5" width="6" height="5" rx="1"/><rect x="14.5" y="15.5" width="6" height="5" rx="1"/><path d="M12 8.5v3.5M6.5 15.5V12h11v3.5"/>'),
   shapes: L('<rect x="3.5" y="10.5" width="9" height="9" rx="1"/><circle cx="15.5" cy="8.5" r="5"/>'),
   equation: L('<path d="M17.5 5.5h-11l5.5 6.5-5.5 6.5h11"/>'),
   iconLibrary: L('<circle cx="8" cy="8" r="3.5"/><path d="M16 4.5l3.5 6h-7z"/><rect x="4.5" y="13.5" width="7" height="6" rx="1"/><path d="M14 16.5h6M17 13.5v6"/>'),
