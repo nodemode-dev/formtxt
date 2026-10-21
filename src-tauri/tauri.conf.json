@@ -1,0 +1,34 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "FormTxt",
+  "version": "0.1.0",
+  "identifier": "ai.nodemode.formtxt",
+  "build": {
+    "devUrl": "http://localhost:5199",
+    "frontendDist": "../frontend/dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "main",
+        "title": "FormTxt",
+        "width": 1280,
+        "height": 820,
+        "minWidth": 900,
+        "minHeight": 600,
+        "backgroundColor": "#111111",
+        "center": true
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": false,
+    "category": "Productivity",
+    "shortDescription": "Documents",
+    "copyright": "Copyright 2026 nodemode-ai.",
+    "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.png"]
+  }
+}
