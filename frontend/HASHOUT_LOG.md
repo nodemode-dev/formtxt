@@ -332,6 +332,18 @@ frontend/
 - logged: v0.14.0 · 2026-10-21
 - An object stays a run in its paragraph, so it moves between pages with the text that anchors it; with `relative: page` its offset is measured from that page instead. After every layout the editor finds each page-anchored object's paragraph, which page it is on, and writes the paragraph-to-page offset into `data-ox` and `data-oy`; the views add those offsets to `x` and `y`, and a drag subtracts them before saving. The objects are absolutely positioned, so placing them never changes the flow and cannot loop the paginator.
 
+### shapes · formatted text in a nested editor
+- refers-to: src/editor/shape.ts :: edit(), finish(), renderText(), shapeEditing; src/editor/editor.ts :: run()
+- kind: rationale
+- logged: v0.15.0 · 2026-10-21
+- A shape stays an inline atom, so its text cannot be ordinary document content. Double-clicking mounts a second ProseMirror view with the same schema inside the shape (history, Ctrl+B, I and U, base keys); finishing turns its doc into paragraph blocks with `fromPM` and stores them in `content`, plus the plain text in `text`. Text with no formatting is stored as plain `text` only, so simple boxes stay simple. While a box is open, `DocEditor.run` sends commands to the nested view first, so the toolbar and palette format inside the box; focus moving to the toolbar (a select takes focus) does not close the box, anything else does. Outside editing the box shows a static DOMSerializer copy, rebuilt only when `content` changes. Normal-style paragraphs inside boxes inherit the shape's font, size, colour and alignment; other styles keep their own.
+
+### shapes · connectors follow layout
+- refers-to: src/editor/shape.ts :: placeConnectors(), edgePoint(), ShapeView.placeConnector()
+- kind: warning-context
+- logged: v0.15.0 · 2026-10-21
+- A connector is a shape run that names two shape ids; it is placed after every layout (and live while a connected shape is dragged or resized) from the two shapes' frames, between the facing edge midpoints, relative to the connector's own paragraph. A connector whose shape is missing is hidden; a hidden element has no `offsetParent`, so the placer falls back to the connector's paragraph, otherwise an Undo that restores the shape left the connector hidden for good (caught by a throttled delete-and-undo run). Shapes get ids when inserted, and older shapes get one the first time they are connected.
+
 ### pages · atom blocks at a page break
 - refers-to: src/editor/pages.ts :: layout() posOf()
 - kind: warning-context
