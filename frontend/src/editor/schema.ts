@@ -169,7 +169,7 @@ const nodes: Record<string, NodeSpec> = {
       rotate: { default: 0 }, text: { default: '' }, color: { default: '' }, size: { default: 11 }, bold: { default: false }, font: { default: '' },
       align: { default: 'center' }, valign: { default: 'middle' }, wordart: { default: '' }, wrap: { default: 'front' }, side: { default: 'left' }, x: { default: 0 }, y: { default: 0 },
       shadow: { default: false }, gradient: { default: '' }, path: { default: '' }, box: { default: null }, alt: { default: '' }, relative: { default: 'paragraph' },
-      arrowStart: { default: false }, arrowEnd: { default: false },
+      arrowStart: { default: false }, arrowEnd: { default: false }, content: { default: null }, id: { default: '' }, from: { default: '' }, to: { default: '' },
     },
     parseDOM: [{ tag: 'span.ft-shape', getAttrs: (dom: HTMLElement) => { try { return JSON.parse(dom.dataset.shape ?? '{}') as Record<string, unknown>; } catch { return {}; } } }],
     toDOM: (n) => ['span', { class: 'ft-shape', 'data-shape': JSON.stringify(n.attrs) }, String(n.attrs.text ?? '')],

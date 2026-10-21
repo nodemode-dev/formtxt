@@ -1,11 +1,52 @@
-import type { Node as PMNode } from 'prosemirror-model';
-import { type Command, type EditorState, NodeSelection } from 'prosemirror-state';
-import type { EditorView, NodeView } from 'prosemirror-view';
+import { baseKeymap, toggleMark } from 'prosemirror-commands';
+import { history, redo, undo } from 'prosemirror-history';
+import { keymap } from 'prosemirror-keymap';
+import { DOMSerializer, Fragment, type Node as PMNode } from 'prosemirror-model';
+import { type Command, EditorState, NodeSelection, Selection } from 'prosemirror-state';
+import { EditorView, type NodeView } from 'prosemirror-view';
+import type { Block } from '../engine/model';
+import { blocksToNodes, fromPM } from './convert';
 import { schema } from './schema';
 
 const PX = 96 / 72;
 const NS = 'http://www.w3.org/2000/svg';
 const HANDLES = ['nw', 'n', 'ne', 'e', 'se', 's', 'sw', 'w'] as const;
+
+export const shapeEditing: { view: EditorView | null } = { view: null };
+export const shapeViews = new WeakMap<HTMLElement, ShapeView>();
+
+export function newShapeId(): string {
+  const a = new Uint8Array(6);
+  crypto.getRandomValues(a);
+  return 's_' + Array.from(a, (b) => (b % 36).toString(36)).join('');
+}
+
+function edgePoint(r: { x: number; y: number; w: number; h: number }, toward: [number, number]): [number, number] {
+  const cx = r.x + r.w / 2, cy = r.y + r.h / 2;
+  const dx = toward[0] - cx, dy = toward[1] - cy;
+  if (Math.abs(dx) * r.h > Math.abs(dy) * r.w) return [dx > 0 ? r.x + r.w : r.x, cy];
+  return [cx, dy > 0 ? r.y + r.h : r.y];
+}
+
+export function placeConnectors(root: HTMLElement): void {
+  for (const n of Array.from(root.querySelectorAll<HTMLElement>('.ft-shape[data-kind="connector"]'))) {
+    const v = shapeViews.get(n);
+    const host = (n.offsetParent ?? n.parentElement?.closest('p')) as HTMLElement | null;
+    if (!v || !host) continue;
+    const hr = host.getBoundingClientRect();
+    const ratio = hr.width && host.offsetWidth ? hr.width / host.offsetWidth : 1;
+    const box = (id: string | undefined): { x: number; y: number; w: number; h: number } | null => {
+      if (!id) return null;
+      const f = root.querySelector<HTMLElement>(`.ft-shape[data-sid="${CSS.escape(id)}"] .ft-shape-frame`);
+      if (!f) return null;
+      const r = f.getBoundingClientRect();
+      return { x: (r.left - hr.left) / ratio, y: (r.top - hr.top) / ratio, w: r.width / ratio, h: r.height / ratio };
+    };
+    const a = box(n.dataset.from), b = box(n.dataset.to);
+    if (!a || !b) { v.placeConnector(null, null); continue; }
+    v.placeConnector(edgePoint(a, [b.x + b.w / 2, b.y + b.h / 2]), edgePoint(b, [a.x + a.w / 2, a.y + a.h / 2]));
+  }
+}
 
 export const SHAPES = ['rect', 'roundRect', 'ellipse', 'triangle', 'rightTriangle', 'diamond', 'pentagon', 'hexagon', 'octagon', 'star', 'arrowRight', 'arrowLeft', 'arrowUp', 'arrowDown', 'chevron', 'callout', 'cloud', 'heart', 'plus', 'line', 'textBox', 'wordArt'] as const;
 export const SHAPE_LABELS: Record<string, string> = {
@@ -82,15 +123,36 @@ export class ShapeView implements NodeView {
       if (h === 'rot') n.title = 'Drag to rotate (Shift snaps to 15 degrees)';
     }
     this.dom.addEventListener('pointerdown', (e) => this.down(e));
-    this.dom.addEventListener('dblclick', (e) => { if (this.view.editable && !['line', 'icon', 'ink'].includes(String(this.node.attrs.kind))) { e.preventDefault(); e.stopPropagation(); this.edit(); } });
+    shapeViews.set(this.dom, this);
+    this.dom.addEventListener('dblclick', (e) => { if (this.editing) { e.stopPropagation(); return; } if (this.view.editable && !['line', 'icon', 'ink', 'connector'].includes(String(this.node.attrs.kind))) { e.preventDefault(); e.stopPropagation(); this.edit(); } });
     this.text.addEventListener('keydown', (e) => {
       if (!this.editing) return;
       e.stopPropagation();
       if (e.key === 'Escape') { e.preventDefault(); this.finish(false); }
       else if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); this.finish(true); }
     });
-    this.text.addEventListener('blur', () => { if (this.editing) this.finish(true); });
+    this.text.addEventListener('focusout', (e) => {
+      const to = e.relatedTarget as HTMLElement | null;
+      if (!this.editing || (to && (this.dom.contains(to) || to.closest('.ft-toolbar')))) return;
+      this.finish(true);
+    });
     this.apply();
+  }
+
+  placeConnector(p1: [number, number] | null, p2: [number, number] | null): void {
+    if (!p1 || !p2) { set(this.dom, 'display', 'none'); return; }
+    set(this.dom, 'display', '');
+    const pad = 8;
+    const x = Math.min(p1[0], p2[0]) - pad, y = Math.min(p1[1], p2[1]) - pad;
+    const w = Math.abs(p2[0] - p1[0]) + pad * 2, h = Math.abs(p2[1] - p1[1]) + pad * 2;
+    set(this.dom, 'left', `${x.toFixed(2)}px`);
+    set(this.dom, 'top', `${y.toFixed(2)}px`);
+    set(this.frame, 'width', `${w.toFixed(2)}px`);
+    set(this.frame, 'height', `${h.toFixed(2)}px`);
+    const vb = `0 0 ${w.toFixed(2)} ${h.toFixed(2)}`;
+    if (this.svg.getAttribute('viewBox') !== vb) this.svg.setAttribute('viewBox', vb);
+    const d = `M${(p1[0] - x).toFixed(2)},${(p1[1] - y).toFixed(2)}L${(p2[0] - x).toFixed(2)},${(p2[1] - y).toFixed(2)}`;
+    if (this.path.getAttribute('d') !== d) this.path.setAttribute('d', d);
   }
 
   private apply(): void {
@@ -98,7 +160,8 @@ export class ShapeView implements NodeView {
     const w = Number(a.width) * PX, h = Number(a.height) * PX;
     const kind = String(a.kind);
     const wrap = String(a.wrap || 'front');
-    for (const [k, v] of [['wrap', wrap], ['side', String(a.side || 'left')], ['kind', kind], ['wordart', kind === 'wordArt' ? String(a.wordart || 'fill') : '']] as const) if ((this.dom.dataset[k] ?? '') !== v) { if (v) this.dom.dataset[k] = v; else delete this.dom.dataset[k]; }
+    for (const [k, v] of [['wrap', wrap], ['side', String(a.side || 'left')], ['kind', kind], ['wordart', kind === 'wordArt' ? String(a.wordart || 'fill') : ''], ['sid', String(a.id || '')], ['from', String(a.from || '')], ['to', String(a.to || '')]] as const) if ((this.dom.dataset[k] ?? '') !== v) { if (v) this.dom.dataset[k] = v; else delete this.dom.dataset[k]; }
+    if (kind === 'connector') { this.applyConnector(); return; }
     set(this.frame, 'width', `${w.toFixed(2)}px`);
     set(this.frame, 'height', `${h.toFixed(2)}px`);
     set(this.frame, 'transform', Number(a.rotate) ? `rotate(${Number(a.rotate)}deg)` : '');
@@ -147,7 +210,7 @@ export class ShapeView implements NodeView {
     if (arrows) for (const m of Array.from(this.svg.querySelectorAll('marker path'))) attr(m, 'fill', stroke);
     attr(this.path, 'marker-start', kind === 'line' && a.arrowStart ? `url(#${this.gid}s)` : null);
     attr(this.path, 'marker-end', kind === 'line' && a.arrowEnd ? `url(#${this.gid}e)` : null);
-    if (!this.editing && this.text.textContent !== String(a.text ?? '')) this.text.textContent = String(a.text ?? '');
+    if (!this.editing) this.renderText();
     set(this.text, 'color', kind === 'wordArt' ? '' : String(a.color || ''));
     set(this.text, 'font-size', `${(Number(a.size) || 11) * PX}px`);
     set(this.text, 'font-weight', a.bold ? '700' : '');
@@ -156,6 +219,24 @@ export class ShapeView implements NodeView {
     set(this.text, 'justify-content', a.valign === 'top' ? 'flex-start' : a.valign === 'bottom' ? 'flex-end' : 'center');
     set(this.text, '--wa-color', kind === 'wordArt' ? String(a.color || '#1a1a1a') : '');
     set(this.text, '--wa-accent', kind === 'wordArt' ? String(a.fill && a.fill !== 'none' ? a.fill : '#f97316') : '');
+  }
+
+  private applyConnector(): void {
+    const a = this.node.attrs;
+    const stroke = String(a.stroke || '#57534e');
+    const attr = (n: Element, k: string, v: string | null): void => { if (v === null) { if (n.hasAttribute(k)) n.removeAttribute(k); } else if (n.getAttribute(k) !== v) n.setAttribute(k, v); };
+    if (!this.svg.querySelector('marker')) {
+      const defs = this.svg.querySelector('defs') ?? this.svg.insertBefore(document.createElementNS(NS, 'defs'), this.svg.firstChild);
+      defs.insertAdjacentHTML('beforeend', `<marker id="${this.gid}s" viewBox="0 0 10 10" refX="1" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M10,0L0,5L10,10z"/></marker><marker id="${this.gid}e" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="5" markerHeight="5" orient="auto"><path d="M0,0L10,5L0,10z"/></marker>`);
+    }
+    for (const m of Array.from(this.svg.querySelectorAll('marker path'))) attr(m, 'fill', stroke);
+    attr(this.path, 'fill', 'none');
+    attr(this.path, 'stroke', stroke);
+    attr(this.path, 'stroke-width', String(round(Math.max(0.5, Number(a.strokeWidth) || 1.5) * PX)));
+    attr(this.path, 'stroke-linecap', 'round');
+    attr(this.path, 'marker-start', a.arrowStart ? `url(#${this.gid}s)` : null);
+    attr(this.path, 'marker-end', a.arrowEnd ? `url(#${this.gid}e)` : null);
+    attr(this.svg, 'aria-hidden', 'true');
   }
 
   update(node: PMNode): boolean {
@@ -170,32 +251,67 @@ export class ShapeView implements NodeView {
   stopEvent(e: Event): boolean { return this.editing || !!this.drag || (e.target instanceof HTMLElement && e.target.classList.contains('ft-pic-handle')); }
   ignoreMutation(): boolean { return true; }
 
+  private inner: EditorView | null = null;
+  private shown = '';
+
+  private blocks(): Block[] {
+    const a = this.node.attrs;
+    if (Array.isArray(a.content) && a.content.length) return a.content as Block[];
+    return String(a.text ?? '').split('\n').map((t) => ({ type: 'paragraph', style: 'Normal', content: t ? [{ type: 'text', text: t }] : [] }) as unknown as Block);
+  }
+
+  private renderText(): void {
+    const a = this.node.attrs;
+    const rich = Array.isArray(a.content) && a.content.length > 0;
+    const key = rich ? JSON.stringify(a.content) : `t:${String(a.text ?? '')}`;
+    if (key === this.shown) return;
+    this.shown = key;
+    if (!rich) { this.text.textContent = String(a.text ?? ''); return; }
+    this.text.replaceChildren(DOMSerializer.fromSchema(schema).serializeFragment(Fragment.fromArray(blocksToNodes(a.content as Block[]))));
+  }
+
   edit(): void {
     if (this.editing) return;
     this.editing = true;
-    this.text.setAttribute('contenteditable', 'plaintext-only');
     this.dom.classList.add('is-editing');
-    this.text.focus();
-    const sel = window.getSelection();
-    if (sel) { const r = document.createRange(); r.selectNodeContents(this.text); r.collapse(false); sel.removeAllRanges(); sel.addRange(r); }
+    this.text.replaceChildren();
+    this.shown = '';
+    const doc = schema.nodes.doc.create(null, blocksToNodes(this.blocks()));
+    this.inner = new EditorView(this.text, {
+      state: EditorState.create({ doc, plugins: [history(), keymap({ 'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo, 'Mod-b': toggleMark(schema.marks.bold), 'Mod-i': toggleMark(schema.marks.italic), 'Mod-u': toggleMark(schema.marks.underline) }), keymap(baseKeymap)] }),
+      attributes: { class: 'ft-shape-editor', spellcheck: 'true', 'aria-label': 'Shape text' },
+    });
+    this.inner.focus();
+    this.inner.dispatch(this.inner.state.tr.setSelection(Selection.atEnd(this.inner.state.doc)));
+    shapeEditing.view = this.inner;
   }
 
   private finish(save: boolean): void {
+    if (!this.editing) return;
     this.editing = false;
-    this.text.removeAttribute('contenteditable');
     this.dom.classList.remove('is-editing');
-    const value = (this.text.innerText ?? '').replace(/\n$/, '');
+    const inner = this.inner;
+    this.inner = null;
+    if (shapeEditing.view === inner) shapeEditing.view = null;
     const pos = this.getPos();
-    if (save && pos !== undefined && value !== String(this.node.attrs.text ?? '')) {
-      const tr = this.view.state.tr.setNodeMarkup(pos, undefined, { ...this.node.attrs, text: value });
-      tr.setSelection(NodeSelection.create(tr.doc, pos));
-      this.view.dispatch(tr);
-    } else this.text.textContent = String(this.node.attrs.text ?? '');
+    if (inner && save && pos !== undefined) {
+      const blocks = fromPM(inner.state.doc, '').map((b) => { const c = { ...(b as unknown as Record<string, unknown>) }; delete c.section; delete c.id; return c; });
+      const plain = inner.state.doc.textBetween(0, inner.state.doc.content.size, '\n', ' ');
+      const simple = blocks.every((b) => b.type === 'paragraph' && (!b.style || b.style === 'Normal') && !b.props && !b.list && ((b.content as Array<Record<string, unknown>> | undefined) ?? []).every((r) => r.type === 'text' && !r.marks));
+      inner.destroy();
+      const patch = simple ? { text: plain, content: null } : { text: plain, content: blocks };
+      if (plain !== String(this.node.attrs.text ?? '') || JSON.stringify(patch.content) !== JSON.stringify(this.node.attrs.content ?? null)) {
+        const tr = this.view.state.tr.setNodeMarkup(pos, undefined, { ...this.node.attrs, ...patch });
+        tr.setSelection(NodeSelection.create(tr.doc, pos));
+        this.view.dispatch(tr);
+      }
+    } else inner?.destroy();
+    this.renderText();
     this.view.focus();
   }
 
   private down(e: PointerEvent): void {
-    if (e.button !== 0 || !this.view.editable || this.editing) return;
+    if (e.button !== 0 || !this.view.editable || this.editing || this.node.attrs.kind === 'connector') return;
     const handle = (e.target as HTMLElement).closest<HTMLElement>('.ft-pic-handle')?.dataset.h;
     const wrap = this.dom.dataset.wrap;
     const free = wrap === 'behind' || wrap === 'front';
@@ -236,12 +352,14 @@ export class ShapeView implements NodeView {
     if (d.kind === 'move') {
       set(this.dom, 'left', `${(d.ox + (ev.clientX - d.x) / d.ratio).toFixed(2)}px`);
       set(this.dom, 'top', `${(d.oy + (ev.clientY - d.y) / d.ratio).toFixed(2)}px`);
+      if (this.dom.dataset.sid) placeConnectors(this.view.dom as HTMLElement);
       return;
     }
     if (d.kind === 'rot') { set(this.frame, 'transform', `rotate(${angleOf(d, ev)}deg)`); return; }
     const { w, h } = this.size(ev);
     set(this.frame, 'width', `${w.toFixed(2)}px`);
     set(this.frame, 'height', `${h.toFixed(2)}px`);
+    if (this.dom.dataset.sid) placeConnectors(this.view.dom as HTMLElement);
     if (['icon', 'ink'].includes(String(this.node.attrs.kind))) return;
     this.svg.setAttribute('viewBox', `0 0 ${w.toFixed(2)} ${h.toFixed(2)}`);
     const sw = this.node.attrs.stroke ? Math.max(0, Number(this.node.attrs.strokeWidth) || 0) * PX : 0;
@@ -303,7 +421,7 @@ export function shapeDefaults(kind: string): Record<string, unknown> {
 export function insertShape(attrs: Record<string, unknown>, at?: number): Command {
   return (state, dispatch) => {
     if (!dispatch) return true;
-    const node = schema.nodes.shape.create(attrs);
+    const node = schema.nodes.shape.create({ ...attrs, id: attrs.id || newShapeId() });
     const tr = at === undefined ? state.tr.replaceSelectionWith(node) : state.tr.insert(at, node);
     const pos = at === undefined ? tr.mapping.map(state.selection.from, -1) : at;
     try { tr.setSelection(NodeSelection.create(tr.doc, pos)); } catch { void 0; }

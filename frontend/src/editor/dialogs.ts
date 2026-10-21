@@ -433,7 +433,7 @@ export function shapePropertiesDialog(ed: DocEditor): void {
   const a = cur.node.attrs;
   const d = new Dialog('Shape', 600);
   const fixed = !(SHAPES as readonly string[]).includes(String(a.kind));
-  const kind = select(fixed ? [[String(a.kind), String(a.kind) === 'icon' ? 'Icon' : 'Ink drawing']] : SHAPES.map((k) => [k, SHAPE_LABELS[k] ?? k] as [string, string]), String(a.kind));
+  const kind = select(fixed ? [[String(a.kind), ({ icon: 'Icon', ink: 'Ink drawing', connector: 'Connector' } as Record<string, string>)[String(a.kind)] ?? String(a.kind)]] : SHAPES.map((k) => [k, SHAPE_LABELS[k] ?? k] as [string, string]), String(a.kind));
   kind.disabled = fixed;
   const shadow = input('checkbox', String(!!a.shadow));
   const gradient = input('color', a.gradient ? String(a.gradient) : '#7c3aed');
@@ -468,15 +468,15 @@ export function shapePropertiesDialog(ed: DocEditor): void {
   grid(d, [['Shape', kind], ['Fill', fill], ['No fill', noFill], ['Gradient to', gradient], ['Gradient fill', useGradient], ['Shadow', shadow], ['Outline', stroke], ['No outline', noStroke], ['Outline width (pt)', strokeWidth],
     ['Text colour', color], ['Text size (pt)', size], ['Bold', bold], ['Font', font], ['Text alignment', align], ['Vertical alignment', valign], ['WordArt style', wordart],
     ['Wrapping', wrap], ['Side', side], ['Width (pt)', width], ['Height (pt)', height], ['Rotation (degrees)', rotate], ['Offset left (pt, behind or in front)', x], ['Offset top (pt)', y], ['Position relative to', relative],
-    ...(a.kind === 'line' ? [['Arrow at start', arrowStart], ['Arrow at end', arrowEnd]] as Array<[string, HTMLElement]> : [])]);
+    ...(a.kind === 'line' || a.kind === 'connector' ? [['Arrow at start', arrowStart], ['Arrow at end', arrowEnd]] as Array<[string, HTMLElement]> : [])]);
   d.button('Cancel', 'ghost', () => d.close());
   d.button('Apply', 'primary', () => {
     ed.run(setShape({
       kind: kind.value, fill: noFill.checked ? '' : fill.value, stroke: noStroke.checked ? '' : stroke.value, shadow: shadow.checked, gradient: useGradient.checked && !noFill.checked ? gradient.value : '', strokeWidth: Math.max(0, Number(strokeWidth.value) || 0),
-      text: text.value, color: color.value, size: Math.max(4, Number(size.value) || 11), bold: bold.checked, font: font.value, align: align.value, valign: valign.value,
+      ...(text.value !== String(a.text ?? '') ? { text: text.value, content: null } : {}), color: color.value, size: Math.max(4, Number(size.value) || 11), bold: bold.checked, font: font.value, align: align.value, valign: valign.value,
       wordart: kind.value === 'wordArt' ? wordart.value : String(a.wordart ?? ''), wrap: wrap.value, side: side.value,
       width: Math.max(6, Number(width.value) || Number(a.width)), height: Math.max(3, Number(height.value) || Number(a.height)), rotate: Number(rotate.value) || 0, x: Number(x.value) || 0, y: Number(y.value) || 0,
-      relative: relative.value, arrowStart: a.kind === 'line' ? arrowStart.checked : a.arrowStart, arrowEnd: a.kind === 'line' ? arrowEnd.checked : a.arrowEnd,
+      relative: relative.value, arrowStart: a.kind === 'line' || a.kind === 'connector' ? arrowStart.checked : a.arrowStart, arrowEnd: a.kind === 'line' || a.kind === 'connector' ? arrowEnd.checked : a.arrowEnd,
     }));
     d.close();
   });

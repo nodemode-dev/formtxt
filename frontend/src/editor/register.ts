@@ -9,7 +9,7 @@ import { CellSelection, addColumnAfter, addColumnBefore, addRowAfter, addRowBefo
 import { el, setHidden, setText } from '../ui/dom';
 import { toast } from '../ui/toast';
 import { chartDialog, diagramDialog, equationDialog, shapeGalleryDialog, shapePropertiesDialog, symbolDialog } from './dialogs';
-import { SHAPES, SHAPE_WRAPS, WORDART, insertShape, selectedShape, setShape, shapeDefaults } from './shape';
+import { SHAPES, SHAPE_WRAPS, WORDART, insertShape, newShapeId, selectedShape, setShape, shapeDefaults } from './shape';
 import { putMath, selectedMath } from './math';
 import { findIcon, iconAttrs, iconsDialog } from './icons-dialog';
 import { DIAGRAM_COLORS, DIAGRAM_LAYOUTS, DIAGRAM_STYLES, type DiagramItem, insertDiagram, itemsToText, sampleItems, selectedDiagram, setDiagram, textToItems } from './diagram';
@@ -340,7 +340,56 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
     return ed.run(insertShape({ ...shapeDefaults('wordArt'), wordart: style, ...(p.text !== undefined ? { text: String(p.text) } : {}) }));
   }, [{ name: 'text', type: 'string', description: 'Text' }, { name: 'style', type: 'string', description: WORDART.join(', ') }]);
   add('shape.properties', 'Shape properties', 'Shape', 'Kind, fill, outline, text, WordArt style, wrapping, size, rotation and position of the selected shape.', () => { shapePropertiesDialog(ed); return true; });
-  add('shape.text', 'Shape text', 'Shape', 'Set the text inside the selected shape (double-click a shape to type in it).', needShape((_a, p) => ({ text: String(p.text ?? '').replace(/\\n/g, '\n') })), [{ name: 'text', type: 'string', description: 'Text; \\n starts a new line' }]);
+  add('shape.text', 'Shape text', 'Shape', 'Set the text inside the selected shape as plain text (double-click a shape to type and format in it).', needShape((_a, p) => ({ text: String(p.text ?? '').replace(/\\n/g, '\n'), content: null })), [{ name: 'text', type: 'string', description: 'Text; \\n starts a new line' }]);
+  const shapeIdAt = (pos: number): string => {
+    const v = ed.view!;
+    const n = v.state.doc.nodeAt(pos);
+    if (!n || n.type !== schema.nodes.shape) throw new Error('That is not a shape.');
+    if (n.attrs.id) return String(n.attrs.id);
+    const id = newShapeId();
+    v.dispatch(v.state.tr.setNodeMarkup(pos, undefined, { ...n.attrs, id }).setMeta('addToHistory', false));
+    return id;
+  };
+  const connect = (fromPos: number, toId: string): string => {
+    const v = ed.view!;
+    const fromId = shapeIdAt(fromPos);
+    if (fromId === toId) throw new Error('Pick a different shape to connect to.');
+    v.dispatch(v.state.tr.insert(fromPos + 1, schema.nodes.shape.create({ kind: 'connector', id: newShapeId(), from: fromId, to: toId, stroke: '#57534e', strokeWidth: 1.5, arrowEnd: true, fill: '', wrap: 'front', width: 12, height: 12 })));
+    return fromId;
+  };
+  add('shape.connect', 'Connect shapes', 'Shape', 'Draw a connector from the selected shape to another that follows both when they move; with no target, the next shape you click is the target (Esc cancels).', (p) => {
+    const s = ed.view ? selectedShape(ed.view.state) : null;
+    if (!s || !ed.view) throw new Error('Select the shape to connect from first.');
+    if (p.to !== undefined) {
+      let target = -1;
+      ed.view.state.doc.descendants((n, pos) => { if (n.type === schema.nodes.shape && n.attrs.id === String(p.to)) target = pos; return target < 0; });
+      if (target < 0) throw new Error(`No shape has the id ${String(p.to)}; shape.info shows a shape's id.`);
+      connect(s.pos, String(p.to));
+      return true;
+    }
+    const from = s.pos;
+    const root = ed.view.dom as HTMLElement;
+    root.classList.add('is-connecting');
+    toast('Click the shape to connect to (Esc cancels).');
+    const stop = (): void => { root.classList.remove('is-connecting'); document.removeEventListener('pointerdown', pick, true); document.removeEventListener('keydown', esc, true); };
+    const esc = (e: KeyboardEvent): void => { if (e.key === 'Escape') { e.preventDefault(); stop(); } };
+    const pick = (e: PointerEvent): void => {
+      const el = (e.target as HTMLElement).closest<HTMLElement>('.ft-pm-root .ft-shape');
+      stop();
+      if (!el || !ed.view) return;
+      e.preventDefault();
+      e.stopPropagation();
+      try {
+        const at = ed.view.posAtDOM(el, 0);
+        const pos = ed.view.state.doc.nodeAt(at)?.type === schema.nodes.shape ? at : at - 1;
+        const toId = shapeIdAt(pos);
+        connect(from, toId);
+      } catch (err) { toast((err as Error).message, 'error'); }
+    };
+    document.addEventListener('pointerdown', pick, true);
+    document.addEventListener('keydown', esc, true);
+    return true;
+  }, [{ name: 'to', type: 'string', description: 'Id of the target shape (see shape.info)' }]);
   add('shape.fill', 'Shape fill', 'Shape', 'Fill colour; empty removes the fill.', needShape((_a, p) => ({ fill: color(p.color) })), [{ name: 'color', type: 'string', description: '#rrggbb or empty' }]);
   add('shape.outline', 'Shape outline', 'Shape', 'Outline colour and width in points; empty colour removes the outline.', needShape((a, p) => ({ stroke: p.color === undefined ? a.stroke : color(p.color), strokeWidth: p.width === undefined ? a.strokeWidth : Math.max(0, Number(p.width) || 0) })), [{ name: 'color', type: 'string', description: '#rrggbb or empty' }, { name: 'width', type: 'number', description: 'Points' }]);
   add('shape.textFormat', 'Shape text format', 'Shape', 'Text colour, size, bold, font and alignment inside the selected shape.', needShape((a, p) => ({
@@ -366,7 +415,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   }), [{ name: 'wrap', type: 'string', description: SHAPE_WRAPS.join(', ') }, { name: 'side', type: 'string', description: 'left, center or right' }]);
   add('shape.position', 'Shape position', 'Shape', 'Offset a shape behind or in front of text from the top left of its paragraph, or of the page with relative=page, in points.', needShape((a, p) => ({ x: p.x === undefined ? a.x : Number(p.x) || 0, y: p.y === undefined ? a.y : Number(p.y) || 0, relative: p.relative === undefined ? a.relative : p.relative === 'page' ? 'page' : 'paragraph' })), [{ name: 'x', type: 'number', description: 'Points' }, { name: 'y', type: 'number', description: 'Points' }, { name: 'relative', type: 'string', description: 'paragraph or page' }]);
   add('shape.arrows', 'Line arrows', 'Shape', 'Arrowheads at the start and end of a line.', needShape((a, p) => {
-    if (a.kind !== 'line') throw new Error('Arrowheads apply to lines; insert one with insert.shape kind=line.');
+    if (a.kind !== 'line' && a.kind !== 'connector') throw new Error('Arrowheads apply to lines and connectors; insert one with insert.shape kind=line or shape.connect.');
     return { arrowStart: p.start === undefined ? a.arrowStart : !!p.start, arrowEnd: p.end === undefined ? a.arrowEnd : !!p.end };
   }), [{ name: 'start', type: 'boolean', description: 'Arrowhead at the start' }, { name: 'end', type: 'boolean', description: 'Arrowhead at the end' }]);
   add('shape.info', 'Shape at cursor', 'Shape', 'Properties of the selected shape.', () => { const s = ed.view ? selectedShape(ed.view.state) : null; return s ? { ...s.node.attrs, pos: s.pos } : null; });

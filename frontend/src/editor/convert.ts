@@ -123,6 +123,10 @@ function blocksToPM(body: Block[], top: boolean): PMNode[] {
   return blocks;
 }
 
+export function blocksToNodes(body: Block[]): PMNode[] {
+  return blocksToPM(body, false);
+}
+
 export function toPM(doc: FtxtDocument, tabIndex = 0): PMNode {
   return schema.nodes.doc.create(null, blocksToPM(doc.tabs[tabIndex]?.body ?? [], true));
 }

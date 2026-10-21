@@ -22,7 +22,7 @@ import { tablePlugins } from './table';
 import { PictureView, fitSize, insertPicture, naturalSize } from './picture';
 import { ChartView } from './chart/chart';
 import { MathView, loadMathFonts } from './math';
-import { ShapeView } from './shape';
+import { ShapeView, placeConnectors, shapeEditing } from './shape';
 import { InkTool } from './ink';
 import { DiagramView } from './diagram';
 import { api } from '../io/api';
@@ -151,7 +151,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     this.page = this.root.querySelector('.ft-page') as HTMLElement;
     this.pagesEl = this.root.querySelector('.ft-pages') as HTMLElement;
     this.paginator = new Paginator(() => this.view, this.pagesEl, () => this.doc?.sections[0] ?? null, () => { const st = (this.doc?.settings ?? {}) as unknown as Record<string, unknown>; return this.viewMode === 'draft' ? { ...st, pageless: true } : st; }, () => this.zoom);
-    this.paginator.onLayout = () => { this.placePageAnchored(); this.hooks.status(this.words()); };
+    this.paginator.onLayout = () => { this.placePageAnchored(); if (this.view) placeConnectors(this.view.dom as HTMLElement); this.hooks.status(this.words()); };
     this.paginator.beforeMeasure = layoutTabs;
     this.paginator.sectionsOf = () => this.doc?.sections ?? [];
     this.ink = new InkTool(this, () => this.pagesEl, (on) => setClass(this.root.querySelector('[data-cmd="view.draw"]'), 'is-on', on));
@@ -639,6 +639,11 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
 
   run(cmd: Command): boolean {
     if (!this.view) throw new Error('Open a document first.');
+    const inner = shapeEditing.view;
+    if (inner && !inner.isDestroyed) {
+      const done = cmd(inner.state, inner.dispatch, inner);
+      if (done) { inner.focus(); return done; }
+    }
     const ok = cmd(this.view.state, this.view.dispatch, this.view);
     this.view.focus();
     return ok;
