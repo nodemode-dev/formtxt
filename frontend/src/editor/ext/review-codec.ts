@@ -28,5 +28,17 @@ export const CODEC: AreaCodec = {
     },
     ins: change('ins'),
     del: change('del'),
+    fmt: {
+      mark: 'fmt',
+      toPM(value: unknown, schema: Schema): Mark | null {
+        if (!value || typeof value !== 'object') return null;
+        const v = value as Record<string, unknown>;
+        const ops = Array.isArray(v.ops) ? v.ops.filter((o) => o && typeof o === 'object') : [];
+        return schema.marks.fmt.create({ id: String(v.id ?? ''), author: String(v.author ?? ''), time: Number(v.time ?? 0) || 0, ops });
+      },
+      fromPM(mark: Mark): unknown {
+        return { id: mark.attrs.id, author: mark.attrs.author, time: mark.attrs.time, ops: mark.attrs.ops };
+      },
+    },
   },
 };

@@ -28,9 +28,26 @@ const change = (tag: 'ins' | 'del'): MarkSpec => ({
   }, 0],
 });
 
+const paraChange = (kind: 'split' | 'join') => ({
+  default: null,
+  dom: (v: unknown): Record<string, string> | null => {
+    const a = v as { id?: string; author?: string } | null;
+    if (!a?.id) return null;
+    return { [`data-rv-${kind}`]: String(a.author ?? ''), style: `--rv:${authorColor(String(a.author ?? ''))}` };
+  },
+});
+
 export const SPEC: AreaSpec = {
   ...emptySpec(),
+  paraAttrs: { rvSplit: paraChange('split'), rvJoin: paraChange('join') },
   marks: {
+    fmt: {
+      attrs: { id: { default: '' }, author: { default: '' }, time: { default: 0 }, ops: { default: [] } },
+      inclusive: false,
+      excludes: '',
+      parseDOM: [{ tag: 'span.ft-fmt', getAttrs: (d) => { const n = d as HTMLElement; try { return { id: n.dataset.id ?? '', author: n.dataset.author ?? '', time: Number(n.dataset.time ?? 0) || 0, ops: JSON.parse(n.dataset.ops ?? '[]') as unknown }; } catch { return false; } } }],
+      toDOM: (m) => ['span', { class: 'ft-fmt', 'data-id': String(m.attrs.id), 'data-author': String(m.attrs.author), 'data-time': String(m.attrs.time), 'data-ops': JSON.stringify(m.attrs.ops), style: `--rv:${authorColor(String(m.attrs.author))}` }, 0],
+    },
     comment: {
       attrs: { ids: { default: [] } },
       inclusive: false,

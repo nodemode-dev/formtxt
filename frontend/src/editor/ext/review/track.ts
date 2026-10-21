@@ -1,7 +1,7 @@
 import { Plugin, PluginKey, Selection, TextSelection } from 'prosemirror-state';
 import type { EditorState, Transaction } from 'prosemirror-state';
 import { Fragment, type Mark, type Node as PMNode } from 'prosemirror-model';
-import { ReplaceStep } from 'prosemirror-transform';
+import { AddMarkStep, RemoveMarkStep, ReplaceStep } from 'prosemirror-transform';
 import { schema } from '../../schema';
 import { type Mode, type Range, allComments, commentRanges, ed, me, newId, nowSec, notify, sameName, view } from './core';
 import { REVIEW_META } from './comments';
@@ -55,18 +55,35 @@ export function setMode(next: Mode): Mode {
   return mode;
 }
 
-type ChangeKind = 'ins' | 'del';
-export interface Change { key: string; id: string; kind: ChangeKind; author: string; time: number; ranges: Range[]; text: string }
+type ChangeKind = 'ins' | 'del' | 'fmt' | 'split' | 'join';
+export interface Change { key: string; id: string; kind: ChangeKind; author: string; time: number; ranges: Range[]; text: string; ops?: Array<{ op: string; mark: string; attrs: Record<string, unknown> }> }
 
-function markOf(node: PMNode, kind: ChangeKind): Mark | undefined {
+export const KIND_LABEL: Record<ChangeKind, string> = { ins: 'inserted', del: 'deleted', fmt: 'formatted', split: 'new paragraph', join: 'joined paragraphs' };
+
+function markOf(node: PMNode, kind: 'ins' | 'del' | 'fmt'): Mark | undefined {
   return node.marks.find((m) => m.type === schema.marks[kind]);
 }
 
 export function collectChanges(doc: PMNode): Change[] {
   const map = new Map<string, Change>();
   doc.descendants((node, pos) => {
+    if (node.type === schema.nodes.paragraph) {
+      for (const kind of ['split', 'join'] as const) {
+        const a = node.attrs[kind === 'split' ? 'rvSplit' : 'rvJoin'] as { id?: string; author?: string; time?: number } | null;
+        if (a?.id) map.set(`${kind}:${a.id}`, { key: `${kind}:${a.id}`, id: a.id, kind, author: String(a.author ?? ''), time: Number(a.time ?? 0), ranges: [{ from: pos, to: pos + node.nodeSize }], text: kind === 'split' ? 'Paragraph break' : 'Paragraph mark' });
+      }
+    }
     if (!node.isInline) return true;
-    for (const kind of ['ins', 'del'] as ChangeKind[]) {
+    const fm = markOf(node, 'fmt');
+    if (fm) {
+      const key = `fmt:${fm.attrs.id}:${pos}`;
+      const prevKey = [...map.keys()].reverse().find((k) => k.startsWith(`fmt:${fm.attrs.id}:`));
+      const prev = prevKey ? map.get(prevKey) : undefined;
+      const last = prev?.ranges[prev.ranges.length - 1];
+      if (prev && last && last.to === pos && JSON.stringify(prev.ops) === JSON.stringify(fm.attrs.ops)) { last.to = pos + node.nodeSize; prev.text += node.isText ? node.text ?? '' : ''; }
+      else map.set(key, { key, id: String(fm.attrs.id), kind: 'fmt', author: String(fm.attrs.author), time: Number(fm.attrs.time), ranges: [{ from: pos, to: pos + node.nodeSize }], text: node.isText ? node.text ?? '' : '', ops: fm.attrs.ops as Change['ops'] });
+    }
+    for (const kind of ['ins', 'del'] as const) {
       const m = markOf(node, kind);
       if (!m) continue;
       const key = `${kind}:${m.attrs.id}`;
@@ -82,7 +99,7 @@ export function collectChanges(doc: PMNode): Change[] {
   return [...map.values()].sort((a, b) => a.ranges[0].from - b.ranges[0].from);
 }
 
-function attrsFor(doc: PMNode, from: number, to: number, kind: ChangeKind): { id: string; author: string; time: number } {
+function attrsFor(doc: PMNode, from: number, to: number, kind: 'ins' | 'del'): { id: string; author: string; time: number } {
   const name = who();
   const t = nowSec();
   const near = [doc.resolve(from).nodeBefore, doc.resolve(to).nodeAfter];
@@ -108,10 +125,41 @@ function skip(tr: Transaction): boolean {
   return !!(tr.getMeta(REVIEW_META) || tr.getMeta(trackKey) || tr.getMeta('history$') || tr.getMeta('fields') || tr.getMeta('appendedTransaction') || tr.getMeta('addToHistory') === false);
 }
 
+const UNTRACKED = new Set(['ins', 'del', 'fmt', 'comment']);
+
+function trackFormat(tr: Transaction, newState: EditorState): Transaction | null {
+  const steps = tr.steps as Array<AddMarkStep | RemoveMarkStep>;
+  const ops = steps.filter((s) => !UNTRACKED.has(s.mark.type.name));
+  if (!ops.length) return null;
+  const fix = newState.tr.setMeta(trackKey, true).setMeta('addToHistory', true);
+  const fmt = schema.marks.fmt;
+  const name = who();
+  for (const s of ops) {
+    const op = { op: s instanceof AddMarkStep ? 'add' : 'remove', mark: s.mark.type.name, attrs: s.mark.attrs };
+    const pieces: Array<{ from: number; to: number; prev: Mark | undefined }> = [];
+    fix.doc.nodesBetween(s.from, s.to, (node, pos) => {
+      if (!node.isInline) return true;
+      pieces.push({ from: Math.max(pos, s.from), to: Math.min(pos + node.nodeSize, s.to), prev: node.marks.find((m) => m.type === fmt) });
+      return false;
+    });
+    for (const p of pieces) {
+      const before = (p.prev?.attrs.ops as unknown[] | undefined) ?? [];
+      const id = p.prev ? String(p.prev.attrs.id) : '';
+      if (p.prev) fix.removeMark(p.from, p.to, p.prev);
+      fix.addMark(p.from, p.to, fmt.create({ id: id || newId('r_'), author: name, time: nowSec(), ops: [...before, op] }));
+    }
+  }
+  return fix.steps.length ? fix : null;
+}
+
 function track(trs: readonly Transaction[], oldState: EditorState, newState: EditorState): Transaction | null {
   const changed = trs.filter((t) => t.docChanged);
-  if (changed.length !== 1 || trs[trs.length - 1] !== changed[0]) return null;
-  const tr = changed[0];  if (skip(tr) || tr.steps.length !== 1 || !(tr.steps[0] instanceof ReplaceStep)) return null;
+  const own = changed.filter((t) => !t.getMeta('appendedTransaction'));
+  const sizeKept = (t: Transaction): boolean => t.docs.every((d, i) => d.content.size === (t.docs[i + 1] ?? t.doc).content.size);
+  if (own.length !== 1 || changed[0] !== own[0] || !changed.slice(1).every(sizeKept)) return null;
+  const tr = own[0];
+  if (!skip(tr) && tr.steps.length && tr.steps.every((s) => s instanceof AddMarkStep || s instanceof RemoveMarkStep)) return trackFormat(tr, newState);
+  if (skip(tr) || tr.steps.length !== 1 || !(tr.steps[0] instanceof ReplaceStep)) return null;
   const step = tr.steps[0] as ReplaceStep & { from: number; to: number };
   const prev = tr.docs[0];
   const { from, to } = step;
@@ -139,6 +187,15 @@ function track(trs: readonly Transaction[], oldState: EditorState, newState: Edi
       fix.step(step.invert(prev));
       const attrs = attrsFor(fix.doc, from, to, 'del');
       fix.addMark(from, to, schema.marks.del.create(attrs));
+      const joined: number[] = [];
+      fix.doc.nodesBetween(from, to, (node, pos) => {
+        if (node.type === schema.nodes.paragraph) { const end = pos + node.nodeSize; if (end > from && end <= to) joined.push(pos); return false; }
+        return true;
+      });
+      for (const pos of joined) {
+        const node = fix.doc.nodeAt(pos);
+        if (node) fix.setNodeMarkup(pos, undefined, { ...node.attrs, rvJoin: { id: newId('r_'), author: who(), time: nowSec() } });
+      }
       if (size && step.slice.openStart === 0 && step.slice.openEnd === 0 && flat(step.slice.content)) {
         fix.insert(to, step.slice.content);
         const a = attrsFor(fix.doc, to, to, 'ins');
@@ -151,6 +208,18 @@ function track(trs: readonly Transaction[], oldState: EditorState, newState: Edi
   if (size) {
     const a = attrsFor(fix.doc, from + gap, from + gap, 'ins');
     fix.addMark(from + gap, from + gap + size, schema.marks.ins.create(a));
+    if (step.slice.openStart > 0 || !flat(step.slice.content)) {
+      const lo = from + gap, hi = from + gap + size;
+      const split: number[] = [];
+      fix.doc.nodesBetween(lo, hi, (node, pos) => {
+        if (node.type === schema.nodes.paragraph) { if (pos >= lo && pos < hi) split.push(pos); return false; }
+        return true;
+      });
+      for (const pos of split) {
+        const node = fix.doc.nodeAt(pos);
+        if (node && !node.attrs.rvSplit) fix.setNodeMarkup(pos, undefined, { ...node.attrs, rvSplit: { id: newId('r_'), author: who(), time: nowSec() } });
+      }
+    }
   }
   return finish(fix, caret);
 }
@@ -185,10 +254,34 @@ function wholeBlock(tr: Transaction, from: number, to: number): { from: number; 
 export function applyChanges(list: Change[], accept: boolean): number {
   const v = view();
   const tr = v.state.tr.setMeta(REVIEW_META, true);
-  const jobs: Array<{ from: number; to: number; remove: boolean; kind: ChangeKind }> = [];
-  for (const c of list) for (const r of c.ranges) jobs.push({ from: r.from, to: r.to, remove: (c.kind === 'ins') !== accept, kind: c.kind });
+  const jobs: Array<{ from: number; to: number; remove: boolean; kind: ChangeKind; c: Change }> = [];
+  for (const c of list) for (const r of c.ranges) jobs.push({ from: r.from, to: r.to, remove: (c.kind === 'ins') !== accept, kind: c.kind, c });
   jobs.sort((a, b) => b.from - a.from);
   for (const j of jobs) {
+    if (j.kind === 'fmt') {
+      const fm = tr.doc.nodeAt(j.from)?.marks.find((m) => m.type === schema.marks.fmt);
+      if (!accept) {
+        for (const op of [...(j.c.ops ?? [])].reverse()) {
+          const type = schema.marks[op.mark];
+          if (!type) continue;
+          if (op.op === 'add') tr.removeMark(j.from, j.to, type); else tr.addMark(j.from, j.to, type.create(op.attrs));
+        }
+      }
+      tr.removeMark(j.from, j.to, fm ?? schema.marks.fmt);
+      continue;
+    }
+    if (j.kind === 'split' || j.kind === 'join') {
+      const node = tr.doc.nodeAt(j.from);
+      if (!node) continue;
+      const attr = j.kind === 'split' ? 'rvSplit' : 'rvJoin';
+      tr.setNodeMarkup(j.from, undefined, { ...node.attrs, [attr]: null });
+      const joinAt = j.kind === 'split' ? j.from : j.from + node.nodeSize;
+      if ((j.kind === 'split') !== accept && joinAt > 0 && joinAt < tr.doc.content.size) {
+        const $p = tr.doc.resolve(joinAt);
+        if ($p.nodeBefore?.type === schema.nodes.paragraph && $p.nodeAfter?.type === schema.nodes.paragraph) tr.join(joinAt);
+      }
+      continue;
+    }
     if (j.remove) {
       const w = wholeBlock(tr, j.from, j.to);
       tr.delete(w.from, w.to);

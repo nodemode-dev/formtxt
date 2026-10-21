@@ -6,7 +6,7 @@ import { authorColor } from '../review-spec';
 import { type Comment, type Mode, type Reply, allComments, ed, me, onChange, people, sameName, view, when } from './core';
 import { REVIEW_META, activeId, addComment, deleteMessage, editMessage, gotoComment, linkTo, mentionsIn, replyTo, selectionRange, setAssignee, setKnownNames, setResolved, toggleReaction, threads } from './comments';
 import { ICON, REACTIONS } from './icons';
-import { type Change, applyChanges, collectChanges, currentMode, editorsOf, moveToChange, onMode, setMode } from './track';
+import { type Change, KIND_LABEL, applyChanges, collectChanges, currentMode, editorsOf, moveToChange, onMode, setMode } from './track';
 
 type Tab = 'comments' | 'changes';
 type Compose = { kind: 'new' | 'reply' | 'edit'; cid: string; rid: string; range?: { from: number; to: number } };
@@ -132,7 +132,7 @@ function updateChange(n: HTMLElement, c: Change): void {
   const color = authorColor(c.author);
   if (dot.style.background !== color) dot.style.background = color;
   setText(n.querySelector('.rv-author'), c.author || 'Unknown');
-  setText(n.querySelector('.rv-kind'), c.kind === 'ins' ? 'inserted' : 'deleted');
+  setText(n.querySelector('.rv-kind'), c.kind === 'fmt' ? `formatted: ${(c.ops ?? []).map((o) => `${o.op === 'add' ? '' : 'not '}${o.mark}`).join(', ')}` : KIND_LABEL[c.kind]);
   setText(n.querySelector('.rv-time'), when(c.time));
   const snip = n.querySelector<HTMLElement>('.rv-snip')!;
   setText(snip, c.text.length > 140 ? `${c.text.slice(0, 140)}...` : c.text);
