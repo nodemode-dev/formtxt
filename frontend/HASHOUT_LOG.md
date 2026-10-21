@@ -2,7 +2,7 @@
 
 Living log of comment content, rationale and removed code for the frontend. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.6.0
+Current build version: v0.27.0
 Last updated: 2026-10-21 · app icon; Phase 3b ruler, views, line numbers, cover page, header and footer editing
 
 ---
@@ -578,3 +578,55 @@ frontend/
 - kind: rationale
 - logged: v0.1.0 · 2026-10-21
 - The one declared scale, a subset of FormDeck's: behind (-1, added in v0.9.0 for pictures behind text, only meaningful inside the isolated `.ft-pm-root`), base, raised, chrome, menu, modal, context, toast, home, home-modal, overlay. Anything that must escape its container renders into `#overlay-root`, a direct child of `body`.
+
+## src/editor/ext/ {#ext}
+
+### ext · area seams
+- refers-to: src/editor/ext/index.ts, specs.ts, codecs.ts, ui.ts, plugins.ts
+- kind: rationale
+- logged: v0.27.0 · 2026-10-21
+- Phases 5 to 11 were built as nine areas (refs, review, versions, exchange, print, proofing, ai, objects, collab) plus views, so parallel work never touched the same file. Each area owns `<area>-spec.ts` (nodes, marks, paraAttrs with `dom()`), `<area>-codec.ts` (inline, block and mark codecs) and `<area>.ts` exporting `register(reg, ed)`. schema.ts merges EXT_NODES, EXT_MARKS and EXT_PARA_ATTRS; convert.ts asks the codecs before its own fallbacks; editor.ts spreads EXT_PLUGINS and EXT_NODE_VIEWS and runs EXT_LOADED after every load. ui.ts owns the menu bar order (File, Insert, Format, References, Review, Tools, AI, View, Share) and the one side panel (`openPanel`, `togglePanel`, `panelOpen`, `closePanel`), so two areas cannot open overlapping panels.
+
+### ext · views
+- refers-to: src/editor/ext/views.ts :: view.multiPage, view.onePage, view.gridlines
+- kind: rationale
+- logged: v0.27.0 · 2026-10-21
+- Multiple pages uses CSS multicol on `.ft-pages[data-multi="on"]` with one column per page pitch, and generated nth-child rules translate the sheets. Multicol is switched off in `beforeMeasure` and back on in `onLayout` so the paginator always measures one column; no node is rebuilt, which keeps the toggle flash-free under 4x CPU.
+
+### ext · review tracking
+- refers-to: src/editor/ext/review/track.ts :: suggestAs(), fmt mark, rvSplit, rvJoin
+- kind: rationale
+- logged: v0.27.0 · 2026-10-21
+- `suggestAs(author, fn)` records every change made inside `fn` under that name, which is how AI document edits arrive as tracked suggestions. Formatting changes are a `fmt` mark holding the previous marks; paragraph splits and joins are the `rvSplit` and `rvJoin` paraAttrs so reject can rejoin or split back. Appended transactions that only change attributes (uniqueIds) keep the size, so the tracker tolerates them (`sizeKept`); without this Enter was never tracked.
+- kind: gotcha
+- `editorsWithHistory()` merges editors named in version history with marks in the text; the engine answers `GET /api/versions/{id}/editors`.
+
+### ext · footnotes at the page foot
+- refers-to: src/editor/pages.ts :: reserve; src/editor/ext/refs/footnotes.ts
+- kind: rationale
+- logged: v0.27.0 · 2026-10-21
+- The paginator takes `reserve(page)`, subtracted in `bottomOf`, so each page leaves room for the notes referenced on it; footnotes.ts measures the note block per page and draws it in the reserved band. Endnotes keep the refs block with `data-which`.
+
+### ext · ink tools
+- refers-to: src/editor/ink.ts; register.ts :: view.draw
+- kind: rationale
+- logged: v0.27.0 · 2026-10-21
+- `view.draw tool=pen|highlighter|eraser`. Highlighter strokes are ink shapes with `wrap: 'behind'` and `opacity: 0.45` (the shape attr `opacity` is new in 0.27.0), so they sit under the text like a marker. The `.ft-ink-bar` toolbar picks colour and width.
+
+### ext · PDF drawings
+- refers-to: src/editor/ext/print/raster.ts :: rasterize(), shapeKey(), drawings()
+- kind: rationale
+- logged: v0.27.0 · 2026-10-21
+- The engine cannot draw shapes, diagrams, Mermaid or every chart kind, so the window rasterizes them (foreignObject SVG with inlined computed styles, at 2x) and posts them as `_drawings` with the document. Blocks are keyed by id; shapes by `shapeKey`, which the engine computes the same way (`writer.py shape_key`). Pictures inside a drawing are removed before rasterizing because a tainted canvas cannot export.
+
+### ext · agents and actors
+- refers-to: src/automation/actor.ts :: asAgent(), noteEdit(), takeEditor()
+- kind: rationale
+- logged: v0.27.0 · 2026-10-21
+- Commands that arrive over the live bridge run inside `asAgent`, so the next save carries `?by=agent:<name>` and Activity names the agent rather than the person.
+
+### ext · keystroke budget
+- refers-to: src/editor/editor.ts :: makeState
+- kind: gotcha
+- logged: v0.27.0 · 2026-10-21
+- With all area plugins loaded, a keystroke on a 400-paragraph document at 4x CPU takes 40 to 57 ms (23 to 37 ms at 0.26.0). The proofing and review plugins are the largest share; moving their scans to idle time is the next step.

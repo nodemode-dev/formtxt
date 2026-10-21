@@ -2,7 +2,7 @@
 
 Living log of comment content, rationale and removed code for the engine. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.4.0
+Current build version: v0.27.0
 Last updated: 2026-10-21 · Phase 2b window bridge, keys in settings
 
 ---
@@ -230,3 +230,47 @@ backend/
 - kind: gotcha
 - logged: v0.21.0 · 2026-10-21
 - From the build sandbox Openverse answered once, then rate-limited (429) and timed out, and Cloudflare refuses Python's default user agent outright (error 1010), which is why requests carry a FormTxt user agent. The window-to-engine-to-service path was checked against a stand-in that returns the services' documented response shapes; a live check against both services is still owed.
+
+## app/routers/{refs,review,versions,exchange,printing,proofing,ai,objects,collab}.py {#areas}
+
+### areas · one router per area
+- refers-to: app/main.py :: include_router
+- kind: rationale
+- logged: v0.27.0 · 2026-10-21
+- Each frontend area has its own router under `/api` and its services in `app/services/<area>`, so area work never collided in main.py.
+
+### areas · secrets
+- refers-to: app/services/ai, app/services/versions.py :: set_cloud_folder()
+- kind: rationale
+- logged: v0.27.0 · 2026-10-21
+- AI provider keys live in `data/ai.json` and WebDAV credentials in `data/cloud.json`, both mode 600, and no endpoint returns them; `/api/settings` reports only whether they are set.
+
+### printing · drawings from the window
+- refers-to: app/services/printing/writer.py :: Ctx.drawing(), shape_key(), figure_image(); app/routers/printing.py :: export_current()
+- kind: rationale
+- logged: v0.27.0 · 2026-10-21
+- `POST /api/print/export.pdf` accepts `_drawings: {blocks, shapes}` of PNG data URLs. Diagram and Mermaid blocks, and chart kinds the writer cannot draw natively, become figure images; shape runs use the shape drawing. A paragraph holding only shapes (or pictures) becomes Image flowables, because an inline `<img valign>` draws upward from the baseline and overlapped the line above.
+
+### printing · OCR
+- refers-to: app/services/printing/pdfimport.py :: ocr_paragraphs(), ocr_available()
+- kind: rationale
+- logged: v0.27.0 · 2026-10-21
+- Pages without a text layer are rendered with pypdfium2 and read with RapidOCR (ONNX, no system Tesseract), so opening a scanned PDF needs nothing beyond requirements.txt.
+
+### versions · WebDAV and attribution
+- refers-to: app/services/versions.py :: dav_list(), dav_fetch(), copy_out(), editors(), set_editor_hint()
+- kind: rationale
+- logged: v0.27.0 · 2026-10-21
+- Cloud copies are PUT in a background thread so a slow server never blocks a save. The documents PUT takes `?by=` and `set_editor_hint` records it so version history names the person or agent behind each save; `editors()` answers who edited a range.
+
+### review · table compare
+- refers-to: app/services/review.py :: same_shape(), diff_table()
+- kind: rationale
+- logged: v0.27.0 · 2026-10-21
+- Tables with the same rows and columns compare cell by cell; otherwise the whole table is one change, as Word does.
+
+### proofing · thesaurus
+- refers-to: app/services/proofing/wordnet.py; GET /api/proofing/thesaurus
+- kind: rationale
+- logged: v0.27.0 · 2026-10-21
+- WordNet ships through the wordnet-db npm package data, read offline, so the thesaurus and dictionary work without a network.
