@@ -16,7 +16,7 @@ Readers refuse a package whose `mimetype` differs, that lacks `document.json`, o
 
 ## Units and ids
 
-Lengths are points (1/72 inch). Colours are `#rrggbb`. Ids are a prefix plus 4 to 40 lowercase letters or digits: `d_` document, `sec_` section, `tab_` document tab, `p_` paragraph, `t_` table.
+Lengths are points (1/72 inch). Colours are `#rrggbb`. Ids are a prefix plus 4 to 40 lowercase letters or digits: `d_` document, `sec_` section, `tab_` document tab, `p_` paragraph, `t_` table, `c_` chart.
 
 ## document.json
 
@@ -54,9 +54,10 @@ Each body entry has `type` and `id`. Version 1 defines:
 | `code` | `text`, the block's plain text |
 | `pageBreak` | nothing else |
 | `sectionBreak` | `next`, the id of the section that starts after the break; blocks before the first break belong to `sections[0]` |
+| `chart` | `kind` (`bar`, `hbar`, `line`, `area`, `donut`, `radial`, `number`, `gauge`, `histogram`, `dots`, `compare`, `heatmap` or `calendar`), `width` and `height` (points), `data` (`categories`, a list of labels, and `series`, each `{name, values}` with one number or null per category and an optional `color` of `orange`, `blue`, `teal`, `amber`, `rose`, `green`, `cyan`, `pink`, `violet` or `gray`), and optional `title`, `align` (`left` or `right`; absent is centred) and `options` (`labels`, `legend`, `smooth`, `stacked` as booleans, `fn` of `sum`, `average`, `min`, `max` or `count` for the number a `number`, `gauge` or doughnut shows, and `target`). A `calendar` chart reads its categories as `YYYY-MM-DD` dates. Charts are drawn from this data by the editor; nothing else is stored |
 | `table` | `columns` (column widths in points, 0 for automatic), `rows` (each `{cells}`), optional `look` (`grid`, `plain`, `rows`, `banded` or `accent`; default `grid`), `repeatHeader` (repeat the leading rows made only of header cells on each page the table continues on) and `align` (`center`, or absent for left) |
 
-A table cell is `{body}` with optional `header` (`true` for a header cell), `colspan` and `rowspan` (default 1), `shading` (`#rrggbb`) and `valign` (`middle` or `bottom`; absent is top). `body` is a list of blocks: paragraphs, code blocks and nested tables, never page or section breaks. A cell covered by another cell's span is not written, as in HTML; every row covers the same number of columns. Rows do not split across pages; a row taller than a page runs past its bottom margin.
+A table cell is `{body}` with optional `header` (`true` for a header cell), `colspan` and `rowspan` (default 1), `shading` (`#rrggbb`) and `valign` (`middle` or `bottom`; absent is top). `body` is a list of blocks: paragraphs, code blocks, charts and nested tables, never page or section breaks. A cell covered by another cell's span is not written, as in HTML; every row covers the same number of columns. Rows do not split across pages; a row taller than a page runs past its bottom margin.
 
 Inline nodes in `content` are `text` (`text`, optional `marks`), `break` (a line break inside a paragraph), `image` (below) and `tab` (a tab character, advanced to the paragraph's next tab stop or to the next multiple of `settings.defaultTab`, 36 points when unset). `marks` keys: `bold`, `italic`, `strike`, `superscript`, `subscript`, `smallCaps`, `allCaps`, `code` (each `true`), `underline` (`true` for single, or `double`, `dotted`, `dash`, `wavy`), `font` (family name), `size` (points), `spacing` (character spacing in points), `color` and `highlight` (`#rrggbb`), and `link` (address). Later phases add shapes, charts and the rest as new block and inline types; readers keep unknown types intact on save.
 

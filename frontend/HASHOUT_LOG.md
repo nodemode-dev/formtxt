@@ -263,7 +263,31 @@ frontend/
 - refers-to: src/editor/editor.ts :: insertPictures(); src/editor/schema.ts :: mediaUrl()
 - kind: warning-context
 - logged: v0.9.0 · 2026-10-21
-- Files go to `POST /api/documents/{id}/media` first and come back named by content hash; the editor reads the natural size, records metadata in `doc.media` and inserts the picture fitted to the page body. Paste and drop of image files use the same path. Pictures copied between two documents keep their media name, which the other document does not have yet, so they show empty until a later phase copies media with the clipboard. Media is never pruned when a picture is deleted, so Undo always works; compacting the package is later work.
+- Files go to `POST /api/documents/{id}/media` first and come back named by content hash; the editor reads the natural size, records metadata in `doc.media` and inserts the picture fitted to the page body. Paste and drop of image files use the same path. Pictures copied between two documents are copied across on paste (see "pictures · pasting between documents", v0.10.0). Media is never pruned when a picture is deleted, so Undo always works; compacting the package is later work.
+
+### charts · Form.md's renderer, FormTxt's data
+- refers-to: src/editor/chart/chartdraw.ts, chartkinds.ts (ported), chart/chart.ts :: toResult(), ChartView
+- kind: rationale
+- logged: v0.10.0 · 2026-10-21
+- The two drawing files are Form.md's, kept as close to the original as possible (double quotes and all) so fixes can travel between the repos. They draw into an SVG by keyed element reuse, so a chart edit patches marks in place rather than rebuilding the SVG. Form.md feeds them query results; FormTxt keeps a chart's own table (`categories` by `series`) in the node and `toResult` turns it into the same shape: the first series' aggregate is the big number, `dots` treats each series as a group of points, and `calendar` keys categories by date. Notes carried over from the original comments: `fitText` tries the full value then the compact one at the largest size that fits; axis day labels drop the current year; legends wrap onto more rows and shrink to 10 then 9 px instead of dropping items, never clipping an item's value tail; the doughnut and gauge totals are sized to the hole's chord at the text's cap height; data labels fall back from full to compact values, then drop the smaller of each colliding pair, and stay inside the chart box.
+
+### charts · locale
+- refers-to: src/editor/chart/types.ts :: locale()
+- kind: warning-context
+- logged: v0.10.0 · 2026-10-21
+- `navigator.language` can be a POSIX-style tag such as `en-US@posix` (the headless test browser reports exactly that), which `Intl.NumberFormat` rejects; inserting a chart then threw. The locale is canonicalised once, with `en-US` as the fallback.
+
+### charts · colours on paper
+- refers-to: styles/editor.css figure.ft-chart
+- kind: rationale
+- logged: v0.10.0 · 2026-10-21
+- Chart colours are fixed light-theme values scoped to `figure.ft-chart`, not app tokens, because the page is paper in both themes and an exported chart must look the same as the page. The first series takes the document's template accent.
+
+### pictures · pasting between documents
+- refers-to: src/editor/schema.ts :: image parseDOM, from; src/editor/editor.ts :: adoptForeignMedia()
+- kind: explainer
+- logged: v0.10.0 · 2026-10-21
+- Copied pictures carry their source document in the image URL, which parsing turns into a transient `from` attribute (never saved). While `from` is set the picture shows from the source document; after a paste or drop the editor fetches the file, uploads it here (the content-hash name stays the same), records its metadata and clears `from` outside undo history. Crop, rotation and adjustments travel in `data-pic`.
 
 ### pages · cost
 - refers-to: src/editor/pages.ts :: layout()

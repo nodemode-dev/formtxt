@@ -159,6 +159,12 @@ backend/
 - logged: v0.9.0 · 2026-10-21
 - Uploads are identified by their first bytes, not the file name or the browser's type: PNG, JPEG, GIF, WebP, BMP and SVG, up to 40 MB each. They are named by the first 20 hex digits of their SHA-256, so the same picture is stored once and the name can be cached forever. Adding media rewrites the package under the store lock and leaves `document.json` alone, so it never races the editor's autosave. Media responses carry `content-security-policy: default-src 'none'; sandbox` and `nosniff`, so an SVG opened directly cannot run script on the app's origin. Each request unpacks the package; a cache is later work if large documents need it.
 
+### data · reading .csv and .xlsx for charts
+- refers-to: app/services/tabular.py :: parse(), _xlsx(); app/routers/data.py
+- kind: rationale
+- logged: v0.10.0 · 2026-10-21
+- `POST /api/data/parse` turns an uploaded .csv, .tsv or .xlsx into rows of strings for the chart editor; nothing is stored. Workbooks are read with the standard library (zip plus XML): shared strings, inline strings, booleans and cached formula values, the first sheet unless one is named, up to 5,000 rows and 60 columns, with floating-point noise such as 0.30000000000000004 rounded to six places. CSV dialects are sniffed among comma, semicolon, tab and pipe. A live link that refreshes from a file on disk needs the desktop shell and is later work.
+
 ### model · walking blocks
 - refers-to: app/services/model.py :: iter_runs(); app/services/thumbs.py :: render()
 - kind: explainer
