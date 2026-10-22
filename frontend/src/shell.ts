@@ -15,6 +15,12 @@ import { wordMenus } from './ui/shell/word-menus';
 import { applyCommandIcons } from './ui/shell/word-icons';
 import { wordSlots } from './ui/shell/word-slots';
 import { commands } from './engine/registry';
+import { issuesOf, onIssues, scanning } from './editor/ext/proofing/check';
+import { getPrefs, onChange as onProofPrefs } from './editor/ext/proofing/state';
+import { languageAtSelection, languageLabel } from './editor/ext/proofing/layout';
+import { accessibilityIssues } from './editor/ext/proofing/access';
+import { currentMode } from './editor/ext/review/track';
+import { allComments, onChange as onReview } from './editor/ext/review/core';
 
 export interface ShellDeps {
   root: HTMLElement;
@@ -84,9 +90,12 @@ function contexts(ed: DocEditor): string[] {
 function currentPage(ed: DocEditor): number {
   const view = ed.view;
   if (!view) return 1;
+  const scroll = ed.root.querySelector<HTMLElement>('.ft-scroll');
+  const box = scroll?.getBoundingClientRect();
   let top = 0;
-  try { top = view.coordsAtPos(view.state.selection.head).top; } catch { return 1; }
-  const sheets = Array.from(ed.root.querySelectorAll<HTMLElement>('.ft-sheet'));
+  try { top = view.coordsAtPos(view.state.selection.head).top; } catch { top = box ? box.top : 0; }
+  if (box && (top < box.top || top > box.bottom)) top = box.top + box.height / 3;
+  const sheets = Array.from(ed.root.querySelectorAll<HTMLElement>('.ft-sheets > .ft-sheet'));
   let page = 1;
   for (let i = 0; i < sheets.length; i++) if (sheets[i].getBoundingClientRect().top <= top) page = i + 1;
   return page;
@@ -128,7 +137,7 @@ export function mountShell(d: ShellDeps): Shell {
     },
     qatHost: () => titlebar.qatHost,
   });
-  new KeyTips(ribbon.tipHost(), () => !document.querySelector('.ft-dialog-scrim:not([hidden]), .ft-scrim:not([hidden])'));
+  new KeyTips(ribbon.tipHost(), () => !document.querySelector('.ft-dialog-scrim:not([hidden]), .ft-scrim:not([hidden])') && !document.activeElement?.closest('input, textarea, select'));
 
   const menus = wordMenus(d.recent);
   new MenuBar(titlebar.menubar, shellCommands, menus);
@@ -152,7 +161,51 @@ export function mountShell(d: ShellDeps): Shell {
     const pageless = !!(editor.doc?.settings as unknown as { pageless?: boolean } | undefined)?.pageless;
     status.setView(editor.viewMode as 'print' | 'read' | 'draft' | 'focus' | 'web', pageless);
     status.setZoom(Math.round(editor.zoom * 100));
+    syncReview();
+    syncLanguage();
+    syncProofing();
+    queueAccess();
   };
+  const syncReview = (): void => {
+    const mode = currentMode();
+    titlebar.setMode(mode);
+    status.setTracking(mode === 'suggesting');
+    let open = 0;
+    try { open = Object.values(allComments()).filter((c) => !c.resolved).length; } catch { open = 0; }
+    titlebar.setCommentCount(open);
+  };
+  const syncLanguage = (): void => {
+    try { status.setLanguage(languageLabel(languageAtSelection(editor)).replace(/^Do not check.*$/, 'No proofing')); } catch { void 0; }
+  };
+  const syncProofing = (): void => {
+    const view = editor.view;
+    const prefs = getPrefs();
+    if (!view || (!prefs.spelling && !prefs.grammar)) { status.setProofing('off', 0); return; }
+    if (scanning()) { status.setProofing('checking', 0); return; }
+    const n = issuesOf(view.state).length;
+    status.setProofing(n > 0 ? 'issues' : 'clean', n);
+  };
+  let accessTimer = 0;
+  const queueAccess = (): void => {
+    window.clearTimeout(accessTimer);
+    accessTimer = window.setTimeout(() => {
+      if (!editor.view) return;
+      try {
+        const bad = accessibilityIssues(editor).filter((i) => i.level !== 'tip').length;
+        status.setAccessibility(bad === 0, bad);
+      } catch { void 0; }
+    }, 600);
+  };
+  let pageFrame = 0;
+  const queuePage = (): void => {
+    if (pageFrame) return;
+    pageFrame = requestAnimationFrame(() => { pageFrame = 0; status.setPage(currentPage(editor), editor.pageCount()); });
+  };
+  editor.root.querySelector('.ft-scroll')?.addEventListener('scroll', queuePage, { passive: true });
+  onReview(syncReview);
+  onProofPrefs(() => { syncProofing(); syncLanguage(); });
+  onIssues(syncProofing);
+  new MutationObserver(syncReview).observe(editor.root, { attributes: true, attributeFilter: ['data-review'] });
   onCmdStateChange(() => { ribbon.refresh(); native?.refresh(); syncDocument(); });
   document.addEventListener('selectionchange', () => cmdStateChanged());
 

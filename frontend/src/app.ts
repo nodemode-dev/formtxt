@@ -11,6 +11,7 @@ import { isLightTheme, readChoice, setTheme as setThemeId } from './ui/themes';
 import { DocEditor } from './editor/editor';
 import { registerEditorCommands } from './editor/register';
 import { registerExtensions } from './editor/ext/index';
+import { registerWordCommands } from './editor/word-commands';
 import { unlockDocument } from './editor/ext/versions';
 import { connectBridge } from './automation/bridge';
 import { noteEdit, takeEditor } from './automation/actor';
@@ -83,6 +84,7 @@ export async function startApp(): Promise<void> {
       noteEdit();
       pending = doc;
       shell?.status.setSaved('saving');
+      shell?.titlebar.setDocument(doc.title, true);
       window.clearTimeout(saveTimer);
       saveTimer = window.setTimeout(() => void flush(), 700);
     },
@@ -90,20 +92,14 @@ export async function startApp(): Promise<void> {
   });
   registerEditorCommands(commands, editor);
   registerExtensions(commands, editor);
-  shell = mountShell({
-    root,
-    editor,
-    recent: () => (homeRef?.recentDocs() ?? []).slice(0, 9).map((dsum) => ({ id: dsum.id, title: dsum.title })),
-    onFile: () => { void flush(); homeRef?.backstage('info'); },
-  });
-  root.prepend(shell.titlebar.root);
-  shell.titlebar.root.after(shell.ribbonHost);
+  registerWordCommands(commands, editor);
   const shortcuts = new Shortcuts(commands);
   const palette = new CommandPalette(commands);
   commands.register({ id: 'edit.commandPalette', label: 'Find a command', group: 'Help', description: 'Search every command by name and run it.', keys: ['Ctrl+Shift+P'], run: () => { palette.open(); return true; } });
   commands.register({ id: 'help.shortcuts', label: 'Keyboard shortcuts', group: 'Help', description: 'See and change keyboard shortcuts.', keys: ['Ctrl+/'], run: () => { shortcuts.open(); return true; } });
   shortcuts.bindGlobal('Mod+Shift+P', 'edit.commandPalette');
   shortcuts.bindGlobal('Mod+/', 'help.shortcuts');
+  shortcuts.bindGlobal('Mod+,', 'app.preferences');
   shortcuts.bindGlobal('Mod+Shift+G', 'tools.wordCount');
   shortcuts.bindGlobal('Mod+Shift+C', 'format.painter');
   shortcuts.bindGlobal('Mod+=', 'view.zoomIn');
@@ -254,6 +250,15 @@ export async function startApp(): Promise<void> {
     description: 'List the documents in your library, newest first.',
     run: async () => (await api.get<{ documents: DocSummary[] }>('/documents')).documents,
   });
+
+  shell = mountShell({
+    root,
+    editor,
+    recent: () => (homeRef?.recentDocs() ?? []).slice(0, 9).map((dsum) => ({ id: dsum.id, title: dsum.title })),
+    onFile: () => { void flush(); homeRef?.backstage('info'); },
+  });
+  root.prepend(shell.titlebar.root);
+  shell.titlebar.root.after(shell.ribbonHost);
 
   root.addEventListener('click', (e) => {
     const target = (e.target as HTMLElement).closest<HTMLElement>('button[data-cmd]');
