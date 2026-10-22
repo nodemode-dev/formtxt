@@ -383,6 +383,10 @@ figure.ft-diagram.is-selected { outline: 2px solid var(--accent-color); outline-
 .ft-pages[data-mode="pageless"] .ft-pm table.ft-table[data-repeat="true"] > tbody > tr:first-child > th { position: sticky; top: 0; z-index: var(--z-raised); box-shadow: 0 1px 0 #8c8c8c; }
 .ft-pages[data-mode="pageless"] .ft-pm table.ft-table[data-repeat="true"][data-look="plain"] > tbody > tr:first-child > th, .ft-pages[data-mode="pageless"] .ft-pm table.ft-table[data-repeat="true"][data-look="rows"] > tbody > tr:first-child > th { background-color: var(--page-color, #ffffff); }
 .ft-sheet { position: absolute; left: 0; right: 0; background: var(--page-color, #ffffff); box-shadow: var(--page-shadow); overflow: hidden; }
+@media screen {
+  :root[data-page-dark] .ft-pages, :root[data-page-dark] .ft-split-page { --page-shadow: 0 0 0 1px rgba(0, 0, 0, 0.16), 0 10px 36px rgba(255, 255, 255, 0.4); filter: invert(0.9) hue-rotate(180deg); }
+  :root[data-page-dark] .ft-pages :is(img, video, canvas, iframe, picture), :root[data-page-dark] .ft-split-page :is(img, video, canvas, iframe, picture) { filter: invert(1) hue-rotate(180deg); }
+}
 .ft-sheet-header, .ft-sheet-footer { position: absolute; left: var(--page-pad-x, 96px); right: var(--page-pad-xr, 96px); color: #5f5c55; font-family: 'Inter', system-ui, sans-serif; font-size: 12px; line-height: 16px; white-space: pre; overflow: hidden; }
 .ft-sheet-header { top: var(--page-pad-top, 48px); }
 .ft-sheet-footer { bottom: var(--page-pad-bottom, 48px); }

@@ -16,7 +16,7 @@ export interface SandboxOptions {
 }
 
 export const SCRIPT_PREFIXES = ['format.', 'paragraph.', 'edit.', 'list.', 'insert.', 'table.', 'tools.', 'review.', 'layout.'];
-const DENIED = ['file.', 'app.', 'collab.', 'ai.', 'home.', 'help.', 'view.toggleTheme'];
+const DENIED = ['file.', 'app.', 'collab.', 'ai.', 'home.', 'help.', 'view.toggleTheme', 'view.darkPage'];
 
 const FRAME = `<!doctype html><meta charset="utf-8"><meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' 'unsafe-eval'"><script>
 (function () {

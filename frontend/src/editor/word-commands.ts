@@ -173,6 +173,23 @@ export function registerWordCommands(reg: CommandRegistry, ed: DocEditor): void 
     return { on: marksOn };
   }, [{ name: 'on', type: 'boolean', description: 'Show or hide instead of toggling' }], ['Ctrl+*']);
 
+  const DARK_PAGE_KEY = 'formtxt.darkPage';
+  let darkPage = false;
+  try { darkPage = localStorage.getItem(DARK_PAGE_KEY) === '1'; } catch { darkPage = false; }
+  const applyDarkPage = (on: boolean): void => {
+    darkPage = on;
+    const root = document.documentElement;
+    if (on) { if (!root.hasAttribute('data-page-dark')) root.setAttribute('data-page-dark', ''); } else if (root.hasAttribute('data-page-dark')) root.removeAttribute('data-page-dark');
+    try { localStorage.setItem(DARK_PAGE_KEY, on ? '1' : '0'); } catch { void 0; }
+    cmdStateChanged();
+  };
+  if (darkPage) applyDarkPage(true);
+  setCmdState('view.darkPage', { checked: () => darkPage });
+  add('view.darkPage', 'Dark page', 'View', 'Show the page dark with light text, inverting black and white and keeping colours and pictures recognisable. It only changes how the page looks on screen, separate from the app theme; the document, printing and exports keep their real colours.', (p) => {
+    applyDarkPage(p.on === undefined ? !darkPage : !!p.on);
+    return { on: darkPage };
+  }, [{ name: 'on', type: 'boolean', description: 'Turn on or off instead of toggling' }]);
+
   const allSections = (patch: Record<string, unknown>): void => {
     const doc = need(ed.doc);
     for (const s of [...doc.sections].reverse()) ed.updateSectionById(s.id, patch);

@@ -81,6 +81,7 @@
   try {
     var pr = JSON.parse(localStorage.getItem('formtxt.prefs') || '{}');
     if (pr.reduceMotion === true) root.setAttribute('data-motion', 'reduced');
+    if (localStorage.getItem('formtxt.darkPage') === '1') root.setAttribute('data-page-dark', '');
     var k = SIZES[pr.uiFontSize];
     if (k) { var base = [11, 12, 13, 14, 16, 20]; for (i = 0; i < base.length; i++) root.style.setProperty('--ft-' + base[i], (Math.round(base[i] * k * 10) / 10) + 'px'); }
   } catch (e) {}
