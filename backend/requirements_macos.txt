@@ -11,4 +11,5 @@ pypdfium2
 pillow
 openpyxl
 cryptography
+keyring==25.7.0
 rapidocr-onnxruntime

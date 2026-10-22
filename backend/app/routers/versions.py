@@ -65,7 +65,7 @@ def _version(doc_id: str, vid: str):
 
 @router.get("/cloud")
 def cloud_get() -> dict:
-    return {"folder": versions.cloud_folder()}
+    return versions.cloud_status()
 
 
 @router.post("/cloud")

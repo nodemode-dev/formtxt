@@ -11,7 +11,7 @@ import zipfile
 from pathlib import Path
 
 from app.core import config
-from app.services import model, versions_vault as vault
+from app.services import model, secrets, versions_vault as vault
 
 AUTO_GAP = 300.0
 MAX_AUTO = 100
@@ -324,12 +324,35 @@ def _cloud_secret_path() -> Path:
     return config.data_dir() / "cloud.json"
 
 
-def _cloud_auth() -> tuple[str, str]:
+def _cloud_user_file() -> dict:
     try:
         raw = json.loads(_cloud_secret_path().read_text(encoding="utf-8"))
-        return str(raw.get("user", "")), str(raw.get("password", ""))
+        return raw if isinstance(raw, dict) else {}
     except (OSError, ValueError):
-        return "", ""
+        return {}
+
+
+def _cloud_legacy_clear() -> None:
+    raw = _cloud_user_file()
+    if "password" in raw:
+        raw.pop("password")
+        path = _cloud_secret_path()
+        path.write_text(json.dumps(raw), encoding="utf-8")
+        try:
+            os.chmod(path, 0o600)
+        except OSError:
+            pass
+
+
+def _cloud_auth() -> tuple[str, str]:
+    raw = _cloud_user_file()
+    password = secrets.get("cloud-password", lambda: str(raw.get("password", "")) or None, _cloud_legacy_clear)
+    return str(raw.get("user", "")), password or ""
+
+
+def cloud_status() -> dict:
+    user, password = _cloud_auth()
+    return {"folder": cloud_folder(), "user": user, "passwordSet": bool(password)}
 
 
 def _dav_request(method: str, url: str, data: bytes | None = None, headers: dict | None = None, timeout: float = 20) -> tuple[int, bytes]:
@@ -399,11 +422,13 @@ def set_cloud_folder(folder: str, user: str = "", password: str = "") -> str:
             folder += "/"
         if user or password:
             path = _cloud_secret_path()
-            path.write_text(json.dumps({"user": user, "password": password}), encoding="utf-8")
+            path.write_text(json.dumps({"user": user}), encoding="utf-8")
             try:
                 os.chmod(path, 0o600)
             except OSError:
                 pass
+            if password:
+                secrets.put("cloud-password", password, _cloud_legacy_clear)
         try:
             status, _ = _dav_request("PROPFIND", folder, None, {"Depth": "0"}, timeout=10)
         except OSError as exc:

@@ -4,6 +4,7 @@ import sys
 from fastapi import APIRouter
 
 from app.core import config
+from app.services import secrets, stock
 
 router = APIRouter()
 
@@ -36,15 +37,22 @@ def capabilities() -> dict:
 @router.get("/settings")
 def get_settings() -> dict:
     s = config.read_settings()
-    key = str(s.pop("pexelsKey", "") or "")
-    return {**s, "pexelsKeySet": bool(key)}
+    s.pop("pexelsKey", None)
+    key = stock._pexels_key()
+    return {**s, "pexelsKeySet": bool(key), "pexelsLast4": key[-4:] if len(key) >= 8 else "", "secretStore": secrets.where()}
 
 
 @router.post("/settings")
 def set_settings(patch: dict) -> dict:
-    allowed = {k: v for k, v in patch.items() if k in {"author", "units", "defaultPageSize", "theme", "autosave", "pinned", "recentHidden", "keys", "pexelsKey", "stockImages"}}
+    allowed = {k: v for k, v in patch.items() if k in {"author", "units", "defaultPageSize", "theme", "autosave", "pinned", "recentHidden", "keys", "pexelsKey", "stockImages", "linkPreviews"}}
+    if "linkPreviews" in allowed:
+        allowed["linkPreviews"] = bool(allowed["linkPreviews"])
     if "pexelsKey" in allowed:
-        allowed["pexelsKey"] = "".join(ch for ch in str(allowed["pexelsKey"] or "") if ch.isalnum())[:120]
+        cleaned = "".join(ch for ch in str(allowed.pop("pexelsKey") or "") if ch.isalnum())[:120]
+        if cleaned:
+            secrets.put("pexels", cleaned, stock.pexels_legacy_clear)
+        else:
+            secrets.delete("pexels", stock.pexels_legacy_clear)
     if "stockImages" in allowed:
         allowed["stockImages"] = bool(allowed["stockImages"])
     if "keys" in allowed:
@@ -56,5 +64,6 @@ def set_settings(patch: dict) -> dict:
         if key in allowed:
             allowed[key] = [str(i)[:80] for i in allowed[key] if isinstance(i, str)][:500] if isinstance(allowed[key], list) else []
     merged = config.write_settings(allowed)
-    key = str(merged.pop("pexelsKey", "") or "")
-    return {**merged, "pexelsKeySet": bool(key)}
+    merged.pop("pexelsKey", None)
+    key = stock._pexels_key()
+    return {**merged, "pexelsKeySet": bool(key), "pexelsLast4": key[-4:] if len(key) >= 8 else "", "secretStore": secrets.where()}

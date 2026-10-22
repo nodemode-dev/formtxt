@@ -8,6 +8,7 @@ import urllib.request
 from collections import OrderedDict
 
 from app.core import config
+from app.services import secrets
 
 OPENVERSE = "https://api.openverse.org/v1/images/"
 PEXELS = "https://api.pexels.com/v1/"
@@ -89,8 +90,13 @@ def _json(url: str, headers: dict | None = None) -> dict:
         raise StockError(502, "The picture service sent something that is not JSON.")
 
 
+def pexels_legacy_clear() -> None:
+    if "pexelsKey" in config.read_settings():
+        config.write_settings({"pexelsKey": ""})
+
+
 def _pexels_key() -> str:
-    return str(config.read_settings().get("pexelsKey") or "").strip()
+    return str(secrets.get("pexels", lambda: str(config.read_settings().get("pexelsKey") or "") or None, pexels_legacy_clear) or "").strip()
 
 
 def sources() -> list[dict]:

@@ -4,6 +4,7 @@ import threading
 import urllib.parse
 
 from app.core import config
+from app.services import secrets
 
 DEFAULTS = {
     "enabled": False,
@@ -46,10 +47,19 @@ def load() -> dict:
         if not isinstance(raw, dict):
             _write(dict(DEFAULTS))
             return dict(DEFAULTS)
-        return {**DEFAULTS, **{k: v for k, v in raw.items() if k in DEFAULTS}}
+        data = {**DEFAULTS, **{k: v for k, v in raw.items() if k in DEFAULTS}}
+        for k in SECRETS:
+            data[k] = secrets.get(f"ai-{k}", lambda k=k: str(raw.get(k) or "") or None, lambda k=k: _blank(raw, k)) or ""
+        return data
+
+
+def _blank(raw: dict, k: str) -> None:
+    raw[k] = ""
+    _write(raw)
 
 
 def _write(data: dict) -> None:
+    data = {**data, **{k: "" for k in SECRETS}}
     p = _path()
     tmp = p.with_suffix(".tmp")
     fd = os.open(tmp, os.O_WRONLY | os.O_CREAT | os.O_TRUNC, 0o600)
@@ -94,8 +104,10 @@ def save(patch: dict) -> dict:
     for k in SECRETS:
         if k in patch and str(patch[k] or "").strip():
             cur[k] = "".join(ch for ch in str(patch[k]) if ch.isprintable() and not ch.isspace())[:400]
+            secrets.put(f"ai-{k}", cur[k])
         if patch.get("clear" + k[0].upper() + k[1:]):
             cur[k] = ""
+            secrets.delete(f"ai-{k}")
     with _lock:
         _write(cur)
     return cur
@@ -118,6 +130,7 @@ def public(s: dict) -> dict:
         "enabled": s["enabled"], "provider": s["provider"], "model": s["model"], "baseUrl": s["baseUrl"],
         "defaultBaseUrl": BASE[s["provider"]], "keySet": bool(s["key"]), "needsKey": s["provider"] == "anthropic" and not s["key"],
         "imageModel": s["imageModel"], "imageBaseUrl": s["imageBaseUrl"], "imageKeySet": bool(s["imageKey"]),
+        "keyLast4": s["key"][-4:] if len(s["key"]) >= 12 else "", "imageKeyLast4": s["imageKey"][-4:] if len(s["imageKey"]) >= 12 else "",
         "imageAvailable": image_target(s) is not None, "effort": s["effort"], "efforts": list(EFFORTS),
         "models": MODELS[s["provider"]], "providers": list(PROVIDERS),
     }
