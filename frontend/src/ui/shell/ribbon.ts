@@ -4,6 +4,7 @@ import type { Commands } from './cmd';
 import type { TipHost } from './key-tips';
 import { ActionMenu, PopupMenu, type MenuRow } from './menu';
 import { iconOf, plainLabel, richTip, tipOf, type Qat } from './qat';
+import { openPanel, panelEnabled, registerAllPanels, warmAllPanels } from './controls';
 import type { GroupDef, Item, MenuItem, Rows, TabDef, Unit } from './types';
 
 export type { GroupDef, Item, MenuItem, Rows, TabDef, Unit };
@@ -157,6 +158,8 @@ export class Ribbon {
     qat.onMore = (a) => this.qatMenu(a);
     qat.onChange = () => this.opts.after?.();
     qat.render();
+    registerAllPanels();
+    warmAllPanels();
     this.applyVisibility();
     if (!this.defs.has(this.tab) || this.tabHidden(this.tab)) this.tab = this.firstTab;
     this.showTab(this.tab);
@@ -283,6 +286,8 @@ export class Ribbon {
       if (n) { if (!n.classList.contains('ft-rb-slot')) n.classList.add('ft-rb-slot'); this.watchSlot(n); }
       return n;
     }
+    if (it.k === 'sep') return el('<span class="ft-rb-sep ft-rb-isep" aria-hidden="true"></span>');
+    if (it.k === 'pop' || it.k === 'split') return this.popItem(it, large);
     const cmd = it.k === 'cmd' ? this.commands.get(it.id) : undefined;
     if (it.k === 'cmd' && !cmd) return null;
     const label = it.label ?? (it.k === 'cmd' ? plainLabel(this.commands, it.id) : it.id);
@@ -297,6 +302,28 @@ export class Ribbon {
     return el(`<button class="${cls}" ${common}><span class="ft-rb-ic">${icon(ic, 16)}</span>${it.text ? `<span class="ft-rb-t">${escapeHtml(label)}</span>` : ''}${drop && it.text ? icon('chevronDown', 10) : ''}</button>`);
   }
 
+  private popItem(it: Item, large: boolean): HTMLElement | null {
+    const split = it.k === 'split';
+    if (split && !this.commands.has(it.id)) return null;
+    const pop = split ? (it.pop as string) : it.id;
+    const label = it.label ?? it.id;
+    const ic = it.icon ?? 'more';
+    const tip = `data-tip="1" data-label="${escapeHtml(it.title ?? label)}" aria-label="${escapeHtml(label)}"`;
+    const drop = `data-pop="${escapeHtml(pop)}" aria-haspopup="true" aria-expanded="false"`;
+    const chev = icon('chevronDown', 10);
+    const swatch = it.swatch ? ' ft-rb-color' : '';
+    const text = it.text ? ' has-text' : '';
+    if (!split) {
+      if (large) return el(`<button class="ft-rb-btn is-large${label.trim().split(/\s+/).length <= 2 ? ' is-w2' : ''}" type="button" ${drop} ${tip} data-ic="${ic}" data-ic0="${escapeHtml(ic)}"><span class="ft-rb-ic">${icon(ic, 28)}</span><span class="ft-rb-lbl"><span>${escapeHtml(label)}</span>&#8288;${chev}</span></button>`);
+      return el(`<button class="ft-rb-btn is-small${text}" type="button" ${drop} ${tip} data-ic="${ic}" data-ic0="${escapeHtml(ic)}"><span class="ft-rb-ic">${icon(ic, 16)}</span>${it.text ? `<span class="ft-rb-t">${escapeHtml(label)}</span>` : ''}${chev}</button>`);
+    }
+    const params = it.params ? ` data-params="${escapeHtml(JSON.stringify(it.params))}"` : '';
+    const sv = it.swatchValue ? ` style="--swatch:${escapeHtml(it.swatchValue)}"` : '';
+    const main = `type="button" data-cmd="${escapeHtml(it.id)}"${params}${it.keep ? ' data-keep="1"' : ''} ${tip} data-ic="${ic}" data-ic0="${escapeHtml(ic)}"${sv}`;
+    if (large) return el(`<div class="ft-rb-split is-large" role="group" aria-label="${escapeHtml(label)}"><button class="ft-rb-btn ft-rb-sm is-large${swatch}" ${main}><span class="ft-rb-ic">${icon(ic, 28)}</span></button><button class="ft-rb-btn ft-rb-sd is-large" type="button" ${drop} data-tip="1" data-label="${escapeHtml(label)} options" aria-label="${escapeHtml(label)} options"><span class="ft-rb-lbl"><span>${escapeHtml(label)}</span>&#8288;${chev}</span></button></div>`);
+    return el(`<div class="ft-rb-split is-small" role="group" aria-label="${escapeHtml(label)}"><button class="ft-rb-btn ft-rb-sm is-small${text}${swatch}" ${main}><span class="ft-rb-ic">${icon(ic, 16)}</span>${it.text ? `<span class="ft-rb-t">${escapeHtml(label)}</span>` : ''}</button><button class="ft-rb-btn ft-rb-sd is-small" type="button" ${drop} data-tip="1" data-label="${escapeHtml(label)} options" aria-label="${escapeHtml(label)} options">${chev}</button></div>`);
+  }
+
   private buildSimple(): void {
     this.simple.appendChild(el(`<button class="ft-rb-btn is-small" type="button" data-act="ribbon-full" data-tip="1" data-label="Show the full ribbon" aria-label="Show the full ribbon">${icon('ribbon', 16)}</button>`));
     const def = this.defs.get(this.firstTab);
@@ -305,7 +332,7 @@ export class Ribbon {
       const frag = document.createDocumentFragment();
       for (const u of g.units) {
         for (const it of 'rows' in u ? u.rows.flat() : [u]) {
-          if (it.k === 'slot') continue;
+          if (it.k === 'slot' || it.k === 'sep') continue;
           const n = this.item({ ...it, text: false, swatch: it.swatch }, false);
           if (n) frag.appendChild(n);
         }
@@ -345,6 +372,7 @@ export class Ribbon {
     const b = t.closest<HTMLButtonElement>('.ft-rb-btn, .ft-rb-launch');
     if (!b || b.disabled) return;
     if (b.dataset.group) { this.openPop(b.closest('.ft-rb-group') as HTMLElement); return; }
+    if (b.dataset.pop) { openPanel(b.dataset.pop, b, e.detail === 0); return; }
     if (b.dataset.cmd) this.commands.run(b.dataset.cmd, parseParams(b));
     else if (b.dataset.act === 'ribbon-full') { this.setSimplified(false); return; }
     else if (b.dataset.act) this.opts.act(b.dataset.act, b);
@@ -688,6 +716,9 @@ export class Ribbon {
 
   private patch(live: HTMLButtonElement[]): void {
     let relabel = false;
+    const host: ParentNode = this.simplified ? this.simple : this.panels.get(this.tab) ?? this.root;
+    for (const b of Array.from(host.querySelectorAll<HTMLButtonElement>('button[data-pop]'))) setDisabled(b, !panelEnabled(b.dataset.pop as string));
+    if (this.popGroup) for (const b of Array.from(this.gpop.querySelectorAll<HTMLButtonElement>('button[data-pop]'))) setDisabled(b, !panelEnabled(b.dataset.pop as string));
     for (const b of live) {
       const cmd = this.commands.get(b.dataset.cmd as string);
       if (!cmd) continue;
