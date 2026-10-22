@@ -131,7 +131,7 @@ ${TB('edit.undo', 'undo', 'Undo', 'Ctrl+Z')}${TB('edit.redo', 'redo', 'Redo', 'C
 <select class="ft-tb-select ft-tb-style" data-cmd="paragraph.style" aria-label="Paragraph style"></select>
 <select class="ft-tb-select ft-tb-font" data-cmd="format.font" aria-label="Font">${FONTS.map((f) => `<option value="${f}">${f}</option>`).join('')}<option value="" disabled hidden>Mixed</option></select>
 <select class="ft-tb-select ft-tb-size" data-cmd="format.size" aria-label="Font size">${SIZES.map((s) => `<option value="${s}">${s}</option>`).join('')}<option value="" disabled hidden></option></select>${SEP}
-${TB('format.bold', 'bold', 'Bold', 'Ctrl+B')}${TB('format.italic', 'italic', 'Italic', 'Ctrl+I')}${TB('format.underline', 'underline', 'Underline', 'Ctrl+U')}${TB('format.strike', 'strike', 'Strikethrough', 'Ctrl+Shift+X')}${TB('format.superscript', 'superscript', 'Superscript', 'Ctrl+.')}${TB('format.subscript', 'subscript', 'Subscript', 'Ctrl+,')}
+${TB('format.bold', 'bold', 'Bold', 'Ctrl+B')}${TB('format.italic', 'italic', 'Italic', 'Ctrl+I')}${TB('format.underline', 'underline', 'Underline', 'Ctrl+U')}${TB('format.strike', 'strike', 'Strikethrough', 'Ctrl+Shift+X')}${TB('format.superscript', 'superscript', 'Superscript', 'Ctrl+Shift+=')}${TB('format.subscript', 'subscript', 'Subscript', 'Ctrl+=')}
 <label class="ft-tb-color" title="Text colour">${icon('textColor', 16)}<input type="color" data-cmd="format.color" value="#1a1a1a" aria-label="Text colour"></label>
 <label class="ft-tb-color" title="Highlight">${icon('highlighter', 16)}<input type="color" data-cmd="format.highlight" value="#fde047" aria-label="Highlight colour"></label>${SEP}
 ${TB('paragraph.align.left', 'alignLeft', 'Align left', 'Ctrl+Shift+L')}${TB('paragraph.align.center', 'alignCenter', 'Center', 'Ctrl+Shift+E')}${TB('paragraph.align.right', 'alignRight', 'Align right', 'Ctrl+Shift+R')}${TB('paragraph.align.justify', 'alignJustify', 'Justify', 'Ctrl+Shift+J')}${SEP}
@@ -217,7 +217,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
       keymap({
         'Mod-z': undo, 'Mod-y': redo, 'Shift-Mod-z': redo,
         'Mod-b': mark('bold'), 'Mod-i': mark('italic'), 'Mod-u': mark('underline'), 'Shift-Mod-x': mark('strike'),
-        'Mod-.': mark('superscript'), 'Mod-,': mark('subscript'),
+        'Mod-.': mark('superscript'), 'Mod-=': mark('subscript'), 'Mod-+': mark('superscript'), 'Shift-Mod-=': mark('superscript'),
         'Mod-Alt-0': setStyle('Normal'), 'Mod-Alt-1': setStyle('Heading1'), 'Mod-Alt-2': setStyle('Heading2'), 'Mod-Alt-3': setStyle('Heading3'),
         'Mod-Alt-s': () => { this.toggleSplit(); return true; },
         'Mod-Alt-4': setStyle('Heading4'), 'Mod-Alt-5': setStyle('Heading5'), 'Mod-Alt-6': setStyle('Heading6'),

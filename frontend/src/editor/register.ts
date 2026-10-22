@@ -48,7 +48,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
     { name: 'caseSensitive', type: 'boolean', description: 'Match case' },
   ]);
 
-  for (const [n, label, keys] of [['bold', 'Bold', 'Ctrl+B'], ['italic', 'Italic', 'Ctrl+I'], ['underline', 'Underline', 'Ctrl+U'], ['strike', 'Strikethrough', 'Ctrl+Shift+X'], ['superscript', 'Superscript', 'Ctrl+.'], ['subscript', 'Subscript', 'Ctrl+,'], ['smallCaps', 'Small caps', ''], ['allCaps', 'All caps', '']] as const) {
+  for (const [n, label, keys] of [['bold', 'Bold', 'Ctrl+B'], ['italic', 'Italic', 'Ctrl+I'], ['underline', 'Underline', 'Ctrl+U'], ['strike', 'Strikethrough', 'Ctrl+Shift+X'], ['superscript', 'Superscript', 'Ctrl+Shift+='], ['subscript', 'Subscript', 'Ctrl+='], ['smallCaps', 'Small caps', ''], ['allCaps', 'All caps', '']] as const) {
     add(`format.${n}`, label, 'Format', `Toggle ${label.toLowerCase()} on the selection.`, () => ed.toggle(n), [], keys ? [keys] : []);
   }
   add('format.font', 'Font', 'Format', `Set the font of the selection. Bundled: ${FONTS.join(', ')}.`, (p) => ed.setMark('font', p.family ? { family: String(p.family) } : null), [{ name: 'family', type: 'string', description: 'Font family name; empty removes the override' }]);
@@ -147,8 +147,8 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   add('insert.pageNumbers', 'Page numbers in footer', 'Insert', 'Put "Page N of M" centred in the footer.', () => reg.run('insert.pageNumber', {}));
   add('view.pageless', 'Pageless', 'View', 'Switch between pages and one continuous pageless sheet.', () => { const on = !(ed.doc?.settings as unknown as { pageless?: boolean })?.pageless; ed.updatePage({}, { pageless: on }); return on; });
   add('view.zoom', 'Zoom', 'View', 'Set the zoom in percent.', (p) => ed.setZoom(Number(p.percent ?? p.value ?? 100) / 100), [{ name: 'percent', type: 'number', description: '25 to 300' }]);
-  add('view.zoomIn', 'Zoom in', 'View', 'Zoom in by 10 percent.', () => ed.setZoom(ed.zoom + 0.1), [], ['Ctrl+=']);
-  add('view.zoomOut', 'Zoom out', 'View', 'Zoom out by 10 percent.', () => ed.setZoom(ed.zoom - 0.1), [], ['Ctrl+-']);
+  add('view.zoomIn', 'Zoom in', 'View', 'Zoom in by 10 percent.', () => ed.setZoom(ed.zoom + 0.1), [], ['Ctrl+Alt+=']);
+  add('view.zoomOut', 'Zoom out', 'View', 'Zoom out by 10 percent.', () => ed.setZoom(ed.zoom - 0.1), [], ['Ctrl+Alt+-']);
   for (const [mode, label, desc] of [['print', 'Print layout', 'Pages as they will print.'], ['draft', 'Draft', 'Text only: no pages, headers or ruler.'], ['read', 'Read mode', 'Pages without editing; press Esc or choose Print layout to edit.'], ['focus', 'Focus mode', 'Hide the toolbar, outline and status bar; Esc returns.']] as const) {
     add(`view.${mode}`, label, 'View', desc, () => ed.setView(mode));
   }

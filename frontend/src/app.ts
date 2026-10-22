@@ -102,8 +102,8 @@ export async function startApp(): Promise<void> {
   shortcuts.bindGlobal('Mod+,', 'app.preferences');
   shortcuts.bindGlobal('Mod+Shift+G', 'tools.wordCount');
   shortcuts.bindGlobal('Mod+Shift+C', 'format.painter');
-  shortcuts.bindGlobal('Mod+=', 'view.zoomIn');
-  shortcuts.bindGlobal('Mod+-', 'view.zoomOut');
+  shortcuts.bindGlobal('Alt+Mod+=', 'view.zoomIn');
+  shortcuts.bindGlobal('Alt+Mod+-', 'view.zoomOut');
   void shortcuts.load();
   connectBridge(commands);
   window.addEventListener('beforeunload', () => { void flush(); });
