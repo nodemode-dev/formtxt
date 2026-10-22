@@ -118,7 +118,7 @@ export class Home {
     this.root = el(`<section class="ft-home" aria-label="Home">
 <nav class="ft-home-nav">
 ${act('back', 'arrowLeft', 'Back', 'ft-home-back-top ft-for-bs', ' title="Back to the document (Esc)"')}
-<div class="ft-home-brand">${icon('brand', 24)}FormTxt <span>by NodeMode</span></div>
+<div class="ft-home-brand"><img class="ft-logo" src="/formtxt-logo.png" width="28" height="28" alt="" draggable="false">FormTxt <span>by NodeMode</span></div>
 <div class="ft-for-home ft-home-group">${nav('start', 'home', 'Start')}${nav('recent', 'clock', 'Recent documents', 'ft-doc-count')}${nav('templates', 'template', 'Templates', 'ft-tpl-count')}${nav('trash', 'trash', 'Trash', 'ft-trash-count')}
 <div class="ft-home-nav-sep"></div>
 <div class="ft-home-nav-title">Create</div>

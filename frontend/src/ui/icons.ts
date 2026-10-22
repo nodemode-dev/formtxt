@@ -9,7 +9,6 @@ const L = (body: string): string => `<svg viewBox="0 0 24 24" fill="none" stroke
 const PAGE = '<path d="M14 3.5H7A1.5 1.5 0 0 0 5.5 5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3.5V8h4.5"/>';
 
 export const ICONS: Record<string, string> = {
-  brand: `<svg viewBox="0 0 24 24" fill="currentColor"><rect x="2" y="2" width="20" height="20" rx="5"/><path d="M11.6 6H16.5V7.6H16V18H14.4V7.6H13.2V18H11.6V12.4A3.2 3.2 0 0 1 11.6 6Z" fill="var(--bg-secondary)"/></svg>`,
   document: L(`${PAGE}<path d="M8.5 12.5h7M8.5 15.5h7M8.5 9.5h3"/>`),
   plus: L('<path d="M12 5v14M5 12h14"/>'),
   sun: L('<circle cx="12" cy="12" r="4"/><path d="M12 2.5v2M12 19.5v2M2.5 12h2M19.5 12h2M5.3 5.3l1.4 1.4M17.3 17.3l1.4 1.4M5.3 18.7l1.4-1.4M17.3 6.7l1.4-1.4"/>'),

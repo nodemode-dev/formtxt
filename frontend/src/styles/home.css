@@ -2,8 +2,7 @@
 .ft-home[hidden] { display: none; }
 .ft-home-nav { display: flex; flex-direction: column; gap: 2px; min-height: 0; padding: 14px 10px 12px; background: var(--bg-secondary); border-right: 1px solid var(--border-color); overflow-y: auto; }
 .ft-home-brand { display: flex; align-items: center; gap: 10px; flex: none; height: 36px; margin-bottom: 14px; padding: 0 8px; font-size: 15px; font-weight: 600; }
-.ft-home-brand .icon { color: var(--accent-color); }
-.ft-home-brand span:not(.icon) { color: var(--text-muted); font-size: var(--ft-12); font-weight: 400; }
+.ft-home-brand span { color: var(--text-muted); font-size: var(--ft-12); font-weight: 400; }
 .ft-home-nav-title { padding: 12px 10px 6px; color: var(--text-muted); font-size: var(--ft-11); font-weight: 600; letter-spacing: 0.06em; text-transform: uppercase; }
 .ft-home-nav-item { display: flex; align-items: center; gap: 10px; flex: none; height: 34px; padding: 0 10px; border: 1px solid transparent; border-radius: var(--radius-md); background: transparent; color: var(--text-secondary); font-size: var(--ft-13); text-align: left; cursor: pointer; }
 .ft-home-nav-item:hover { background: var(--bg-hover); color: var(--text-primary); }
