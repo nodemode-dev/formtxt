@@ -130,7 +130,7 @@ def to_document(name: str, data: bytes) -> dict:
     ext = ("." + name.rsplit(".", 1)[-1].lower()) if "." in name else ""
     kind = TEXT_TYPES.get(ext)
     if kind is None:
-        raise Unsupported(f"{name}: FormTxt opens .md, .markdown and .txt today; Word, OpenDocument, RTF, HTML, .doc and PDF arrive with the exchange phase.")
+        raise Unsupported(f"{name}: FormTxt opens .docx, .dotx, .docm, .doc, .odt, .ott, .rtf, .html, .md, .txt and PDF; this file type is not one of them.")
     text = decode(data)
     stem = name.rsplit(".", 1)[0] or "Imported document"
     doc = model.new_document(stem)
