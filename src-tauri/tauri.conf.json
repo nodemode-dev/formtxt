@@ -29,7 +29,7 @@
     }
   },
   "bundle": {
-    "active": false,
+    "active": true,
     "externalBin": ["binaries/formtxt-engine"],
     "category": "Productivity",
     "shortDescription": "Documents",
