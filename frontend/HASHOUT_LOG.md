@@ -688,3 +688,31 @@ frontend/
 - kind: rationale
 - logged: v0.28.0 · 2026-10-21
 - Measures by switching the table to auto layout with the colgroup hidden, reads the widths and restores in the same tick, so nothing paints in between; widths go into the existing colwidth attribute.
+
+## src/ui/shell/controls/, controls-b/ {#ribbon-controls}
+
+### controls · panels built once
+- refers-to: src/ui/shell/controls/index.ts :: registerPanel, openPanel; controls-b/kit.ts
+- kind: rationale
+- logged: v0.29.0 · 2026-10-22
+- Every picker is a panel registered by id, portaled into #overlay-root at startup, hidden, and patched on open from DOM state and read-only commands (layout.sections, styles.list), so opening never rebuilds and reading never fires cmdStateChanged. mousedown is prevented so the editor keeps focus. Recents (colours, fonts, symbols, pens) live in formtxt.* localStorage keys.
+
+### fonts · system fonts
+- refers-to: src/ui/system-fonts.ts; src-tauri/src/main.rs :: system_fonts
+- kind: rationale
+- logged: v0.29.0 · 2026-10-22
+- Installed fonts come from fontdb in the desktop app (an async command, so thousands of faces never block the main thread) and from the Local Font Access API in a browser. They load the first time the font box opens, because the browser API asks permission. The PDF writer embeds only bundled faces, so a system font falls back in PDF.
+
+## build_app {#build-app}
+
+### desktop · what the frozen engine must carry
+- refers-to: setup/freeze_backend
+- kind: gotcha
+- logged: v0.29.0 · 2026-10-22
+- The engine reads files at run time: proofing/data dictionaries, @fontsource faces for PDF, WordNet for the thesaurus and grammar lexicon. --collect-data app did not pick up the dictionaries, so each is an explicit --add-data. Check a new data file is listed there or the built app silently loses the feature.
+
+### desktop · engine lifetime
+- refers-to: backend/formtxt_engine.py :: watch_parent
+- kind: rationale
+- logged: v0.29.0 · 2026-10-22
+- The shell passes FORMTXT_PARENT_PID; the engine exits when that process is gone, so a crashed or force-quit app never leaves the onefile bootloader and engine running.
