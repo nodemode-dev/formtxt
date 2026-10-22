@@ -28,7 +28,7 @@ const change = (tag: 'ins' | 'del'): MarkSpec => ({
   }, 0],
 });
 
-const paraChange = (kind: 'split' | 'join') => ({
+const paraChange = (kind: 'split' | 'join' | 'fmt') => ({
   default: null,
   dom: (v: unknown): Record<string, string> | null => {
     const a = v as { id?: string; author?: string } | null;
@@ -39,7 +39,7 @@ const paraChange = (kind: 'split' | 'join') => ({
 
 export const SPEC: AreaSpec = {
   ...emptySpec(),
-  paraAttrs: { rvSplit: paraChange('split'), rvJoin: paraChange('join') },
+  paraAttrs: { rvSplit: paraChange('split'), rvJoin: paraChange('join'), rvFmt: paraChange('fmt') },
   marks: {
     fmt: {
       attrs: { id: { default: '' }, author: { default: '' }, time: { default: 0 }, ops: { default: [] } },
