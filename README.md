@@ -1,3 +1,5 @@
+<p align="center"><img src="assets/formtxt_icon.png" width="128" height="128" alt="FormTxt logo"></p>
+
 # FormTxt
 
 Documents in the form family. An open, local-first alternative to Microsoft Word and Google Docs: paginated and pageless documents, .docx and .odt round trips, and Claude Code, Codex or Cursor drafting and editing live through the same commands a person uses.
