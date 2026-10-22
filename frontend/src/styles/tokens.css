@@ -33,6 +33,11 @@
   --page-bg: #ffffff;
   --page-ink: #1a1a1a;
   --page-shadow: 0 10px 36px rgba(0, 0, 0, 0.45);
+  --ruler-bg: var(--bg-tertiary);
+  --ruler-margin: rgba(0, 0, 0, 0.32);
+  --ruler-tick: var(--text-muted);
+  --ruler-ink: var(--text-secondary);
+  --ruler-tab: var(--text-primary);
 
   --ok: #22c55e;
   --warn: #fbbf24;

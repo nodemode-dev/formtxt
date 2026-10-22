@@ -18,5 +18,7 @@
   --cta-bg-hover: color-mix(in srgb, var(--text-primary) 85%, var(--bg-primary));
   --cta-text: var(--bg-secondary);
   --page-shadow: 0 6px 22px rgba(96, 90, 70, 0.22);
+  --ruler-bg: var(--bg-secondary);
+  --ruler-margin: rgba(60, 54, 40, 0.12);
   --shadow-lg: 0 4px 14px rgba(96, 90, 70, 0.16);
 }
