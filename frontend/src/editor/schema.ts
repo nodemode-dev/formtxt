@@ -204,10 +204,20 @@ const bordersAttr = {
   },
 };
 
+const textDirAttr = {
+  default: '',
+  getFromDOM: (dom: HTMLElement) => dom.dataset.textdir || '',
+  setDOMAttr: (value: unknown, attrs: Record<string, unknown>) => {
+    if (!value) return;
+    attrs['data-textdir'] = String(value);
+    attrs.style = `${String(attrs.style ?? '')}writing-mode:${value === 'rotate90' ? 'vertical-rl' : 'sideways-lr'};`;
+  },
+};
+
 const tables = tableNodes({
   tableGroup: 'block',
   cellContent: '(paragraph | code_block | table | chart | diagram | mermaid)+',
-  cellAttributes: { shading: cellAttr('shading', 'background'), valign: cellAttr('valign', 'vertical-align'), borders: bordersAttr },
+  cellAttributes: { shading: cellAttr('shading', 'background'), valign: cellAttr('valign', 'vertical-align'), borders: bordersAttr, textDirection: textDirAttr },
 });
 
 export function tableAttrs(n: PMNode): Record<string, string> {
@@ -216,6 +226,7 @@ export function tableAttrs(n: PMNode): Record<string, string> {
   if (n.attrs.repeatHeader) out['data-repeat'] = 'true';
   if (n.attrs.rowSplit === false) out['data-row-split'] = 'off';
   if (n.attrs.align) out['data-align'] = String(n.attrs.align);
+  if (n.attrs.cellMargins) out['data-cell-margins'] = JSON.stringify(n.attrs.cellMargins);
   return out;
 }
 
@@ -406,11 +417,16 @@ const nodes: Record<string, NodeSpec> = {
   },
   table: {
     ...tables.table,
-    attrs: { id: { default: null }, look: { default: 'grid' }, repeatHeader: { default: false }, align: { default: '' }, rowSplit: { default: true }, tstyle: { default: '' } },
+    attrs: { id: { default: null }, look: { default: 'grid' }, repeatHeader: { default: false }, align: { default: '' }, rowSplit: { default: true }, tstyle: { default: '' }, cellMargins: { default: null } },
     parseDOM: [{ tag: 'table', getAttrs: (dom: HTMLElement) => ({ look: (TABLE_LOOKS as readonly string[]).includes(dom.dataset.look ?? '') ? dom.dataset.look : 'grid', repeatHeader: dom.dataset.repeat === 'true', align: dom.dataset.align || '' }) }],
     toDOM: (n) => ['table', tableAttrs(n), ['tbody', 0]],
   },
-  table_row: tables.table_row,
+  table_row: {
+    ...tables.table_row,
+    attrs: { height: { default: 0 } },
+    parseDOM: [{ tag: 'tr', getAttrs: (dom: HTMLElement) => ({ height: Number(dom.dataset.height) || 0 }) }],
+    toDOM: (n) => ['tr', n.attrs.height ? { 'data-height': String(n.attrs.height), style: `height:${Math.round(Number(n.attrs.height) * 96 / 72)}px` } : {}, 0],
+  },
   table_cell: tables.table_cell,
   table_header: tables.table_header,
   text: { group: 'inline' },

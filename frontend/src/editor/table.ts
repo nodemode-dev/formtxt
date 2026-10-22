@@ -22,6 +22,10 @@ class FtTableView extends TableView {
       if (v === undefined) { if (this.table.hasAttribute(k)) this.table.removeAttribute(k); }
       else if (this.table.getAttribute(k) !== v) this.table.setAttribute(k, v);
     }
+    const cm = node.attrs.cellMargins as { top: number; right: number; bottom: number; left: number } | null;
+    const k = 96 / 72;
+    const pad = cm ? `${cm.top * k}px ${cm.right * k}px ${cm.bottom * k}px ${cm.left * k}px` : '';
+    if (this.table.style.getPropertyValue('--cell-pad') !== pad) { if (pad) this.table.style.setProperty('--cell-pad', pad); else this.table.style.removeProperty('--cell-pad'); }
     if (!this.table.classList.contains('ft-table')) this.table.classList.add('ft-table');
     const align = node.attrs.align ? String(node.attrs.align) : '';
     if (this.dom.dataset.align !== align) this.dom.dataset.align = align;

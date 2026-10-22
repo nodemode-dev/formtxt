@@ -74,7 +74,7 @@ function inlineNodes(content: TextRun[] | undefined): PMNode[] {
   return out;
 }
 
-interface FtxtCell { header?: boolean; colspan?: number; rowspan?: number; shading?: string; valign?: string; borders?: CellBorders; body?: Block[] }
+interface FtxtCell { header?: boolean; colspan?: number; rowspan?: number; shading?: string; valign?: string; borders?: CellBorders; textDirection?: string; body?: Block[] }
 
 function cleanBorders(b: unknown): CellBorders | null {
   if (!b || typeof b !== 'object') return null;
@@ -85,7 +85,7 @@ function cleanBorders(b: unknown): CellBorders | null {
   }
   return Object.keys(out).length ? out : null;
 }
-interface FtxtTable { id?: string; look?: string; style?: string; repeatHeader?: boolean; rowSplit?: boolean; align?: string; columns?: number[]; rows?: Array<{ cells?: FtxtCell[] }> }
+interface FtxtTable { id?: string; look?: string; style?: string; repeatHeader?: boolean; rowSplit?: boolean; align?: string; columns?: number[]; cellMargins?: { top: number; right: number; bottom: number; left: number }; rows?: Array<{ height?: number; cells?: FtxtCell[] }> }
 
 const PX = 96 / 72;
 
@@ -104,14 +104,14 @@ function tableToPM(t: FtxtTable): PMNode | null {
       for (let k = 0; k < span; k++) taken[col + k] = rowspan;
       const body = blocksToPM(c.body ?? [], false);
       const type = c.header ? schema.nodes.table_header : schema.nodes.table_cell;
-      cells.push(type.create({ colspan: span, rowspan, colwidth: widths.length === span && widths.every((w) => w > 0) ? widths : null, shading: c.shading ?? '', valign: c.valign ?? '', borders: cleanBorders(c.borders) }, body));
+      cells.push(type.create({ colspan: span, rowspan, colwidth: widths.length === span && widths.every((w) => w > 0) ? widths : null, shading: c.shading ?? '', valign: c.valign ?? '', borders: cleanBorders(c.borders), textDirection: c.textDirection === 'rotate90' || c.textDirection === 'rotate270' ? c.textDirection : '' }, body));
       col += span;
     }
     for (let k = 0; k < taken.length; k++) if (taken[k]) taken[k]--;
-    if (cells.length) rows.push(schema.nodes.table_row.create(null, cells));
+    if (cells.length) rows.push(schema.nodes.table_row.create({ height: Number(r.height) > 0 ? Number(r.height) : 0 }, cells));
   }
   if (!rows.length) return null;
-  return schema.nodes.table.create({ id: t.id || newId('t_'), look: t.look || 'grid', repeatHeader: !!t.repeatHeader, rowSplit: t.rowSplit !== false, align: t.align || '', tstyle: typeof t.style === 'string' ? t.style : '' }, rows);
+  return schema.nodes.table.create({ id: t.id || newId('t_'), look: t.look || 'grid', repeatHeader: !!t.repeatHeader, rowSplit: t.rowSplit !== false, align: t.align || '', tstyle: typeof t.style === 'string' ? t.style : '', cellMargins: t.cellMargins ?? null }, rows);
 }
 
 function blocksToPM(body: Block[], top: boolean): PMNode[] {
@@ -244,10 +244,11 @@ function tableFromPM(node: PMNode, section: string): Record<string, unknown> {
       if (cell.attrs.rowspan > 1) c.rowspan = cell.attrs.rowspan;
       if (cell.attrs.shading) c.shading = cell.attrs.shading;
       if (cell.attrs.valign) c.valign = cell.attrs.valign;
+      if (cell.attrs.textDirection) c.textDirection = cell.attrs.textDirection;
       if (cell.attrs.borders) c.borders = cell.attrs.borders as CellBorders;
       cells.push(c);
     });
-    rows.push({ cells });
+    rows.push(row.attrs.height ? { height: row.attrs.height, cells } : { cells });
   });
   const a = node.attrs;
   const out: Record<string, unknown> = { type: 'table', id: a.id || newId('t_'), look: a.look || 'grid', columns, rows };
@@ -255,6 +256,7 @@ function tableFromPM(node: PMNode, section: string): Record<string, unknown> {
   if (a.rowSplit === false) out.rowSplit = false;
   if (a.tstyle) out.style = a.tstyle;
   if (a.align) out.align = a.align;
+  if (a.cellMargins) out.cellMargins = a.cellMargins;
   return out;
 }
 
