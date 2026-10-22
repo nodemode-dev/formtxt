@@ -144,7 +144,10 @@ fn main() {
                     .sidecar("formtxt-engine")
                     .expect("the FormTxt engine sidecar is missing; bundle its binary"),
             };
-            let sidecar = engine.env("FORMTXT_PORT", "0").env("FORMTXT_ENGINE_PORT", "0");
+            let sidecar = engine
+                .env("FORMTXT_PORT", "0")
+                .env("FORMTXT_ENGINE_PORT", "0")
+                .env("FORMTXT_PARENT_PID", std::process::id().to_string());
             let (mut rx, child) = sidecar.spawn().expect("the FormTxt engine failed to spawn");
             *app.state::<Backend>().0.lock().unwrap() = Some(child);
 

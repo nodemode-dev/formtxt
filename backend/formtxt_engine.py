@@ -31,9 +31,47 @@ def selfcheck() -> int:
     return 0 if all(not str(v).startswith("missing") for v in info.values()) else 1
 
 
+def _alive(pid: int) -> bool:
+    if os.name == "nt":
+        import ctypes
+
+        handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)
+        if not handle:
+            return False
+        code = ctypes.c_ulong()
+        ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(code))
+        ctypes.windll.kernel32.CloseHandle(handle)
+        return code.value == 259
+    try:
+        os.kill(pid, 0)
+    except ProcessLookupError:
+        return False
+    except PermissionError:
+        return True
+    return True
+
+
+def watch_parent() -> None:
+    raw = os.environ.get("FORMTXT_PARENT_PID", "")
+    if not raw.isdigit():
+        return
+    import threading
+    import time
+
+    pid = int(raw)
+
+    def loop() -> None:
+        while _alive(pid):
+            time.sleep(2)
+        os._exit(0)
+
+    threading.Thread(target=loop, name="parent-watch", daemon=True).start()
+
+
 def main() -> int:
     if "--selfcheck" in sys.argv:
         return selfcheck()
+    watch_parent()
     bundled = os.path.join(resource_dir(), "frontend_dist")
     if os.path.isdir(bundled):
         os.environ.setdefault("FORMTXT_DIST", bundled)
