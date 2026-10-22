@@ -1,8 +1,10 @@
 import type { DocSummary } from '../engine/model';
 import { api, type TemplateSummary } from '../io/api';
+import { Backstage, backstageMarkup, hicon } from './backstage';
 import { Dialog } from './dialog';
 import { el, escapeHtml, patchList, setClass, setHidden, setText } from './dom';
 import { icon } from './icons';
+import { shellCommands } from './shell/cmd';
 import { toast, undoToast } from './toast';
 
 export interface HomeHooks {
@@ -10,11 +12,53 @@ export interface HomeHooks {
   createDocument(template: string, title?: string): Promise<void>;
   importFiles(files: File[]): Promise<void>;
   preferences(): void;
+  hasDocument?(): boolean;
+  currentDocument?(): { id: string; title: string } | null;
+  closeDocument?(): void | Promise<void>;
+  flush?(): Promise<void>;
 }
 
-type View = 'start' | 'recent' | 'templates' | 'trash';
-const FORMATS = ['MD', 'TXT'];
-const ACCEPT = '.md,.markdown,.txt,.docx,.dotx,.docm,.odt,.ott,.rtf,.html,.htm,.xhtml,.doc,.dot';
+export type View = 'start' | 'recent' | 'templates' | 'trash' | 'new' | 'open' | 'info' | 'save' | 'print' | 'share' | 'export' | 'account';
+type Sort = 'recent' | 'name' | 'words' | 'size';
+type Layout = 'grid' | 'list';
+
+const FORMATS = ['DOCX', 'DOTX', 'ODT', 'RTF', 'HTML', 'MD', 'TXT', 'DOC', 'PDF'];
+const ACCEPT = '.docx,.dotx,.docm,.odt,.ott,.rtf,.html,.htm,.xhtml,.doc,.dot,.md,.markdown,.txt,.pdf,application/pdf';
+const PDF = /\.pdf$/i;
+const PREFS_KEY = 'formtxt.prefs';
+const HOME_KEY = 'formtxt.home';
+const BACKSTAGE_VIEWS: View[] = ['info', 'save', 'print', 'share', 'export', 'account'];
+const PRESETS: Array<{ name: string; size: string; orientation: 'portrait' | 'landscape'; w: number; h: number; meta: string }> = [
+  { name: 'Blank document', size: '', orientation: 'portrait', w: 8.5, h: 11, meta: 'Normal style · Letter' },
+  { name: 'Letter', size: 'letter', orientation: 'portrait', w: 8.5, h: 11, meta: '8.5 x 11 in' },
+  { name: 'A4', size: 'a4', orientation: 'portrait', w: 8.27, h: 11.69, meta: '210 x 297 mm' },
+  { name: 'Legal', size: 'legal', orientation: 'portrait', w: 8.5, h: 14, meta: '8.5 x 14 in' },
+  { name: 'A5', size: 'a5', orientation: 'portrait', w: 5.83, h: 8.27, meta: '148 x 210 mm' },
+  { name: 'Executive', size: 'executive', orientation: 'portrait', w: 7.25, h: 10.5, meta: '7.25 x 10.5 in' },
+  { name: 'Letter landscape', size: 'letter', orientation: 'landscape', w: 11, h: 8.5, meta: '11 x 8.5 in' },
+  { name: 'A4 landscape', size: 'a4', orientation: 'landscape', w: 11.69, h: 8.27, meta: '297 x 210 mm' },
+];
+
+function storedPrefs(): { autoShowHome: boolean; homeOnLastClose: boolean } {
+  const out = { autoShowHome: true, homeOnLastClose: false };
+  try {
+    const v = JSON.parse(localStorage.getItem(PREFS_KEY) ?? '{}') as Record<string, unknown>;
+    if (typeof v.homeAtLaunch === 'boolean') out.autoShowHome = v.homeAtLaunch;
+    if (typeof v.autoShowHome === 'boolean') out.autoShowHome = v.autoShowHome;
+    if (typeof v.homeOnLastClose === 'boolean') out.homeOnLastClose = v.homeOnLastClose;
+  } catch { void 0; }
+  return out;
+}
+
+function listPrefs(): { sort: Sort; view: Layout } {
+  const out: { sort: Sort; view: Layout } = { sort: 'recent', view: 'grid' };
+  try {
+    const v = JSON.parse(localStorage.getItem(HOME_KEY) ?? '{}') as Partial<typeof out>;
+    if (v.sort === 'recent' || v.sort === 'name' || v.sort === 'words' || v.sort === 'size') out.sort = v.sort;
+    if (v.view === 'grid' || v.view === 'list') out.view = v.view;
+  } catch { void 0; }
+  return out;
+}
 
 function ago(seconds: number): string {
   if (!seconds) return '';
@@ -49,42 +93,70 @@ export class Home {
   private readonly tplGridFull: HTMLElement;
   private readonly recentGrid: HTMLElement;
   private readonly recentGridFull: HTMLElement;
+  private readonly recentGridOpen: HTMLElement;
   private readonly trashList: HTMLElement;
   private readonly confirmBar: HTMLElement;
   private readonly menu: HTMLElement;
   private readonly preview: TemplatePreview;
+  private readonly backstageView: Backstage;
+  private readonly backButtons: HTMLElement[];
   private onConfirm: (() => void) | null = null;
+  private isBackstage = false;
+  private sawDoc = false;
+  private prevTitle = '';
+  private dragDepth = 0;
+  private filter = '';
+  private lists = listPrefs();
 
   constructor(private readonly hooks: HomeHooks, host: HTMLElement) {
-    const nav = (v: View, ic: string, label: string, count = ''): string =>
-      `<button class="ft-home-nav-item${v === 'start' ? ' is-active' : ''}" type="button" data-v="${v}">${icon(ic, 16)}<span>${label}</span>${count ? `<span class="ft-badge ${count}">0</span>` : ''}</button>`;
+    const nav = (v: View, ic: string, label: string, count = '', cls = ''): string =>
+      `<button class="ft-home-nav-item${v === 'start' ? ' is-active' : ''}${cls ? ` ${cls}` : ''}" type="button" data-v="${v}">${hicon(ic, 16)}<span>${label}</span>${count ? `<span class="ft-badge ${count}">0</span>` : ''}</button>`;
+    const act = (a: string, ic: string, label: string, cls = '', extra = ''): string =>
+      `<button class="ft-home-nav-item${cls ? ` ${cls}` : ''}" type="button" data-a="${a}"${extra}>${hicon(ic, 16)}<span>${label}</span></button>`;
+    const tiles = PRESETS.map((p, i) => `<button class="ft-home-size" type="button" data-size="${i}"><span class="ft-home-size-box"><span style="aspect-ratio: ${p.w} / ${p.h}"></span></span><span class="ft-home-size-name">${p.name}</span><span class="ft-home-size-meta">${p.meta}</span></button>`).join('');
+    const toolbar = `<div class="ft-hf-bar"><label class="ft-hf-filter">${icon('search', 14)}<input class="ft-hf-input" type="search" placeholder="Filter documents" aria-label="Filter documents" spellcheck="false"></label><label class="ft-hf-sortbox"><span>Sort</span><select class="ft-hf-sort" aria-label="Sort by"><option value="recent">Most recent</option><option value="name">Name</option><option value="words">Words</option><option value="size">Size</option></select></label><div class="ft-hf-views" role="group" aria-label="View"><button class="ft-hf-view" type="button" data-view="grid" title="Thumbnails" aria-label="Thumbnails">${hicon('viewGrid', 16)}</button><button class="ft-hf-view" type="button" data-view="list" title="List" aria-label="List">${hicon('viewList', 16)}</button></div></div>`;
     this.root = el(`<section class="ft-home" aria-label="Home">
 <nav class="ft-home-nav">
+${act('back', 'arrowLeft', 'Back', 'ft-home-back-top ft-for-bs', ' title="Back to the document (Esc)"')}
 <div class="ft-home-brand">${icon('brand', 24)}FormTxt <span>by NodeMode</span></div>
-${nav('start', 'home', 'Start')}${nav('recent', 'clock', 'Recent documents', 'ft-doc-count')}${nav('templates', 'template', 'Templates', 'ft-tpl-count')}${nav('trash', 'trash', 'Trash', 'ft-trash-count')}
+<div class="ft-for-home ft-home-group">${nav('start', 'home', 'Start')}${nav('recent', 'clock', 'Recent documents', 'ft-doc-count')}${nav('templates', 'template', 'Templates', 'ft-tpl-count')}${nav('trash', 'trash', 'Trash', 'ft-trash-count')}
+<div class="ft-home-nav-sep"></div>
+<div class="ft-home-nav-title">Create</div>
+${nav('new', 'plus', 'New document')}${nav('open', 'folderOpen', 'Open')}
 <div class="ft-home-nav-sep"></div>
 <div class="ft-home-nav-title">Agents</div>
-<button class="ft-home-nav-item" type="button" data-a="agents">${icon('agent', 16)}<span>Claude Code, Codex, Cursor</span></button>
+<button class="ft-home-nav-item" type="button" data-a="agents">${icon('agent', 16)}<span>Claude Code, Codex, Cursor</span></button></div>
+<div class="ft-for-bs ft-home-group">${nav('start', 'home', 'Home')}${nav('new', 'plus', 'New')}${nav('open', 'folderOpen', 'Open')}
+<div class="ft-home-nav-sep"></div>
+${nav('info', 'info', 'Info')}${nav('save', 'saveCopy', 'Save a Copy')}${nav('print', 'print', 'Print')}${nav('share', 'share', 'Share')}${nav('export', 'exportDoc', 'Export')}
+<div class="ft-home-nav-sep"></div>
+${act('closedoc', 'closeDoc', 'Close')}</div>
 <div class="ft-home-nav-foot">
-<button class="ft-home-nav-item" type="button" data-a="local" title="Your documents stay on this computer">${icon('cloudOff', 16)}<span>Local only</span></button>
-<button class="ft-home-nav-item" type="button" data-a="prefs">${icon('settings', 16)}<span>Preferences</span></button>
+<button class="ft-home-nav-item ft-home-back ft-for-home" type="button" data-a="back" hidden>${icon('chevronLeft', 16)}<span>Back to document</span></button>
+<button class="ft-home-nav-item ft-for-home" type="button" data-a="local" title="Your documents stay on this computer">${icon('cloudOff', 16)}<span>Local only</span></button>
+<button class="ft-home-nav-item ft-for-home" type="button" data-a="prefs">${icon('settings', 16)}<span>Preferences</span></button>
+${nav('account', 'user', 'Account', '', 'ft-for-bs')}${act('options', 'options', 'Options', 'ft-for-bs')}
 </div></nav>
 <div class="ft-home-main">
-<div class="ft-home-narrow">${nav('start', 'home', 'Start')}${nav('recent', 'clock', 'Recent')}${nav('templates', 'template', 'Templates')}${nav('trash', 'trash', 'Trash')}</div>
+<div class="ft-home-narrow"><button class="ft-home-nav-item ft-for-bs" type="button" data-a="back">${hicon('arrowLeft', 16)}<span>Back</span></button>${nav('start', 'home', 'Start')}${nav('recent', 'clock', 'Recent', 'ft-doc-count', 'ft-for-home')}${nav('templates', 'template', 'Templates', 'ft-tpl-count', 'ft-for-home')}${nav('trash', 'trash', 'Trash', 'ft-trash-count', 'ft-for-home')}${nav('new', 'plus', 'New')}${nav('open', 'folderOpen', 'Open')}${nav('info', 'info', 'Info', '', 'ft-for-bs')}${nav('save', 'saveCopy', 'Save a Copy', '', 'ft-for-bs')}${nav('print', 'print', 'Print', '', 'ft-for-bs')}${nav('share', 'share', 'Share', '', 'ft-for-bs')}${nav('export', 'exportDoc', 'Export', '', 'ft-for-bs')}</div>
 <div class="ft-home-confirm" role="alertdialog" aria-live="assertive" hidden><span class="ft-home-confirm-text"></span><button class="ft-btn sm" type="button" data-a="confirm-no">Cancel</button><button class="ft-btn sm danger" type="button" data-a="confirm-yes"></button></div>
 <div data-page="start">
-<div class="ft-home-head"><div><h1 class="ft-home-title"></h1><p class="ft-home-sub">Write something new, pick up where you left off, or start from one of 39 templates.</p></div><div class="ft-home-head-actions"><button class="ft-btn" type="button" data-a="open">${icon('folderOpen', 14)}Open file</button><button class="ft-btn" type="button" data-a="blank">${icon('plus', 14)}Blank document</button></div></div>
+<div class="ft-home-head"><div><h1 class="ft-home-title"></h1><p class="ft-home-sub">Write something new, pick up where you left off, or start from one of 39 templates.</p></div></div>
 <div class="ft-home-hero">
 <span class="ft-home-hero-icon">${icon('inbox', 26)}</span>
 <div class="ft-home-hero-text"><div class="ft-home-hero-title">Start from your material</div>
-<div class="ft-home-hero-sub">Drop notes, a draft or an outline here and each file becomes a document in your library. Word, OpenDocument, RTF, HTML, .doc and PDF arrive with the exchange phase.</div>
+<div class="ft-home-hero-sub">Drop a Word, OpenDocument, RTF, HTML, Markdown, text, Word 97 or PDF file anywhere on this screen and it opens as a document in your library.</div>
 <div class="ft-home-formats">${FORMATS.map((f) => `<span class="ft-home-format">${f}</span>`).join('')}</div></div>
-<div class="ft-home-hero-actions"><button class="ft-btn cta" type="button" data-a="choose">${icon('upload', 14)}Choose files</button><button class="ft-btn" type="button" data-a="paste">${icon('fileText', 14)}Paste text</button><button class="ft-btn ghost" type="button" data-a="agents">${icon('agent', 14)}Use your agent</button></div>
+<div class="ft-home-hero-actions"><button class="ft-home-action is-primary" type="button" data-a="blank">${icon('plus', 16)}<span class="ft-home-label">New document</span></button><button class="ft-home-action" type="button" data-a="choose">${icon('upload', 16)}<span class="ft-home-label">Choose files</span></button><button class="ft-home-action" type="button" data-a="paste">${icon('fileText', 16)}<span class="ft-home-label">Paste text</span></button><button class="ft-home-action is-ghost" type="button" data-a="agents">${icon('agent', 16)}<span class="ft-home-label">Use your agent</span></button></div>
 </div>
 <section class="ft-home-section"><div class="ft-home-section-head"><h2 class="ft-home-section-title">Recent documents</h2><button class="ft-btn ghost sm" type="button" data-v="recent">See all</button></div><div class="ft-card-grid ft-recent-grid">${SKELETON}</div><div class="ft-card-grid ft-recent-empty" hidden><button class="ft-card is-empty" type="button" tabindex="-1" data-a="blank"><span class="ft-card-preview is-blank">${icon('document', 28)}</span><span class="ft-card-body"><span class="ft-card-name">No documents yet</span><span class="ft-card-meta">Start blank, from a template or from a file</span></span></button></div></section>
+<section class="ft-home-section"><div class="ft-home-section-head"><h2 class="ft-home-section-title">New document</h2><button class="ft-btn ghost sm" type="button" data-v="new">More sizes</button></div><div class="ft-home-sizes">${tiles}</div></section>
 <section class="ft-home-section"><div class="ft-home-section-head"><h2 class="ft-home-section-title">Templates</h2><div class="ft-home-filters ft-cats"></div><label class="ft-search">${icon('search', 14)}<input type="search" placeholder="Search templates" class="ft-tpl-search"></label></div><div class="ft-card-grid ft-tpl-grid"></div></section>
 </div>
-<div data-page="recent" hidden><div class="ft-home-head"><div><h1 class="ft-home-title">Recent documents</h1><p class="ft-home-sub">Everything in your library, newest first. Pinned documents stay at the front.</p></div></div><div class="ft-card-grid ft-recent-full"></div></div>
+<div data-page="recent" hidden><div class="ft-home-head"><div><h1 class="ft-home-title">Recent documents</h1><p class="ft-home-sub">Everything in your library, newest first. Pinned documents stay at the front.</p></div></div>${toolbar}<div class="ft-card-grid ft-recent-full"></div><p class="ft-note ft-recent-none" hidden></p></div>
+<div data-page="new" hidden><div class="ft-home-head"><div><h1 class="ft-home-title">New</h1><p class="ft-home-sub">Start a blank document at a page size, or pick one of the templates.</p></div><div class="ft-home-head-actions"><button class="ft-btn" type="button" data-v="templates">${icon('template', 14)}Browse templates</button></div></div><div class="ft-home-sizes ft-home-sizes-page">${tiles}</div></div>
+<div data-page="open" hidden><div class="ft-home-head"><div><h1 class="ft-home-title">Open</h1><p class="ft-home-sub">Pick a recent document, or open a file from this computer.</p></div><div class="ft-home-head-actions"><button class="ft-btn cta" type="button" data-a="choose">${icon('upload', 14)}Browse files</button><button class="ft-btn" type="button" data-a="openpdf">${hicon('pdf', 14)}Open a PDF</button></div></div><div class="ft-home-section-head"><h2 class="ft-home-section-title">Recent</h2><button class="ft-btn ghost sm" type="button" data-v="recent">See all</button></div><div class="ft-card-grid ft-recent-open"></div></div>
+${backstageMarkup()}
 <div data-page="templates" hidden><div class="ft-home-head"><div><h1 class="ft-home-title">Templates</h1><p class="ft-home-sub">39 original templates in 11 categories, plus any document you save as a template.</p></div></div>
 <div class="ft-home-section-head"><div class="ft-home-filters ft-cats"></div><label class="ft-search">${icon('search', 14)}<input type="search" placeholder="Search templates" class="ft-tpl-search"></label></div><div class="ft-card-grid ft-tpl-full"></div></div>
 <div data-page="trash" hidden><div class="ft-home-head"><div><h1 class="ft-home-title">Trash</h1><p class="ft-home-sub">Deleted documents wait here until you restore them or delete them permanently.</p></div><div class="ft-home-head-actions"><button class="ft-btn ft-empty-trash" type="button" data-a="empty-trash" disabled>${icon('trash', 14)}Empty Trash</button></div></div><div class="ft-trash-list"></div><p class="ft-note ft-trash-none">Trash is empty.</p></div>
@@ -94,13 +166,62 @@ ${nav('start', 'home', 'Start')}${nav('recent', 'clock', 'Recent documents', 'ft
     this.tplGridFull = this.root.querySelector('.ft-tpl-full') as HTMLElement;
     this.recentGrid = this.root.querySelector('.ft-recent-grid') as HTMLElement;
     this.recentGridFull = this.root.querySelector('.ft-recent-full') as HTMLElement;
+    this.recentGridOpen = this.root.querySelector('.ft-recent-open') as HTMLElement;
     this.trashList = this.root.querySelector('.ft-trash-list') as HTMLElement;
     this.confirmBar = this.root.querySelector('.ft-home-confirm') as HTMLElement;
+    this.backButtons = Array.from(this.root.querySelectorAll<HTMLElement>('.ft-home-back'));
     this.menu = el('<div class="ft-menu" role="menu" hidden></div>');
     document.getElementById('overlay-root')?.appendChild(this.menu);
     this.preview = new TemplatePreview(hooks);
+    this.backstageView = new Backstage(this.root, {
+      hasDocument: () => this.hasDocument(),
+      current: () => this.currentDoc(),
+      summary: (id) => this.docs.find((d) => d.id === id),
+      leave: () => this.leave(),
+      show: (page) => this.show(page as View),
+    });
+    (this.root.querySelector('.ft-hf-sort') as HTMLSelectElement).value = this.lists.sort;
+    this.chrome();
+    setHidden(this.root, !storedPrefs().autoShowHome);
+    this.flag();
     host.appendChild(this.root);
     this.wire();
+  }
+
+  private hasDocument(): boolean { return this.hooks.hasDocument ? this.hooks.hasDocument() : this.sawDoc; }
+
+  private currentDoc(): { id: string; title: string } | null {
+    if (this.hooks.currentDocument) return this.hooks.currentDocument();
+    if (!this.sawDoc) return null;
+    const d = this.docs[0];
+    return d ? { id: d.id, title: d.title } : null;
+  }
+
+  private flag(): void { document.documentElement.classList.toggle('ft-home-open', !this.root.hidden); }
+
+  private chrome(): void {
+    for (const b of Array.from(this.root.querySelectorAll<HTMLElement>('.ft-hf-view'))) {
+      const on = b.dataset.view === this.lists.view;
+      setClass(b, 'is-active', on);
+      if (b.getAttribute('aria-pressed') !== String(on)) b.setAttribute('aria-pressed', String(on));
+    }
+    for (const g of [this.recentGridFull, this.recentGridOpen]) setClass(g, 'is-list', this.lists.view === 'list');
+  }
+
+  private saveLists(): void {
+    try { localStorage.setItem(HOME_KEY, JSON.stringify(this.lists)); } catch { void 0; }
+  }
+
+  private paint(): void {
+    setText(this.root.querySelector('[data-page="start"] .ft-home-title'), greeting());
+    setHidden(this.backButtons[0], !this.hasDocument());
+    setClass(this.root, 'is-backstage', this.isBackstage);
+  }
+
+  private leave(): void {
+    if (!this.hasDocument()) return;
+    this.close();
+    if (this.prevTitle) document.title = this.prevTitle;
   }
 
   private wire(): void {
@@ -126,7 +247,13 @@ ${nav('start', 'home', 'Start')}${nav('recent', 'clock', 'Recent documents', 'ft
       }
       const card = t.closest('.ft-card') as HTMLElement | null;
       if (card?.dataset.doc && (e.ctrlKey || e.metaKey || e.shiftKey)) { this.pickCard(card, e.shiftKey); return; }
-      if (a === 'blank') void this.hooks.createDocument('');
+      const size = (t.closest('[data-size]') as HTMLElement | null)?.dataset.size;
+      if (size !== undefined && PRESETS[Number(size)]) { void this.createPreset(PRESETS[Number(size)]); return; }
+      if (a === 'back') this.leave();
+      else if (a === 'closedoc') void this.closeDocument();
+      else if (a === 'options') { this.leave(); this.hooks.preferences(); }
+      else if (a === 'openpdf') { this.leave(); void shellCommands.call('print.openPdf').catch((err: Error) => toast(err.message, 'error')); }
+      else if (a === 'blank') void this.hooks.createDocument('');
       else if (a === 'open' || a === 'choose') this.pick();
       else if (a === 'paste') this.pasteText();
       else if (a === 'prefs') this.hooks.preferences();
@@ -155,7 +282,7 @@ ${nav('start', 'home', 'Start')}${nav('recent', 'clock', 'Recent documents', 'ft
       this.openMenu(card.dataset.doc, e.clientX, e.clientY);
     });
     this.root.addEventListener('keydown', (e) => {
-      if (e.key === 'Escape') { if (!this.menu.hidden) { this.closeMenu(); return; } if (!this.confirmBar.hidden) { this.askClose(); return; } if (this.selected.size) this.clearSelection(); return; }
+      if (e.key === 'Escape') { if (!this.menu.hidden) { e.preventDefault(); this.closeMenu(); return; } if (!this.confirmBar.hidden) { e.preventDefault(); this.askClose(); return; } if (this.selected.size) { e.preventDefault(); this.clearSelection(); } return; }
       if (e.key !== 'Delete') return;
       const id = ((e.target as HTMLElement).closest('.ft-card') as HTMLElement | null)?.dataset.doc;
       if (!id) return;
@@ -164,14 +291,70 @@ ${nav('start', 'home', 'Start')}${nav('recent', 'clock', 'Recent documents', 'ft
     });
     document.addEventListener('pointerdown', (e) => { if (!this.menu.hidden && !this.menu.contains(e.target as Node)) this.closeMenu(); }, true);
     const hero = this.root.querySelector('.ft-home-hero') as HTMLElement;
-    hero.addEventListener('dragover', (e) => { e.preventDefault(); setClass(hero, 'is-drag-over', true); });
-    hero.addEventListener('dragleave', () => setClass(hero, 'is-drag-over', false));
-    hero.addEventListener('drop', (e) => {
+    const hasFiles = (e: DragEvent): boolean => Array.from(e.dataTransfer?.types ?? []).includes('Files');
+    this.root.addEventListener('dragenter', (e) => { if (!hasFiles(e)) return; e.preventDefault(); this.dragDepth++; setClass(this.root, 'is-dropping', true); setClass(hero, 'is-drag-over', true); });
+    this.root.addEventListener('dragover', (e) => { if (hasFiles(e)) e.preventDefault(); });
+    this.root.addEventListener('dragleave', (e) => {
+      if (!hasFiles(e)) return;
+      this.dragDepth = Math.max(0, this.dragDepth - 1);
+      if (!this.dragDepth) { setClass(this.root, 'is-dropping', false); setClass(hero, 'is-drag-over', false); }
+    });
+    this.root.addEventListener('drop', (e) => {
+      if (!hasFiles(e)) return;
       e.preventDefault();
+      this.dragDepth = 0;
+      setClass(this.root, 'is-dropping', false);
       setClass(hero, 'is-drag-over', false);
       const files = Array.from(e.dataTransfer?.files ?? []);
-      if (files.length) void this.hooks.importFiles(files).then(() => this.load());
+      if (files.length) void this.route(files);
     });
+    document.addEventListener('keydown', (e) => {
+      if (e.key !== 'Escape' || this.root.hidden || !this.hasDocument()) return;
+      if (!this.menu.hidden || !this.confirmBar.hidden || this.selected.size) return;
+      if (document.querySelector('.ft-scrim:not([hidden])')) return;
+      e.preventDefault();
+      this.leave();
+    }, true);
+    const filter = this.root.querySelector('.ft-hf-input') as HTMLInputElement;
+    filter.addEventListener('input', () => { this.filter = filter.value.trim().toLowerCase(); this.renderDocs(); });
+    (this.root.querySelector('.ft-hf-sort') as HTMLSelectElement).addEventListener('change', (e) => { this.lists.sort = (e.target as HTMLSelectElement).value as Sort; this.saveLists(); this.renderDocs(); });
+    for (const b of Array.from(this.root.querySelectorAll<HTMLElement>('.ft-hf-view'))) b.addEventListener('click', () => { this.lists.view = b.dataset.view as Layout; this.saveLists(); this.chrome(); });
+  }
+
+  private async createPreset(p: (typeof PRESETS)[number]): Promise<void> {
+    await this.hooks.createDocument('');
+    if (!p.size) return;
+    try { await shellCommands.call('layout.setPage', { section: 'all', size: p.size, orientation: p.orientation }); } catch (err) { toast(`Could not set the page size: ${(err as Error).message}`, 'error'); }
+  }
+
+  private async closeDocument(): Promise<void> {
+    if (this.hooks.closeDocument) await this.hooks.closeDocument();
+    this.sawDoc = false;
+    this.isBackstage = false;
+    this.paint();
+    this.show('start');
+  }
+
+  async route(files: File[]): Promise<void> {
+    const pdfs = files.filter((f) => PDF.test(f.name) || f.type === 'application/pdf');
+    const rest = files.filter((f) => !pdfs.includes(f));
+    if (rest.length) await this.hooks.importFiles(rest);
+    for (const f of pdfs) {
+      try {
+        const form = new FormData();
+        form.append('file', f, f.name);
+        const res = await fetch('/api/print/open-pdf', { method: 'POST', body: form });
+        if (!res.ok) {
+          let detail = res.statusText;
+          try { detail = (await res.json()).detail ?? detail; } catch { void 0; }
+          throw new Error(String(detail));
+        }
+        const body = (await res.json()) as { document: { id: string } };
+        if (pdfs.length === 1 && !rest.length) this.hooks.openDocument(body.document.id);
+        else toast(`Added ${f.name} to your library.`);
+      } catch (err) { toast(`${f.name}: ${(err as Error).message}`, 'error'); }
+    }
+    await this.load();
   }
 
   private pick(): void {
@@ -179,7 +362,7 @@ ${nav('start', 'home', 'Start')}${nav('recent', 'clock', 'Recent documents', 'ft
     input.type = 'file';
     input.multiple = true;
     input.accept = ACCEPT;
-    input.onchange = () => { const files = Array.from(input.files ?? []); if (files.length) void this.hooks.importFiles(files).then(() => this.load()); };
+    input.onchange = () => { const files = Array.from(input.files ?? []); if (files.length) void this.route(files); };
     input.click();
   }
 
@@ -210,7 +393,7 @@ ${nav('start', 'home', 'Start')}${nav('recent', 'clock', 'Recent documents', 'ft
     this.docs = l.documents;
     this.trashed = tr.documents;
     for (const id of [...this.selected]) if (!this.docs.some((d) => d.id === id)) this.selected.delete(id);
-    setText(this.root.querySelector('.ft-tpl-count'), String(this.templates.length));
+    for (const c of Array.from(this.root.querySelectorAll('.ft-tpl-count'))) setText(c, String(this.templates.length));
     this.renderTemplates();
     this.renderDocs();
     this.renderTrash();
@@ -293,7 +476,7 @@ ${nav('start', 'home', 'Start')}${nav('recent', 'clock', 'Recent documents', 'ft
 
   private setSelected(id: string, on: boolean): void {
     if (on) this.selected.add(id); else this.selected.delete(id);
-    for (const grid of [this.recentGrid, this.recentGridFull]) {
+    for (const grid of [this.recentGrid, this.recentGridFull, this.recentGridOpen]) {
       const n = grid.querySelector<HTMLElement>(`.ft-card[data-doc="${id}"]`);
       if (n) setClass(n, 'is-selected', on);
     }
@@ -364,7 +547,7 @@ ${nav('start', 'home', 'Start')}${nav('recent', 'clock', 'Recent documents', 'ft
   }
 
   private renderTrash(): void {
-    setText(this.root.querySelector('.ft-trash-count'), String(this.trashed.length));
+    for (const c of Array.from(this.root.querySelectorAll('.ft-trash-count'))) setText(c, String(this.trashed.length));
     const empty = this.root.querySelector<HTMLButtonElement>('.ft-empty-trash');
     if (empty && empty.disabled !== !this.trashed.length) empty.disabled = !this.trashed.length;
     const none = this.root.querySelector<HTMLElement>('.ft-trash-none');
@@ -383,21 +566,48 @@ ${nav('start', 'home', 'Start')}${nav('recent', 'clock', 'Recent documents', 'ft
 
   show(v: View = this.view): void {
     this.view = v;
+    const lit = v === 'templates' && this.isBackstage ? 'new' : v;
     for (const page of Array.from(this.root.querySelectorAll<HTMLElement>('[data-page]'))) setHidden(page, page.dataset.page !== v);
-    for (const b of Array.from(this.root.querySelectorAll<HTMLElement>('.ft-home-nav-item[data-v]'))) setClass(b, 'is-active', b.dataset.v === v);
+    for (const b of Array.from(this.root.querySelectorAll<HTMLElement>('.ft-home-nav-item[data-v]'))) setClass(b, 'is-active', b.dataset.v === lit);
+    if (BACKSTAGE_VIEWS.includes(v)) this.backstageView.refresh();
   }
 
-  open(): void {
+  open(page?: View): void {
+    this.isBackstage = false;
+    this.begin();
+    this.show(page && !BACKSTAGE_VIEWS.includes(page) ? page : this.view && !BACKSTAGE_VIEWS.includes(this.view) ? this.view : 'start');
+  }
+
+  backstage(page: View = 'info'): void {
+    if (!this.hasDocument()) { this.open(page === 'info' ? 'start' : page); return; }
+    this.isBackstage = true;
+    this.begin();
+    this.show(page);
+  }
+
+  private begin(): void {
+    if (this.root.hidden) this.prevTitle = document.title;
+    this.paint();
     setHidden(this.root, false);
+    this.flag();
     document.title = 'FormTxt';
     void this.load().catch((e: Error) => toast(`Could not load your library: ${e.message}`, 'error'));
   }
 
   close(): void {
+    this.sawDoc = true;
     setHidden(this.root, true);
+    this.flag();
     this.closeMenu();
     this.askClose();
     this.clearSelection();
+    this.dragDepth = 0;
+    setClass(this.root, 'is-dropping', false);
+  }
+
+  documentClosed(): void {
+    this.sawDoc = false;
+    if (storedPrefs().homeOnLastClose) this.open('start');
   }
 
   get isOpen(): boolean { return !this.root.hidden; }
@@ -455,8 +665,18 @@ ${nav('start', 'home', 'Start')}${nav('recent', 'clock', 'Recent documents', 'ft
     patchList(this.recentGrid, recent.slice(0, 5),{ key: (d) => d.id, create: make, update });
     setHidden(this.recentGrid, recent.length === 0);
     setHidden(this.root.querySelector('.ft-recent-empty') as HTMLElement, recent.length > 0);
-    patchList(this.recentGridFull, pinnedFirst(this.docs), { key: (d) => d.id, create: make, update });
-    setText(this.root.querySelector('.ft-doc-count'), String(this.docs.length));
+    const f = this.filter;
+    let shown = this.docs.filter((d) => !f || d.title.toLowerCase().includes(f));
+    if (this.lists.sort === 'name') shown = [...shown].sort((a, b) => a.title.localeCompare(b.title, undefined, { numeric: true }));
+    else if (this.lists.sort === 'words') shown = [...shown].sort((a, b) => b.words - a.words);
+    else if (this.lists.sort === 'size') shown = [...shown].sort((a, b) => b.bytes - a.bytes);
+    else shown = pinnedFirst(shown);
+    patchList(this.recentGridFull, shown, { key: (d) => d.id, create: make, update });
+    patchList(this.recentGridOpen, pinnedFirst(this.docs).slice(0, 12), { key: (d) => d.id, create: make, update });
+    const none = this.root.querySelector('.ft-recent-none') as HTMLElement;
+    setText(none, this.docs.length ? 'No documents match the filter.' : 'Documents you open or save appear here.');
+    setHidden(none, shown.length > 0);
+    for (const c of Array.from(this.root.querySelectorAll('.ft-doc-count'))) setText(c, String(this.docs.length));
   }
 }
 
