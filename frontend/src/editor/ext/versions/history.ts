@@ -4,7 +4,7 @@ import { Dialog } from '../../../ui/dialog';
 import { el, patchList, setClass, setDisabled, setHidden, setText } from '../../../ui/dom';
 import { toast } from '../../../ui/toast';
 import type { DocEditor } from '../../editor';
-import { type ActivityRow, type VersionDetail, type VersionRow, vx } from './api';
+import { type ActivityRow, type CompareResult, type VersionDetail, type VersionRow, vx } from './api';
 import { ask, requireView, when } from './core';
 
 let root: HTMLElement | null = null;
@@ -13,7 +13,47 @@ let selected = '';
 let editor: DocEditor | null = null;
 let detailToken = 0;
 
+type ListItem = { kind: 'head'; key: string; title: string; sub: string } | { kind: 'row'; key: string; v: VersionRow };
+
+const SESSION_GAP = 3600;
+let poll = 0;
+
 const label = (v: VersionRow): string => v.name || (v.reason === 'open' ? 'Opened' : 'Automatic version');
+const clock = (ts: number): string => new Date(ts * 1000).toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' });
+
+function dayLabel(ts: number): string {
+  const d = new Date(ts * 1000);
+  const today = new Date();
+  const start = (x: Date): number => new Date(x.getFullYear(), x.getMonth(), x.getDate()).getTime();
+  const days = Math.round((start(today) - start(d)) / 86400000);
+  if (days === 0) return 'Today';
+  if (days === 1) return 'Yesterday';
+  return d.toLocaleDateString(undefined, { weekday: 'short', month: 'short', day: 'numeric', year: d.getFullYear() === today.getFullYear() ? undefined : 'numeric' });
+}
+
+const editorsOf = (v: VersionRow): string[] => (v.editors && v.editors.length ? v.editors : [v.author]);
+
+export function groupRows(list: VersionRow[]): ListItem[] {
+  const sorted = [...list].sort((a, b) => b.ts - a.ts);
+  const groups: VersionRow[][] = [];
+  let cur: VersionRow[] = [];
+  for (const v of sorted) {
+    const prev = cur[cur.length - 1];
+    if (prev && (prev.reason === 'open' || prev.ts - v.ts > SESSION_GAP || dayLabel(prev.ts) !== dayLabel(v.ts))) { groups.push(cur); cur = []; }
+    cur.push(v);
+  }
+  if (cur.length) groups.push(cur);
+  const out: ListItem[] = [];
+  for (const g of groups) {
+    const names = Array.from(new Set(g.flatMap(editorsOf)));
+    const first = g[g.length - 1]!;
+    const last = g[0]!;
+    const span = g.length > 1 && clock(first.ts) !== clock(last.ts) ? `${clock(first.ts)} to ${clock(last.ts)}` : clock(first.ts);
+    out.push({ kind: 'head', key: `h:${first.id}`, title: `${dayLabel(last.ts)}, ${span}`, sub: `${names.join(', ')} · ${g.length} version${g.length === 1 ? '' : 's'}` });
+    for (const v of g) out.push({ kind: 'row', key: v.id, v });
+  }
+  return out;
+}
 
 export function bindHistory(ed: DocEditor): void {
   editor = ed;
@@ -25,13 +65,14 @@ export function historyElement(ed: DocEditor): HTMLElement {
   root = el(`<div class="ft-vx-history">
 <div class="ft-vx-name-row"><input class="ft-input" type="text" maxlength="120" placeholder="Name this version" aria-label="Version name"><button type="button" class="ft-btn primary" data-a="save">Save</button></div>
 <div class="ft-vx-list" role="list" aria-label="Versions"></div>
+<label class="ft-vx-auto"><span>Automatic version every</span><select class="ft-input" data-a="interval" aria-label="Automatic version interval"><option value="2">2 minutes</option><option value="5">5 minutes</option><option value="10">10 minutes</option><option value="15">15 minutes</option><option value="30">30 minutes</option><option value="60">60 minutes</option></select></label>
 <p class="ft-note ft-vx-empty" hidden>No versions yet. Versions are kept as you work, or save one with a name.</p>
 <section class="ft-vx-detail" hidden aria-live="polite">
 <h3 class="ft-vx-detail-title"></h3><p class="ft-note ft-vx-detail-meta"></p>
 <div class="ft-vx-thumb"><img alt="" decoding="async"></div>
-<p class="ft-vx-diff"></p><div class="ft-vx-changes"></div>
+<p class="ft-vx-diff"></p><p class="ft-vx-cmp-title">Changes since this version</p><div class="ft-vx-changes" aria-label="Changes since this version"></div><p class="ft-note ft-vx-cmp-note"></p>
 <div class="ft-vx-text" tabindex="0" aria-label="Text of this version"></div>
-<div class="ft-vx-actions"><button type="button" class="ft-btn primary" data-a="restore">Restore this version</button><button type="button" class="ft-btn" data-a="rename">Rename</button><button type="button" class="ft-btn danger" data-a="delete">Delete</button></div>
+<div class="ft-vx-actions"><button type="button" class="ft-btn primary" data-a="restore">Restore this version</button><button type="button" class="ft-btn" data-a="rename">Name this version</button><button type="button" class="ft-btn danger" data-a="delete">Delete</button></div>
 </section></div>`);
   root.addEventListener('click', (e) => {
     const t = e.target as HTMLElement;
@@ -43,6 +84,14 @@ export function historyElement(ed: DocEditor): HTMLElement {
     if (act === 'delete') { void removeVersion(selected); return; }
     if (row?.dataset.vid) select(row.dataset.vid);
   });
+  const sel = root.querySelector<HTMLSelectElement>('[data-a="interval"]')!;
+  sel.addEventListener('change', () => { void vx.setAutoMinutes(Number(sel.value)).then(() => toast(`Automatic versions every ${sel.value} minutes.`)).catch((e: Error) => toast(e.message, 'error')); });
+  void vx.autoSettings().then((s) => {
+    const m = String(Math.round(s.autoVersionMinutes));
+    if (!Array.from(sel.options).some((o) => o.value === m)) { const o = document.createElement('option'); o.value = m; o.textContent = `${m} minutes`; sel.appendChild(o); }
+    sel.value = m;
+  }).catch(() => undefined);
+  if (!poll) poll = window.setInterval(() => { if (root?.isConnected && !document.hidden) void refreshHistory().catch(() => undefined); }, 30000);
   return root;
 }
 
@@ -94,23 +143,33 @@ function select(vid: string): void {
 function paintList(): void {
   if (!root) return;
   const list = root.querySelector('.ft-vx-list') as HTMLElement;
-  patchList(list, rows, {
-    key: (v) => v.id,
-    create: (v) => {
+  patchList(list, groupRows(rows), {
+    key: (it) => it.key,
+    create: (it) => {
+      if (it.kind === 'head') {
+        const h = el('<div class="ft-vx-group" role="presentation"><span class="ft-vx-group-title"></span><span class="ft-vx-group-sub"></span></div>');
+        paintHead(h, it);
+        return h;
+      }
       const n = el('<button type="button" class="ft-vx-row" role="listitem"><span class="ft-vx-row-name"></span><span class="ft-vx-row-meta"></span></button>');
-      n.dataset.vid = v.id;
-      paintRow(n, v);
+      n.dataset.vid = it.v.id;
+      paintRow(n, it.v);
       return n;
     },
-    update: paintRow,
+    update: (n, it) => { if (it.kind === 'head') paintHead(n, it); else paintRow(n, it.v); },
   });
   setHidden(root.querySelector('.ft-vx-empty') as HTMLElement, rows.length > 0);
   setHidden(root.querySelector('.ft-vx-detail') as HTMLElement, !selected || !rows.some((r) => r.id === selected));
 }
 
+function paintHead(n: HTMLElement, it: Extract<ListItem, { kind: 'head' }>): void {
+  setText(n.querySelector('.ft-vx-group-title'), it.title);
+  setText(n.querySelector('.ft-vx-group-sub'), it.sub);
+}
+
 function paintRow(n: HTMLElement, v: VersionRow): void {
   setText(n.querySelector('.ft-vx-row-name'), label(v));
-  setText(n.querySelector('.ft-vx-row-meta'), `${when(v.ts)} · ${v.author} · ${v.words} word${v.words === 1 ? '' : 's'}`);
+  setText(n.querySelector('.ft-vx-row-meta'), `${clock(v.ts)} · ${editorsOf(v).join(', ')} · ${v.words} word${v.words === 1 ? '' : 's'}${v.name ? '' : ' · automatic'}`);
   setClass(n, 'is-named', !!v.name);
   setClass(n, 'is-selected', v.id === selected);
   n.setAttribute('aria-current', v.id === selected ? 'true' : 'false');
@@ -128,15 +187,29 @@ async function paintDetail(vid: string): Promise<void> {
   const src = `/api/versions/${encodeURIComponent(editor!.docId())}/v/${encodeURIComponent(vid)}/thumb.svg`;
   if (img.getAttribute('src') !== src) img.src = src;
   let d: VersionDetail;
-  try { d = await vx.detail(editor!.docId(), vid); } catch (e) { toast((e as Error).message, 'error'); return; }
+  let cmp: CompareResult | null = null;
+  try {
+    const both = await Promise.all([vx.detail(editor!.docId(), vid), vx.compare(editor!.docId(), vid).catch(() => null)]);
+    d = both[0];
+    cmp = both[1];
+  } catch (e) { toast((e as Error).message, 'error'); return; }
   if (token !== detailToken || !root) return;
   setText(root.querySelector('.ft-vx-diff'), d.diff.added || d.diff.removed ? `Compared with the current document: ${d.diff.removed} word${d.diff.removed === 1 ? '' : 's'} would come back, ${d.diff.added} would go.` : 'The text matches the current document.');
   const changes = root.querySelector('.ft-vx-changes') as HTMLElement;
-  patchList(changes, d.diff.changes.map((c, i) => ({ ...c, i })), {
+  patchList(changes, (cmp?.rows ?? []).map((c, i) => ({ ...c, i })), {
     key: (c) => String(c.i),
-    create: () => el('<div class="ft-vx-change"><span class="ft-vx-out"></span><span class="ft-vx-in"></span></div>'),
-    update: (n, c) => { setText(n.querySelector('.ft-vx-out'), c.removed ? `In this version: ${c.removed}` : ''); setText(n.querySelector('.ft-vx-in'), c.added ? `Now: ${c.added}` : ''); },
+    create: () => el('<p class="ft-vx-change"></p>'),
+    update: (n, c) => {
+      const spans = c.segments.map((s) => {
+        const sp = document.createElement('span');
+        sp.className = `ft-vx-seg is-${s.kind}`;
+        sp.textContent = s.text;
+        return sp;
+      });
+      n.replaceChildren(...spans);
+    },
   });
+  setText(root.querySelector('.ft-vx-cmp-note'), cmp ? (cmp.changed ? `${cmp.changed} paragraph${cmp.changed === 1 ? '' : 's'} differ. Green was added since this version, red was removed.${cmp.truncated ? ' Only the first are shown.' : ''}` : 'No differences from the current document.') : 'The comparison is not available.');
   const text = root.querySelector('.ft-vx-text') as HTMLElement;
   patchList(text, d.outline.slice(0, 200).map((o, i) => ({ ...o, i })), {
     key: (o) => String(o.i),

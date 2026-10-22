@@ -28,7 +28,7 @@
 
 .ft-vx-history, .ft-vx-merge { display: grid; gap: var(--space-3); align-content: start; }
 .ft-vx-name-row { display: grid; grid-template-columns: 1fr auto; gap: var(--space-2); }
-.ft-vx-list { display: grid; gap: var(--space-1); max-height: 260px; min-height: 40px; overflow-y: auto; }
+.ft-vx-list { display: grid; gap: var(--space-1); max-height: 320px; min-height: 40px; overflow-y: auto; }
 .ft-vx-row { display: grid; gap: 2px; padding: var(--space-2) var(--space-3); border: 1px solid transparent; border-radius: var(--radius); background: transparent; color: var(--text-primary); text-align: left; cursor: pointer; }
 .ft-vx-row:hover { background: var(--bg-hover); }
 .ft-vx-row.is-selected { border-color: var(--accent-color); background: var(--accent-wash); }
@@ -43,7 +43,17 @@
 .ft-vx-thumb img { display: block; width: 100%; height: 100%; object-fit: contain; }
 .ft-vx-diff { margin: 0; color: var(--text-secondary); font-size: var(--ft-12); min-height: 1.4em; }
 .ft-vx-changes { display: grid; gap: var(--space-1); }
-.ft-vx-change { display: grid; gap: 2px; padding: var(--space-1) var(--space-2); border-left: 2px solid var(--accent-color); color: var(--text-secondary); font-size: var(--ft-12); }
+.ft-vx-changes { max-height: 200px; overflow-y: auto; }
+.ft-vx-change { margin: 0; padding: var(--space-1) var(--space-2); border-left: 2px solid var(--accent-color); color: var(--text-secondary); font-size: var(--ft-12); line-height: 1.5; }
+.ft-vx-seg.is-ins { background: color-mix(in srgb, var(--ok) 22%, transparent); color: var(--text-primary); text-decoration: underline; }
+.ft-vx-seg.is-del { background: color-mix(in srgb, var(--danger) 18%, transparent); color: var(--text-primary); text-decoration: line-through; }
+.ft-vx-cmp-title { margin: 0; color: var(--text-primary); font-size: var(--ft-12); font-weight: 600; }
+.ft-vx-cmp-note { margin: 0; min-height: 1.4em; }
+.ft-vx-auto { display: flex; align-items: center; justify-content: space-between; gap: var(--space-2); color: var(--text-secondary); font-size: var(--ft-12); }
+.ft-vx-auto .ft-input { width: auto; min-width: 120px; }
+.ft-vx-group { display: grid; gap: 1px; padding: var(--space-2) var(--space-3) var(--space-1); position: sticky; top: 0; background: var(--bg-secondary); }
+.ft-vx-group-title { color: var(--text-primary); font-size: var(--ft-12); font-weight: 600; }
+.ft-vx-group-sub { color: var(--text-muted); font-size: var(--ft-11); }
 .ft-vx-text { max-height: 200px; overflow-y: auto; padding: var(--space-2); border: 1px solid var(--border-color); border-radius: var(--radius-sm); background: var(--bg-primary); color: var(--text-primary); font-size: var(--ft-12); line-height: 1.5; user-select: text; }
 .ft-vx-line { margin: 0 0 var(--space-1); }
 .ft-vx-line[data-style^="Heading"], .ft-vx-line[data-style="Title"] { font-weight: 600; }

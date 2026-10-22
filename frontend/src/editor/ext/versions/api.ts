@@ -1,6 +1,9 @@
 import { api } from '../../../io/api';
 
-export interface VersionRow { id: string; ts: number; name: string; auto: boolean; author: string; words: number; bytes: number; reason: string }
+export interface VersionRow { id: string; ts: number; name: string; auto: boolean; author: string; editors?: string[]; words: number; bytes: number; reason: string }
+export interface CompareSegment { kind: 'same' | 'ins' | 'del'; text: string }
+export interface CompareResult { changes: number; paragraphs: number; changed: number; rows: Array<{ style: string; segments: CompareSegment[]; changed: boolean }>; truncated: boolean }
+export interface AutoSettings { autoVersionMinutes: number; min: number; max: number; default: number; seconds: number }
 export interface ActivityRow { ts: number; until: number; who: string; kind: string; count: number; detail: string }
 export interface VersionDetail { version: VersionRow; title: string; outline: Array<{ style: string; text: string }>; diff: { wordsThen: number; wordsNow: number; added: number; removed: number; changes: Array<{ added: string; removed: string }> } }
 export interface Sheet { rows: string[][]; sheets: string[] }
@@ -12,6 +15,9 @@ export const vx = {
   opened: (id: string) => api.post<{ snapshot: boolean }>(`/versions/${e(id)}/open`),
   name: (id: string, name: string) => api.post<VersionRow>(`/versions/${e(id)}/name`, { name }),
   detail: (id: string, vid: string) => api.get<VersionDetail>(`/versions/${e(id)}/v/${e(vid)}`),
+  compare: (id: string, vid: string) => api.get<CompareResult>(`/versions/${e(id)}/v/${e(vid)}/compare`),
+  autoSettings: () => api.get<AutoSettings>('/versions/auto-settings'),
+  setAutoMinutes: (autoVersionMinutes: number) => api.post<AutoSettings>('/versions/auto-settings', { autoVersionMinutes }),
   rename: (id: string, vid: string, name: string) => api.post<VersionRow>(`/versions/${e(id)}/v/${e(vid)}/name`, { name }),
   remove: (id: string, vid: string) => api.del<{ ok: boolean }>(`/versions/${e(id)}/v/${e(vid)}`),
   restore: (id: string, vid: string) => api.post<{ ok: boolean }>(`/versions/${e(id)}/v/${e(vid)}/restore`),
