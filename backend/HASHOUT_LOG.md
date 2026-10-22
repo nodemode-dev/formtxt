@@ -274,3 +274,19 @@ backend/
 - kind: rationale
 - logged: v0.27.0 · 2026-10-21
 - WordNet ships through the wordnet-db npm package data, read offline, so the thesaurus and dictionary work without a network.
+
+## app/services/secrets.py {#secrets}
+
+### secrets · system password store
+- refers-to: app/services/secrets.py :: get, put, delete, where
+- kind: rationale
+- logged: v0.28.0 · 2026-10-21
+- Ported from formvis with SERVICE formtxt. Keys and passwords go to the OS keyring when a working backend exists, else to <data>/secrets/<name>.key with mode 600. Legacy plaintext copies in settings.json, cloud.json and ai.json are migrated on first read and blanked. Endpoints return only whether a key is set and its last four characters.
+
+## formtxt_engine.py {#engine-entry}
+
+### engine · port 0
+- refers-to: formtxt_engine.py :: main
+- kind: rationale
+- logged: v0.28.0 · 2026-10-21
+- The desktop shell starts the engine with port 0 and reads the real port from the uvicorn line, so the log level stays info. --selfcheck imports the whole app for the freeze script.

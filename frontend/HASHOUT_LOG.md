@@ -630,3 +630,61 @@ frontend/
 - kind: gotcha
 - logged: v0.27.0 · 2026-10-21
 - With all area plugins loaded, a keystroke on a 400-paragraph document at 4x CPU takes 40 to 57 ms (23 to 37 ms at 0.26.0). The proofing and review plugins are the largest share; moving their scans to idle time is the next step.
+
+## src/shell.ts, src/ui/shell/ {#shell}
+
+### shell · why a facade over the registry
+- refers-to: src/ui/shell/cmd.ts :: Commands, setCmdState, cmdStateChanged
+- kind: rationale
+- logged: v0.28.0 · 2026-10-21
+- FormDeck's ribbon, menus and QAT expect a Commands object with label, keys, icon, enabled and checked. FormTxt's registry has none of the UI fields, so cmd.ts wraps it and keeps a per-id state table; the editor and shell fill icons and checked tests there, and every change calls cmdStateChanged so the ribbon, native menus and status bar patch together.
+
+### shell · the old toolbar stays as a hidden state source
+- refers-to: src/shell.ts :: checkedFromToolbar; styles/word-shell.css
+- kind: rationale
+- logged: v0.28.0 · 2026-10-21
+- editor.ts already computes bold, alignment, list, style, font and size for its toolbar on every selection change. Rather than duplicate that logic, the toolbar is kept in the DOM with display none and the ribbon's checked tests and the Styles, font and size slots read it. Removing the toolbar means moving syncToolbar's results into the state table first.
+
+### shell · mount order
+- refers-to: src/app.ts :: mountShell
+- kind: gotcha
+- logged: v0.28.0 · 2026-10-21
+- The ribbon builds every tab once and skips commands that are not registered at that moment, so mountShell runs after the last commands.register in app.ts. A command registered later never appears in the ribbon or menus.
+
+### shell · class collision
+- refers-to: src/ui/shell/menu.ts, styles/ribbon.css :: .ft-popm
+- kind: gotcha
+- logged: v0.28.0 · 2026-10-21
+- The ported menus first used .ft-pm, which is also the class of the document's ProseMirror mount, so the page took the menu's dark panel style. Menus use .ft-popm; never reuse .ft-pm.
+
+### shell · keys
+- refers-to: src/ui/shortcuts.ts :: declaredMatch; src/editor/editor.ts keymap
+- kind: rationale
+- logged: v0.28.0 · 2026-10-21
+- Declared command keys run from a bubble-phase listener gated on defaultPrevented, so ProseMirror and word-commands win and nothing runs twice. Subscript and superscript follow Word (Ctrl+= and Ctrl+Shift+=) so Ctrl+, can be Preferences as on macOS; zoom moved to Ctrl+Alt+= and Ctrl+Alt+-.
+
+### shell · ribbon fitting
+- refers-to: src/ui/shell/ribbon.ts :: fit, candidates
+- kind: rationale
+- logged: v0.28.0 · 2026-10-21
+- Word collapses the Styles gallery first and then whole groups from the right into one labelled drop-down. The icon-only intermediate level FormDeck uses was dropped. The ResizeObserver fits in the same frame so the first visible ribbon is already final.
+
+### shell · boot
+- refers-to: src/ui/dom.ts :: revealApp; public/splash.html; src-tauri/src/reveal.rs
+- kind: rationale
+- logged: v0.28.0 · 2026-10-21
+- Ported unchanged from formvis 1.96.4 so the family opens the same way: splash at least 2.6 s, main window concealed (alpha 0 on macOS, because a hidden web view stops animation frames) until the page calls app_ready two frames after app-ready, 20 s fallback.
+
+## src/editor/word-commands.ts {#word-commands}
+
+### word-commands · marks without layout change
+- refers-to: src/editor/word-commands.ts :: view.formattingMarks; styles/word-commands.css
+- kind: rationale
+- logged: v0.28.0 · 2026-10-21
+- Paragraph marks are a zero-width inline-block ::after, spaces become dots through a direct decorations prop (capped at 30000), so turning marks on never changes line breaks or pagination.
+
+### word-commands · AutoFit to contents
+- refers-to: src/editor/word-commands.ts :: table.autofit
+- kind: rationale
+- logged: v0.28.0 · 2026-10-21
+- Measures by switching the table to auto layout with the colgroup hidden, reads the widths and restores in the same tick, so nothing paints in between; widths go into the existing colwidth attribute.
