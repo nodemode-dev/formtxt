@@ -1,6 +1,9 @@
 import { PREF_ICONS } from './icons-prefs';
 import { SHELL_ICONS } from './icons-shell';
 import { WORD_ICONS } from './icons-word';
+import { WORDCMD_ICONS } from './icons-wordcmd';
+import { CHROME_ICONS } from './icons-chrome';
+import { HOME_ICONS } from './icons-home';
 
 const L = (body: string): string => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
 const PAGE = '<path d="M14 3.5H7A1.5 1.5 0 0 0 5.5 5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3.5V8h4.5"/>';
@@ -85,6 +88,6 @@ export const ICONS: Record<string, string> = {
 };
 
 export function icon(name: string, size = 16): string {
-  const svg = ICONS[name] ?? SHELL_ICONS[name] ?? WORD_ICONS[name] ?? PREF_ICONS[name] ?? ICONS.info;
+  const svg = ICONS[name] ?? SHELL_ICONS[name] ?? WORD_ICONS[name] ?? WORDCMD_ICONS[name] ?? CHROME_ICONS[name] ?? HOME_ICONS[name] ?? PREF_ICONS[name] ?? ICONS.info;
   return `<span class="icon" style="width:${size}px;height:${size}px" aria-hidden="true">${svg}</span>`;
 }
