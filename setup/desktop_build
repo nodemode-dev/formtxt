@@ -1,0 +1,10 @@
+#!/usr/bin/env bash
+set -e
+source "$(dirname "$0")/lib.sh"
+cd "$FORMTXT_ROOT"
+ft_rust_env
+setup/build_frontend
+setup/freeze_backend
+[ -f src-tauri/icons/icon.icns ] || frontend/node_modules/.bin/tauri icon assets/formtxt_icon.png -o src-tauri/icons
+frontend/node_modules/.bin/tauri build "$@"
+ft_say "bundles are in ${CARGO_TARGET_DIR:-src-tauri/target}/release/bundle"

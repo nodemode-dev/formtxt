@@ -18,6 +18,7 @@ ext=""
 sep=":"
 if [ "$os" = windows ]; then ext=".exe"; sep=";"; fi
 [ -f "$FORMTXT_ROOT/frontend/dist/index.html" ] || "$FORMTXT_ROOT/setup/build_frontend"
+[ -d "$FORMTXT_ROOT/frontend/node_modules/wordnet-db/dict" ] || ft_die "frontend/node_modules is missing the font and dictionary data the engine ships; run ./formtxt install"
 cd "$FORMTXT_ROOT/backend"
 extra=()
 [ -z "${FORMTXT_PYI_ARCH:-}" ] || extra+=(--target-arch "$FORMTXT_PYI_ARCH")
@@ -30,7 +31,13 @@ rm -rf build/pyinstaller dist-engine
 pyinstaller --noconfirm --clean "$mode" --name formtxt-engine \
   --distpath dist-engine --workpath build/pyinstaller --specpath build/pyinstaller \
   --add-data "$FORMTXT_ROOT/frontend/dist${sep}frontend_dist" \
+  --add-data "$FORMTXT_ROOT/frontend/node_modules/@fontsource${sep}fonts" \
+  --add-data "$FORMTXT_ROOT/frontend/node_modules/wordnet-db/dict${sep}wordnet" \
+  --add-data "$FORMTXT_ROOT/backend/app/services/proofing/data${sep}app/services/proofing/data" \
   --collect-submodules app --collect-submodules uvicorn \
+  --collect-all docx --collect-all reportlab --collect-all pdfplumber --collect-all pypdfium2 \
+  --collect-all rapidocr_onnxruntime --collect-all onnxruntime --collect-data openpyxl \
+  --collect-submodules keyring --hidden-import olefile \
   "${extra[@]}" \
   "$FORMTXT_ROOT/backend/formtxt_engine.py"
 if [ "$mode" = --onedir ]; then
