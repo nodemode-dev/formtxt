@@ -932,7 +932,7 @@ export function registerWordCommands(reg: CommandRegistry, ed: DocEditor): void 
   const aboutDialog = lazy(() => {
     const d = new Dialog('About FormTxt', 440);
     const text = el('<div></div>');
-    d.body.appendChild(text);
+    d.body.append(el('<img class="ft-logo ft-wc-about-logo" src="/formtxt-logo.png" width="64" height="64" alt="FormTxt" draggable="false">'), text);
     d.button('Close', 'primary', () => d.close());
     return { d, text };
   });

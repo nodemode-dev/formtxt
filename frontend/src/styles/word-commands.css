@@ -72,6 +72,7 @@
 .ft-wc-opt span:last-child { color: var(--text-muted); }
 .ft-wc-text { margin: 0 0 var(--space-3); color: var(--text-secondary); font-size: var(--ft-12); line-height: 1.55; }
 .ft-wc-text strong { color: var(--text-primary); }
+.ft-wc-about-logo { margin: 0 0 var(--space-3); }
 .ft-wc-news { margin: 0 0 var(--space-3); padding-left: var(--space-4); color: var(--text-secondary); font-size: var(--ft-12); line-height: 1.55; }
 .ft-wc-news li { margin-bottom: var(--space-1); }
 .ft-wc-news li strong { color: var(--text-primary); }
