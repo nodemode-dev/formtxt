@@ -10,22 +10,27 @@
   "app": {
     "windows": [
       {
-        "label": "main",
+        "label": "splash",
         "title": "FormTxt",
-        "width": 1280,
-        "height": 820,
-        "minWidth": 900,
-        "minHeight": 600,
-        "backgroundColor": "#111111",
-        "center": true
+        "url": "splash.html",
+        "width": 360,
+        "height": 200,
+        "resizable": false,
+        "decorations": false,
+        "center": true,
+        "transparent": true,
+        "shadow": false,
+        "visible": false
       }
     ],
+    "macOSPrivateApi": true,
     "security": {
       "csp": null
     }
   },
   "bundle": {
     "active": false,
+    "externalBin": ["binaries/formtxt-engine"],
     "category": "Productivity",
     "shortDescription": "Documents",
     "copyright": "Copyright 2026 nodemode-ai.",

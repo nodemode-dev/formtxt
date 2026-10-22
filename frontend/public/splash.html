@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>FormTxt</title>
+  <style>
+    html { height: 100%; background: transparent; }
+    body { margin: 0; height: 100%; box-sizing: border-box; background: #0a0a0a; border: 1px solid rgba(255, 255, 255, 0.09); border-radius: 16px; overflow: hidden; color: #a8a8b8; font: 13px -apple-system, BlinkMacSystemFont, 'Inter', sans-serif; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 18px; }
+    svg { display: block; }
+    p { margin: 0; letter-spacing: 0.2px; }
+    .bar { width: 180px; height: 3px; border-radius: 2px; background: #1f1f26; overflow: hidden; }
+    .fill { width: 100%; height: 100%; border-radius: 2px; background: linear-gradient(90deg, #c2410c, #ea580c 30%, #f97316 62%, #fdba74); transform-origin: 0 50%; transform: scaleX(0.04); animation: load 2.6s cubic-bezier(0.25, 0.6, 0.35, 1) forwards; }
+    .fill.done { animation: none; transform: scaleX(1); transition: transform 0.2s ease-out; }
+    @keyframes load { to { transform: scaleX(0.92); } }
+  </style>
+</head>
+<body><svg width="72" height="72" role="img" aria-label="FormTxt" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><rect x="2" y="2" width="20" height="20" rx="5" fill="#f97316"/><path d="M11.6 6H16.5V7.6H16V18H14.4V7.6H13.2V18H11.6V12.4A3.2 3.2 0 0 1 11.6 6Z" fill="#0a0a0a"/></svg><p>Starting FormTxt</p><div class="bar" role="progressbar" aria-label="Starting FormTxt"><div class="fill"></div></div><script>
+window.formtxtSplashDone = function () {
+  var fill = document.querySelector('.fill');
+  fill.style.transform = getComputedStyle(fill).transform;
+  fill.classList.add('done');
+  requestAnimationFrame(function () { fill.style.transform = ''; });
+};
+</script></body>
+</html>
