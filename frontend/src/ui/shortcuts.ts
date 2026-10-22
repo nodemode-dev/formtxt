@@ -15,11 +15,59 @@ export function comboOf(e: KeyboardEvent): string {
   return parts.join('+');
 }
 
+const NATIVE_KEYS = new Set(['edit.cut', 'edit.copy', 'edit.paste', 'edit.selectAll']);
+const DECLARED = /^((Ctrl|Mod|Alt|Shift|Meta)\+)*([A-Za-z0-9]|F\d{1,2}|Enter|Escape|[.,/=\\-])$/;
+
+function normalizeDeclared(raw: string): string {
+  if (!DECLARED.test(raw)) return '';
+  const parts = raw.replace(/^(.*)\+\+$/, '$1+Plus').split('+');
+  const key = parts.pop() as string;
+  const mods = new Set(parts.map((m) => (m === 'Ctrl' || m === 'Meta' ? 'Mod' : m)));
+  const out = ['Mod', 'Alt', 'Shift'].filter((m) => mods.has(m));
+  out.push(key.length === 1 ? key.toUpperCase() : key);
+  return out.join('+');
+}
+
+function codeCombo(e: KeyboardEvent): string {
+  const m = /^(?:Digit|Key)(.)$/.exec(e.code);
+  if (!m) return '';
+  const parts: string[] = [];
+  if (e.ctrlKey || e.metaKey) parts.push('Mod');
+  if (e.altKey) parts.push('Alt');
+  if (e.shiftKey) parts.push('Shift');
+  parts.push(m[1].toUpperCase());
+  return parts.join('+');
+}
+
 export class Shortcuts {
   private custom: Record<string, string[]> = {};
   private readonly globals: Record<string, string> = {};
 
+  private declaredMatch(e: KeyboardEvent): string | undefined {
+    if (e.defaultPrevented || e.isComposing) return undefined;
+    const combo = comboOf(e);
+    if (!combo) return undefined;
+    const alt = codeCombo(e);
+    const t = e.target as HTMLElement | null;
+    if (t?.closest('input, textarea, select') && !/^F\d/.test(combo.replace(/^(Mod\+|Alt\+|Shift\+)+/, ''))) return undefined;
+    if (document.querySelector('.ft-scrim:not([hidden]), .ft-dialog-scrim:not([hidden])')) return undefined;
+    for (const c of this.reg.list()) {
+      if (NATIVE_KEYS.has(c.id) || this.custom[c.id]?.length || (c.params ?? []).length) continue;
+      for (const raw of c.keys ?? []) {
+        const n = normalizeDeclared(raw);
+        if (n && (n.includes('+') || /^F\d/.test(n)) && (n === combo || n === alt)) return c.id;
+      }
+    }
+    return undefined;
+  }
+
   constructor(private readonly reg: CommandRegistry) {
+    document.addEventListener('keydown', (e) => {
+      const id = this.declaredMatch(e);
+      if (!id) return;
+      e.preventDefault();
+      void Promise.resolve(this.reg.run(id)).catch((err: Error) => toast(err.message, 'error'));
+    });
     document.addEventListener('keydown', (e) => {
       const combo = comboOf(e);
       if (!combo || document.querySelector('.ft-scrim:not([hidden]) .is-recording')) return;
