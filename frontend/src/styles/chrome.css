@@ -2,7 +2,7 @@
 
 header.ft-titlebar {
   position: relative;
-  z-index: var(--z-chrome);
+  z-index: calc(var(--z-chrome) + 1);
   display: grid;
   grid-template-columns: auto auto minmax(0, 1fr) auto;
   align-items: center;
@@ -163,7 +163,7 @@ footer.ft-status {
   font-size: var(--ft-11);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-  overflow: hidden;
+  overflow: visible;
   user-select: none;
 }
 .ft-st-left { display: flex; align-items: center; gap: var(--space-1); min-width: 0; flex: 0 1 auto; overflow: hidden; }
@@ -185,6 +185,7 @@ button.ft-st-seg:hover { background: var(--bg-hover); color: var(--text-primary)
 .ft-st-saved { width: 92px; }
 .ft-st-engine { width: 128px; }
 .ft-st-proof.is-warn, .ft-st-access.is-warn, .ft-st-saved.is-warn { color: var(--warn); }
+:root[data-theme="light"] .ft-st-proof.is-warn, :root[data-theme="light"] .ft-st-access.is-warn, :root[data-theme="light"] .ft-st-saved.is-warn { color: color-mix(in srgb, var(--warn) 55%, #000); }
 .ft-st-saved.is-saving .ft-st-ico { animation: ft-st-spin 1s linear infinite; }
 .ft-dot { flex: none; width: 8px; height: 8px; border-radius: var(--radius-pill); background: var(--text-muted); }
 .ft-dot.ok { background: var(--ok); }

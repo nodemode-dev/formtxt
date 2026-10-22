@@ -23,7 +23,7 @@ export interface StatusIds {
 }
 
 export const STATUS_IDS: StatusIds = {
-  page: 'view.outline',
+  page: 'edit.goTo',
   words: 'tools.wordCount',
   proofing: 'proofing.editorPanel',
   language: 'proofing.language',
@@ -74,6 +74,7 @@ export class StatusBar {
   private pendingZoom = 0;
   private zoomFrame = 0;
   private zoomValue = 100;
+  private current = 'print';
 
   constructor(host: HTMLElement, private readonly d: StatusDeps) {
     this.ids = { ...STATUS_IDS, ...d.ids };
@@ -132,8 +133,8 @@ export class StatusBar {
     this.access.addEventListener('click', () => go(this.ids.accessibility));
     this.track.addEventListener('click', () => go(this.ids.tracking));
     this.views.focus.addEventListener('click', () => go(this.ids.focus));
-    this.views.read.addEventListener('click', () => go(this.ids.read));
-    this.views.print.addEventListener('click', () => go(this.ids.print));
+    this.views.read.addEventListener('click', () => go(this.current === 'read' ? this.ids.print : this.ids.read));
+    this.views.print.addEventListener('click', () => { if (this.current === 'web') go(this.ids.web); go(this.ids.print); });
     this.views.web.addEventListener('click', () => go(this.ids.web));
     (f('[data-z="out"]')).addEventListener('click', () => go(this.ids.zoomOut));
     (f('[data-z="in"]')).addEventListener('click', () => go(this.ids.zoomIn));
@@ -171,7 +172,7 @@ export class StatusBar {
 
   setPage(cur: number, total: number): void {
     setText(this.page.querySelector('.ft-st-text'), `Page ${nf.format(cur)} of ${nf.format(total)}`);
-    setTitle(this.page, 'Navigation: show the document outline');
+    setTitle(this.page, 'Go to a page (Ctrl+G)');
   }
 
   setWords(total: number, selected = 0): void {
@@ -225,6 +226,7 @@ export class StatusBar {
   setView(mode: ViewMode | string, pageless = false): void {
     const web = mode === 'web' || pageless;
     const current = web ? 'web' : mode;
+    this.current = current;
     for (const [k, b] of Object.entries(this.views)) {
       const on = k === current;
       setClass(b, 'is-on', on);
