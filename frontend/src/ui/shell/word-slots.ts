@@ -1,4 +1,4 @@
-import { el, setClass, setHidden, setStyleVar, setText, setValue } from '../dom';
+import { el, setClass, setDisabled, setHidden, setStyleVar, setText, setValue } from '../dom';
 import { icon } from '../icons';
 import { shellCommands } from './cmd';
 
@@ -173,12 +173,12 @@ function split(o: SplitOptions): HTMLElement {
 const STYLE_LOOK: Record<string, { size: number; weight: number; italic?: boolean; muted?: boolean; tracking?: number }> = {
   Normal: { size: 12, weight: 400 },
   NoSpacing: { size: 12, weight: 400 },
-  Title: { size: 17, weight: 300, tracking: -0.01 },
+  Title: { size: 14, weight: 300, tracking: -0.02 },
   Subtitle: { size: 11, weight: 400, muted: true },
   Quote: { size: 12, weight: 400, italic: true },
-  Heading1: { size: 15, weight: 700 },
-  Heading2: { size: 13.5, weight: 700 },
-  Heading3: { size: 12.5, weight: 700 },
+  Heading1: { size: 13.5, weight: 700 },
+  Heading2: { size: 12.5, weight: 700 },
+  Heading3: { size: 12, weight: 700 },
   Heading4: { size: 12, weight: 600 },
   Heading5: { size: 12, weight: 500 },
   Heading6: { size: 12, weight: 500, italic: true },
@@ -190,14 +190,27 @@ const STYLE_LOOK: Record<string, { size: number; weight: number; italic?: boolea
 const styleName = (id: string): string => id.replace(/([a-z])(\d)/g, '$1 $2').replace(/([a-z])([A-Z])/g, '$1 $2');
 
 function gallery(probe: Probe): HTMLElement {
-  const root = el(`<div class="ft-wgal"><div class="ft-wgal-list" role="listbox" aria-label="Styles"></div><div class="ft-wgal-nav"><button class="ft-wgal-prev" type="button" tabindex="-1" aria-label="Previous styles">${icon('chevronUp', 12)}</button><button class="ft-wgal-next" type="button" tabindex="-1" aria-label="More styles">${icon('chevronDown', 12)}</button></div></div>`);
+  const root = el(`<div class="ft-wgal"><div class="ft-wgal-list" role="listbox" aria-label="Styles"></div><div class="ft-wgal-nav"><button class="ft-wgal-prev" type="button" tabindex="-1" aria-label="Scroll styles back">${icon('chevronUp', 12)}</button><button class="ft-wgal-next" type="button" tabindex="-1" aria-label="Scroll styles forward">${icon('chevronDown', 12)}</button><button class="ft-wgal-more" type="button" tabindex="-1" aria-label="More styles" aria-haspopup="listbox" aria-expanded="false">${icon('galleryMore', 12)}</button></div></div>`);
   const list = root.querySelector('.ft-wgal-list') as HTMLElement;
+  const prev = root.querySelector('.ft-wgal-prev') as HTMLButtonElement;
+  const next = root.querySelector('.ft-wgal-next') as HTMLButtonElement;
+  const more = root.querySelector('.ft-wgal-more') as HTMLButtonElement;
   const tiles = new Map<string, HTMLButtonElement>();
+  const popTiles = new Map<string, HTMLButtonElement>();
+  const pop = new Pop('ft-wgal-pop');
+  pop.root.setAttribute('role', 'listbox');
+  pop.root.setAttribute('aria-label', 'Styles');
   let active = '';
+
+  const arrows = (): void => {
+    const max = list.scrollWidth - list.clientWidth;
+    setDisabled(prev, list.scrollLeft <= 1);
+    setDisabled(next, list.scrollLeft >= max - 1);
+  };
 
   const tile = (id: string): HTMLButtonElement => {
     const look = STYLE_LOOK[id] ?? STYLE_LOOK.Normal;
-    const t = el<HTMLButtonElement>(`<button class="ft-wtile" type="button" role="option" data-style="${id}" title="${styleName(id)}"><span class="ft-wtile-sample">AaBbCc</span><span class="ft-wtile-name"></span></button>`);
+    const t = el<HTMLButtonElement>(`<button class="ft-wtile" type="button" role="option" data-style="${id}" title="${styleName(id)}"><span class="ft-wtile-sample">AaBbCcDd</span><span class="ft-wtile-name"></span></button>`);
     const sample = t.querySelector('.ft-wtile-sample') as HTMLElement;
     sample.style.fontSize = `${look.size}px`;
     sample.style.fontWeight = String(look.weight);
@@ -212,14 +225,24 @@ function gallery(probe: Probe): HTMLElement {
     const ids = probe.styles();
     const want = new Set(ids);
     for (const id of ids) {
-      if (!tiles.has(id)) { const t = tile(id); tiles.set(id, t); list.appendChild(t); }
+      if (!tiles.has(id)) {
+        const t = tile(id);
+        tiles.set(id, t);
+        list.appendChild(t);
+        const pt = tile(id);
+        popTiles.set(id, pt);
+        pop.root.appendChild(pt);
+      }
     }
     const now = probe.style();
-    for (const [id, t] of tiles) {
-      setHidden(t, !want.has(id));
-      setClass(t, 'is-active', id === now);
-      t.setAttribute('aria-selected', id === now ? 'true' : 'false');
+    for (const group of [tiles, popTiles]) {
+      for (const [id, t] of group) {
+        setHidden(t, !want.has(id));
+        setClass(t, 'is-active', id === now);
+        t.setAttribute('aria-selected', id === now ? 'true' : 'false');
+      }
     }
+    arrows();
     if (now !== active) {
       active = now;
       const t = tiles.get(now);
@@ -232,13 +255,25 @@ function gallery(probe: Probe): HTMLElement {
     }
   };
 
-  list.addEventListener('click', (e) => {
+  const pick = (e: Event): void => {
     const t = (e.target as HTMLElement).closest<HTMLElement>('.ft-wtile');
-    if (t?.dataset.style) run('paragraph.style', { style: t.dataset.style });
+    if (!t?.dataset.style) return;
+    run('paragraph.style', { style: t.dataset.style });
+    pop.close();
+    more.setAttribute('aria-expanded', 'false');
+  };
+  list.addEventListener('click', pick);
+  pop.root.addEventListener('click', pick);
+  list.addEventListener('scroll', arrows, { passive: true });
+  const step = (dir: number): void => { list.scrollBy({ left: dir * Math.max(68, list.clientWidth - 34), behavior: 'smooth' }); };
+  prev.addEventListener('click', () => step(-1));
+  next.addEventListener('click', () => step(1));
+  more.addEventListener('click', () => {
+    const on = pop.toggle(root);
+    more.setAttribute('aria-expanded', String(on));
   });
-  const step = (dir: number): void => { list.scrollBy({ left: dir * list.clientWidth * 0.8, behavior: 'smooth' }); };
-  (root.querySelector('.ft-wgal-prev') as HTMLElement).addEventListener('click', () => step(-1));
-  (root.querySelector('.ft-wgal-next') as HTMLElement).addEventListener('click', () => step(1));
+  pop.root.addEventListener('keydown', (e) => { if (e.key === 'Escape') more.setAttribute('aria-expanded', 'false'); });
+  new ResizeObserver(arrows).observe(list);
   keepFocus(root);
   patch();
   probe.onChange(patch);

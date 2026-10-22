@@ -166,8 +166,9 @@
   display: inline-flex;
   align-items: stretch;
   flex-shrink: 0;
-  width: 300px;
-  height: 58px;
+  align-self: stretch;
+  width: calc(var(--gal-n, 7) * 68px + 18px);
+  height: auto;
   background: var(--bg-input);
   border: 1px solid var(--border-light);
   border-radius: var(--radius-sm);
@@ -175,18 +176,19 @@
 .ft-wgal-list {
   display: flex;
   flex: 1;
+  min-width: 0;
   gap: 2px;
   padding: 2px;
-  overflow-x: auto;
+  overflow: hidden;
   scroll-snap-type: x proximity;
 }
 .ft-wtile {
   display: flex;
   flex: 0 0 66px;
   flex-direction: column;
-  align-items: flex-start;
+  align-items: stretch;
   justify-content: space-between;
-  padding: 4px 6px;
+  padding: 3px 4px 2px;
   overflow: hidden;
   background: transparent;
   border: 1px solid transparent;
@@ -199,7 +201,7 @@
 .ft-wtile[hidden] { display: none; }
 .ft-wtile:hover { background: var(--bg-hover); }
 .ft-wtile.is-active { background: var(--accent-wash); border-color: var(--accent-color); }
-.ft-wtile-sample { max-width: 100%; overflow: hidden; line-height: 1.25; white-space: nowrap; text-overflow: clip; }
+.ft-wtile-sample { display: flex; flex: 1; align-items: center; min-height: 0; max-width: 100%; overflow: hidden; line-height: 1.2; white-space: nowrap; text-overflow: clip; }
 .ft-wtile-name {
   max-width: 100%;
   overflow: hidden;
@@ -214,7 +216,7 @@
   width: 16px;
   border-left: 1px solid var(--border-soft);
 }
-.ft-wgal-prev, .ft-wgal-next {
+.ft-wgal-prev, .ft-wgal-next, .ft-wgal-more {
   display: flex;
   flex: 1;
   align-items: center;
@@ -224,5 +226,10 @@
   color: var(--text-secondary);
   cursor: pointer;
 }
-.ft-wgal-prev:hover, .ft-wgal-next:hover { background: var(--bg-hover); color: var(--text-primary); }
-.ft-wgal-prev { border-bottom: 1px solid var(--border-soft); }
+.ft-wgal-prev:hover, .ft-wgal-next:hover, .ft-wgal-more:hover, .ft-wgal-more[aria-expanded="true"] { background: var(--bg-hover); color: var(--text-primary); }
+.ft-wgal-prev, .ft-wgal-next { border-bottom: 1px solid var(--border-soft); }
+.ft-wgal-prev:disabled, .ft-wgal-next:disabled { opacity: 0.35; cursor: default; }
+.ft-wgal-prev:disabled:hover, .ft-wgal-next:disabled:hover { background: transparent; color: var(--text-secondary); }
+.ft-wgal-pop { display: grid; grid-template-columns: repeat(5, 76px); gap: 4px; max-width: calc(100vw - 16px); max-height: min(70vh, 480px); padding: var(--space-2); overflow-y: auto; }
+.ft-wgal-pop .ft-wtile { flex: none; width: 76px; height: 54px; }
+.ft-wgal-pop .ft-wtile[hidden] { display: none; }
