@@ -177,7 +177,7 @@ export function wordMenus(recent: () => Array<{ id: string; title: string }>): M
         'print.open', 'print.run', '-',
         'versions.panel', P('versions.name', 'Name This Version...', {}), 'activity.show', '-',
         'file.properties', 'password.set', 'password.remove', 'signature.request', '-',
-        'cloud.set', 'file.trash',
+        'cloud.set', 'file.trash', '-', 'file.close',
       ];
     } },
     { label: 'Edit', items: [
@@ -235,6 +235,6 @@ export function wordMenus(recent: () => Array<{ id: string; title: string }>): M
       'view.split', SM('Zoom', ZOOM_PERCENT), 'view.onePage', SM('Multiple Pages', MULTI), '-',
       'tabs.add', '-', 'home.open',
     ] },
-    { label: 'Help', items: ['edit.commandPalette', 'help.shortcuts'] },
+    { label: 'Help', items: ['edit.commandPalette', 'help.shortcuts', '-', 'help.whatsNew', 'help.feedback', 'help.about', '-', 'app.preferences'] },
   ];
 }
