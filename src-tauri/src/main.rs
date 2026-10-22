@@ -7,6 +7,20 @@ use tauri_plugin_dialog::DialogExt;
 use tauri_plugin_shell::process::{CommandChild, CommandEvent};
 use tauri_plugin_shell::ShellExt;
 
+#[tauri::command(async)]
+fn system_fonts() -> Vec<String> {
+    let mut db = fontdb::Database::new();
+    db.load_system_fonts();
+    let mut names: Vec<String> = db
+        .faces()
+        .flat_map(|face| face.families.iter().map(|(name, _)| name.trim().to_string()))
+        .filter(|name| !name.is_empty() && !name.starts_with('.'))
+        .collect();
+    names.sort_by_key(|name| name.to_lowercase());
+    names.dedup_by(|a, b| a.eq_ignore_ascii_case(b));
+    names
+}
+
 mod packaged;
 mod reveal;
 mod text_edit;
@@ -125,7 +139,8 @@ fn main() {
         .invoke_handler(tauri::generate_handler![
             traffic_lights::set_window_title,
             reveal::app_ready,
-            text_edit::text_edit
+            text_edit::text_edit,
+            system_fonts
         ])
         .plugin(tauri_plugin_shell::init())
         .plugin(tauri_plugin_dialog::init())

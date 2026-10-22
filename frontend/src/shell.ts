@@ -14,12 +14,14 @@ import { wordTabs } from './ui/shell/word-tabs';
 import { wordMenus } from './ui/shell/word-menus';
 import { applyCommandIcons } from './ui/shell/word-icons';
 import { wordSlots } from './ui/shell/word-slots';
+import { bSlots } from './ui/shell/controls-b';
 import { commands } from './engine/registry';
 import { issuesOf, onIssues, scanning } from './editor/ext/proofing/check';
 import { getPrefs, onChange as onProofPrefs } from './editor/ext/proofing/state';
 import { languageAtSelection, languageLabel } from './editor/ext/proofing/layout';
 import { accessibilityIssues } from './editor/ext/proofing/access';
 import { currentMode } from './editor/ext/review/track';
+import { loadSystemFonts, systemFonts } from './ui/system-fonts';
 import { allComments, onChange as onReview } from './editor/ext/review/core';
 
 export interface ShellDeps {
@@ -116,19 +118,20 @@ export function mountShell(d: ShellDeps): Shell {
 
   const selectValue = (cls: string): string => (tb(editor)?.querySelector<HTMLSelectElement>(cls)?.value ?? '');
   const selectOptions = (cls: string): string[] => Array.from(tb(editor)?.querySelectorAll<HTMLOptionElement>(`${cls} option`) ?? []).filter((o) => o.value && !o.hidden).map((o) => o.value);
+  let askedFonts = false;
   const probe = {
     style: () => selectValue('.ft-tb-style'),
     font: () => selectValue('.ft-tb-font'),
     size: () => selectValue('.ft-tb-size'),
     styles: () => selectOptions('.ft-tb-style'),
-    fonts: () => selectOptions('.ft-tb-font'),
+    fonts: () => { const own = selectOptions('.ft-tb-font'); if (!askedFonts) { askedFonts = true; void loadSystemFonts(own).then((list) => { if (list.length) cmdStateChanged(); }); } const low = new Set(own.map((f) => f.toLowerCase())); return [...own, ...systemFonts().filter((f) => !low.has(f.toLowerCase()))]; },
     onChange: (fn: () => void) => { onCmdStateChange(fn); },
   };
 
   const qat = new Qat(shellCommands);
   const ribbon: Ribbon = new Ribbon(ribbonHost, shellCommands, qat, {
     tabs: wordTabs(),
-    slots: wordSlots(probe),
+    slots: { ...wordSlots(probe), ...bSlots({ editor }) },
     act: (id) => { const cmd = ACTS[id] ?? id; if (commands.has(cmd)) shellCommands.run(cmd); },
     onFile: () => d.onFile(),
     customize: async (what) => {
