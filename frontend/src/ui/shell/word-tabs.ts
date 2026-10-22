@@ -565,7 +565,7 @@ export function wordTabs(): TabDef[] {
         R([T('view.outline', 'Outline')], [T('view.draft', 'Draft')], [T('view.focus', 'Focus')])),
       G('immersive', 'Immersive', S('b.immersive')),
       G('pagemove', 'Page Movement', S('b.vertical'), S('b.sideToSide')),
-      G('show', 'Show', R([S('b.showRuler')], [S('b.showGrid')], [S('b.showNav')]), R([T('view.formattingMarks', 'Formatting Marks')], [T('view.toggleTheme', 'Switch Theme', { icon: 'theme' })])),
+      G('show', 'Show', R([S('b.showRuler')], [S('b.showGrid')], [S('b.showNav')]), R([T('view.formattingMarks', 'Formatting Marks')], [T('view.toggleTheme', 'Switch Theme', { icon: 'theme' })], [T('view.darkPage', 'Dark Page', { icon: 'darkPage' })])),
       G('zoom', 'Zoom', S('b.zoom'), R([T('view.zoom100', '100%')], [T('view.onePageZoom', 'One Page')], [S('b.multi')]), R([T('view.pageWidth', 'Page Width')], [T('view.zoomIn', 'Zoom In')], [T('view.zoomOut', 'Zoom Out')])),
       G('window', 'Window', R([T('view.split', 'Split')], [T('view.collapseHeading', 'Collapse Heading', { icon: 'collapseHeading' })], [T('edit.commandPalette', 'Find a Command', { icon: 'search' })])),
       G('macros', 'Macros', S('b.macros')),

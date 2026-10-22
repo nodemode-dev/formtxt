@@ -140,6 +140,7 @@ export const WORD_ICONS: Record<string, string> = {
   brightness: L('<circle cx="12" cy="12" r="3.5"/><path d="M12 3.5v2M12 18.5v2M3.5 12h2M18.5 12h2M6 6l1.4 1.4M16.6 16.6L18 18M18 6l-1.4 1.4M7.4 16.6L6 18"/>'),
   contrast: L(HALF),
   theme: L(HALF),
+  darkPage: L('<path d="M6 3.5h8.5L19 8v12.5H6z"/><path d="M14.5 3.5V8H19"/><path d="M15 15.2a3.2 3.2 0 1 1-3.7-4.2 2.6 2.6 0 0 0 3.7 4.2z"/>'),
   saturation: L('<path d="M12 4c3.5 4 6 6.5 6 10a6 6 0 0 1-12 0c0-3.5 2.5-6 6-10z"/>'),
   transparency: L('<rect x="4.5" y="4.5" width="15" height="15" rx="1.5"/><rect x="4.5" y="4.5" width="7.5" height="7.5" fill="currentColor" fill-opacity=".35" stroke="none"/><rect x="12" y="12" width="7.5" height="7.5" fill="currentColor" fill-opacity=".35" stroke="none"/>'),
   pictureStyles: L('<rect x="4" y="5" width="16" height="14" rx="4"/><path d="M4 16l4.5-4 3 3 3-3 5.5 5"/>'),

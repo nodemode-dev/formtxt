@@ -273,6 +273,7 @@ export const CMD_ICONS: Record<string, string> = {
   'view.ruler': 'ruler',
   'view.gridlines': 'gridlines',
   'view.toggleTheme': 'theme',
+  'view.darkPage': 'darkPage',
   'view.zoom': 'zoom',
   'view.zoomIn': 'zoom',
   'view.zoomOut': 'zoom',

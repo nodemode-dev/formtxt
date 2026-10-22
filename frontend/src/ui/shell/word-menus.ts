@@ -190,7 +190,7 @@ export function wordMenus(recent: () => Array<{ id: string; title: string }>): M
       'view.print', 'view.pageless', 'view.outline', 'view.draft', 'view.read', 'view.focus', 'view.split', '-',
       'view.ruler', 'view.gridlines', 'view.collapseHeading', '-',
       'view.zoomIn', 'view.zoomOut', SM('Zoom', ZOOM_PERCENT), 'view.onePage', SM('Multiple Pages', MULTI), '-',
-      'view.draw', 'view.toggleTheme', '-',
+      'view.draw', 'view.toggleTheme', 'view.darkPage', '-',
       'review.panel', 'versions.panel', 'access.panel', 'speech.panel', 'ai.togglePanel',
     ] },
     { label: 'Insert', items: [
