@@ -716,3 +716,25 @@ frontend/
 - kind: rationale
 - logged: v0.29.0 · 2026-10-22
 - The shell passes FORMTXT_PARENT_PID; the engine exits when that process is gone, so a crashed or force-quit app never leaves the onefile bootloader and engine running.
+
+## branding {#branding}
+
+### logo · one image, many sizes
+- refers-to: frontend/public/formtxt-logo.png, assets/formtxt_icon.png, src-tauri/icons
+- kind: rationale
+- logged: v0.29.1 · 2026-10-22
+- assets/formtxt_icon.png is the 1024 source; tauri icon regenerates src-tauri/icons from it. The web side uses formtxt-logo.png (256, preloaded in index.html) with fixed width and height on every img so nothing shifts when it loads. .ft-logo sets pointer-events none so the title bar logo never blocks the drag region.
+
+## dark page {#dark-page}
+
+### view.darkPage · invert instead of recolour
+- refers-to: frontend/src/editor/word-commands.ts :: view.darkPage, frontend/src/styles/editor.css :: data-page-dark
+- kind: rationale
+- logged: v0.29.1 · 2026-10-22
+- Documents carry inline colours from .docx and styles, so swapping tokens would miss them. A screen-only invert(0.9) hue-rotate(180deg) on .ft-pages and the split page turns black ink light and white paper dark while hues survive; img, video, canvas, iframe and picture get invert(1) hue-rotate(180deg) back. It is per viewer (localStorage formtxt.darkPage), set in the index.html boot script before first paint, and under @media screen so print and exports are untouched.
+
+### ruler · theme tokens
+- refers-to: frontend/src/styles/tokens.css :: --ruler-*, frontend/src/styles/light-mode.css
+- kind: rationale
+- logged: v0.29.1 · 2026-10-22
+- The ruler used to take the document page colour with hard-coded greys. It now uses --ruler-* tokens derived from each theme's own variables, so every dark and light theme gets a matching ruler without per-theme entries.
