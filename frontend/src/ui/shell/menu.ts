@@ -188,11 +188,54 @@ export class MenuBar {
     }, true);
     window.addEventListener('blur', () => this.close());
     window.addEventListener('resize', () => this.close());
+    document.addEventListener('keydown', (e) => this.onKey(e), true);
   }
 
   get isOpen(): boolean { return this.openIndex >= 0; }
 
+  private onKey(e: KeyboardEvent): void {
+    if (this.openIndex < 0) return;
+    if (e.ctrlKey || e.metaKey || e.altKey) {
+      if (!['Control', 'Meta', 'Alt', 'Shift'].includes(e.key)) this.close();
+      return;
+    }
+    const m = this.menus[this.openIndex];
+    const t = e.target as HTMLElement;
+    const inside = m.menu.contains(t);
+    const swallow = (): void => { e.preventDefault(); e.stopPropagation(); };
+    if (e.key === 'Escape') {
+      swallow();
+      const back = this.returnTo;
+      this.close();
+      if (back && back.isConnected) back.focus();
+      return;
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (inside) return;
+      swallow();
+      const items = Array.from(m.menu.panel.querySelectorAll<HTMLButtonElement>('.ft-pm-item:not(:disabled)'));
+      (e.key === 'ArrowDown' ? items[0] : items[items.length - 1])?.focus();
+      return;
+    }
+    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
+      if (inside) {
+        const onSub = document.activeElement?.classList.contains('ft-pm-sub');
+        const nested = (document.activeElement as HTMLElement | null)?.closest('.ft-popm') !== m.menu.panel;
+        if (e.key === 'ArrowRight' ? onSub : nested) return;
+      }
+      swallow();
+      const n = this.menus.length;
+      this.open((this.openIndex + (e.key === 'ArrowRight' ? 1 : n - 1)) % n);
+      m.btn.blur();
+      this.menus[this.openIndex].menu.focusFirst();
+    }
+  }
+
+  private returnTo: HTMLElement | null = null;
+
   open(i: number): void {
+    const was = document.activeElement as HTMLElement | null;
+    if (this.openIndex < 0 && was && !was.closest('.ft-popm')) this.returnTo = was;
     this.close();
     const m = this.menus[i];
     m.menu.setItems(itemsOf(m.def));
