@@ -180,4 +180,9 @@ export const WORD_ICONS: Record<string, string> = {
   unlink: L('<path d="M9.5 8.5L11 7a3.5 3.5 0 0 1 5 5l-1 1M14.5 15.5L13 17a3.5 3.5 0 0 1-5-5l1-1"/><path d="M5 5l14 14"/>'),
   keyboard: L('<rect x="3" y="6.5" width="18" height="11" rx="2"/><path d="M7 10h.01M10.5 10h.01M14 10h.01M17.5 10h.01M8 14h8" stroke-width="2"/>'),
   refresh: L('<path d="M19.5 12a7.5 7.5 0 1 1-2.3-5.4M19.5 4.5v4h-4"/>'),
+  galleryMore: L('<path d="M6 7h12M6 12l6 6 6-6"/>'),
+  media: L('<rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M10 9.5v5l4.5-2.5z"/>'),
+  replace: L('<path d="M4.5 8h12.5M14 4.5L17.5 8 14 11.5"/><path d="M19.5 16H7M10 12.5L6.5 16l3.5 3.5"/>'),
+  header: L(`${PAGE}<path d="M5 8.5h14M8.5 6h7"/>`),
+  footer: L(`${PAGE}<path d="M5 15.5h14M8.5 18h7"/>`),
 };

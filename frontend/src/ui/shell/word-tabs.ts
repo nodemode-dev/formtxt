@@ -120,6 +120,55 @@ const PAGE_NUMBER_MENU: MenuItem[] = [
   P('layout.restartNumbering', 'Restart at 1', { start: 1 }), P('layout.restartNumbering', 'Continue from Previous Section', {}),
 ];
 
+const HEADER_MENU: MenuItem[] = [
+  P('layout.setHeaderFooter', 'Blank (Left)', { part: 'header', align: 'left' }), P('layout.setHeaderFooter', 'Blank (Centre)', { part: 'header', align: 'center' }), P('layout.setHeaderFooter', 'Blank (Right)', { part: 'header', align: 'right' }),
+  '-', 'insert.headerFooter',
+];
+
+const FOOTER_MENU: MenuItem[] = [
+  P('layout.setHeaderFooter', 'Blank (Left)', { part: 'footer', align: 'left' }), P('layout.setHeaderFooter', 'Blank (Centre)', { part: 'footer', align: 'center' }), P('layout.setHeaderFooter', 'Blank (Right)', { part: 'footer', align: 'right' }),
+  '-', 'insert.headerFooter',
+];
+
+const PARA_BORDERS_MENU: MenuItem[] = [
+  P('paragraph.borders', 'Box Border', { which: 'box' }), P('paragraph.borders', 'Top Border', { which: 'top' }), P('paragraph.borders', 'Bottom Border', { which: 'bottom' }),
+  P('paragraph.borders', 'Left Border', { which: 'left' }), P('paragraph.borders', 'Right Border', { which: 'right' }), '-', P('paragraph.borders', 'No Border', { which: 'none' }),
+];
+
+const PARA_SHADING_MENU: MenuItem[] = [...colorItems('paragraph.shading', 'color'), '-', P('paragraph.shading', 'Light Grey', {}), P('paragraph.shading', 'No Shading', { color: 'none' })];
+
+const FIND_MENU: MenuItem[] = ['edit.find', 'edit.goTo'];
+
+const WATERMARK_MENU: MenuItem[] = [
+  ...['CONFIDENTIAL', 'DRAFT', 'DO NOT COPY', 'SAMPLE', 'ASAP', 'URGENT'].map((n) => P('design.watermark', n, { preset: n })),
+  '-', P('design.watermark', 'Custom Watermark...', {}), P('design.watermark', 'Remove Watermark', { preset: 'remove' }),
+];
+
+const PAGE_COLOR_MENU: MenuItem[] = [...colorItems('design.pageColor', 'color'), '-', P('design.pageColor', 'No Colour', { color: '' }), P('design.pageColor', 'More Colours...', {})];
+
+const PAGE_BORDERS_MENU: MenuItem[] = [
+  P('design.pageBorders', 'Thin', { style: 'thin' }), P('design.pageBorders', 'Double', { style: 'double' }), P('design.pageBorders', 'Accent', { style: 'accent' }),
+  '-', P('design.pageBorders', 'None', { style: 'none' }), P('design.pageBorders', 'Page Setup...', {}),
+];
+
+const TABLE_SELECT_MENU: MenuItem[] = [
+  P('table.select', 'Select Cell', { what: 'cell' }), P('table.select', 'Select Column', { what: 'column' }), P('table.select', 'Select Row', { what: 'row' }), P('table.select', 'Select Table', { what: 'table' }),
+];
+
+const AUTOFIT_MENU: MenuItem[] = [
+  P('table.autofit', 'AutoFit Contents', { mode: 'contents' }), P('table.autofit', 'AutoFit Window', { mode: 'window' }), P('table.autofit', 'Fixed Column Width', { mode: 'fixed' }),
+];
+
+const CELL_DIRECTION_MENU: MenuItem[] = [
+  P('table.textDirection', 'Horizontal', { dir: 'horizontal' }), P('table.textDirection', 'Rotate All Text 90', { dir: 'rotate90' }), P('table.textDirection', 'Rotate All Text 270', { dir: 'rotate270' }),
+];
+
+const SHOW_MARKUP_MENU: MenuItem[] = [
+  P('review.showMarkup', 'All Markup', { mode: 'all' }), P('review.showMarkup', 'Simple Markup', { mode: 'simple' }), P('review.showMarkup', 'No Markup', { mode: 'none' }), P('review.showMarkup', 'Original', { mode: 'original' }),
+];
+
+const MEDIA_MENU: MenuItem[] = ['insert.onlineVideo', 'insert.video', 'insert.audio'];
+
 const BREAKS_MENU: MenuItem[] = [
   'insert.pageBreak', 'insert.columnBreak', '-',
   P('insert.sectionBreak', 'Next Page Section Break', { start: 'nextPage' }), P('insert.sectionBreak', 'Continuous Section Break', { start: 'continuous' }),
@@ -212,7 +261,7 @@ const LANGUAGE_MENU: MenuItem[] = [
   '-', P('proofing.setLanguage', 'Set Document Language: English (US)', { code: 'en-US', scope: 'document' }), 'proofing.doNotCheck', 'proofing.language',
 ];
 
-const SPEECH_MENU: MenuItem[] = ['speech.panel', 'speech.pause', 'speech.resume', 'speech.stop'];
+const SPEECH_MENU: MenuItem[] = ['speech.readAloud', 'speech.panel', 'speech.pause', 'speech.resume', 'speech.stop'];
 
 const TRANSLATE_MENU: MenuItem[] = [
   P('ai.translate', 'Translate Document...', { scope: 'document' }), P('ai.translate', 'Translate Selection...', { scope: 'selection' }),
@@ -404,45 +453,40 @@ const equationTab = (): TabDef => ({ id: 'equation', label: 'Equation', ctx: 'eq
 export function wordTabs(): TabDef[] {
   return [
     { id: 'home', label: 'Home', groups: [
-      G('copilot', 'AI', L('ai.togglePanel', 'AI')),
-      { ...G('clipboard', 'Clipboard', A('paste', 'paste', 'Paste'), R([T('cut', 'Cut', { k: 'act', icon: 'cut' })], [T('copy', 'Copy', { k: 'act', icon: 'copy' })]), L('format.painter', 'Format Painter')), rank: -2 },
+      { ...G('clipboard', 'Clipboard', L('edit.paste', 'Paste', { icon: 'paste' }), R([T('edit.cut', 'Cut', { icon: 'cut' })], [T('edit.copy', 'Copy', { icon: 'copy' })], [T('format.painter', 'Format Painter')])), rank: -2 },
       { ...GL('font', 'Font', 'font.advanced',
-        R([S('font'), S('size'), M('case', 'changeCase', 'Change Case', CASE_MENU), I('format.clear', { label: 'Clear All Formatting' })],
-          [I('format.bold'), I('format.italic'), I('format.underline'), M('underline-style', 'underlineStyle', 'Underline Style', UNDERLINE_MENU), I('format.strike'), I('format.subscript'), I('format.superscript'), M('text-effects', 'textEffects', 'Text Effects and Typography', TEXT_EFFECTS_MENU), S('font-color'), S('highlight')])), rank: -1 },
+        R([S('font'), S('size'), I('format.growFont'), I('format.shrinkFont'), M('case', 'changeCase', 'Change Case', CASE_MENU), I('format.clear', { label: 'Clear All Formatting' })],
+          [I('format.bold'), I('format.italic'), I('format.underline'), M('underline-style', 'underlineStyle', 'Underline Style', UNDERLINE_MENU), I('format.strike'), I('format.subscript'), I('format.superscript'), M('text-effects', 'textEffects', 'Text Effects and Typography', TEXT_EFFECTS_MENU), S('font-color'), S('highlight')])), rank: -1, icon: 'fonts' },
       GL('paragraph', 'Paragraph', 'format.paragraph',
-        R([I('list.bullet'), I('list.number'), I('list.multilevel'), I('list.check'), I('paragraph.outdent'), I('paragraph.indent'), M('text-direction', 'textDirection', 'Text Direction', DIRECTION_MENU)],
-          [I('paragraph.align.left'), I('paragraph.align.center'), I('paragraph.align.right'), I('paragraph.align.justify'), S('line-spacing'), M('list-options', 'listFormat', 'Numbering Options', ['list.format'])])),
-      GL('styles', 'Styles', 'format.styles', S('style-gallery'), M('styles-menu', 'styles', 'Styles', ['format.styles', 'format.clear', '-', 'format.styleSet'])),
-      G('editing', 'Editing', R([T('edit.find', 'Find and Replace', { icon: 'find' })], [A('select-all', 'selectAll', 'Select All', { text: true })])),
+        R([I('list.bullet'), I('list.number'), I('list.multilevel'), I('list.check'), I('paragraph.outdent'), I('paragraph.indent'), M('text-direction', 'textDirection', 'Text Direction', DIRECTION_MENU), I('edit.sortParagraphs'), I('view.formattingMarks')],
+          [I('paragraph.align.left'), I('paragraph.align.center'), I('paragraph.align.right'), I('paragraph.align.justify'), S('line-spacing'), M('para-shading', 'paraShading', 'Shading', PARA_SHADING_MENU), M('para-borders', 'paraBorders', 'Borders', PARA_BORDERS_MENU), M('list-options', 'listFormat', 'Numbering Options', ['list.format'])])),
+      { ...GL('styles', 'Styles', 'format.styles', S('style-gallery')), icon: 'styles' },
+      G('editing', 'Editing', R([M('find-menu', 'find', 'Find', FIND_MENU, { text: true })], [T('edit.find', 'Replace', { icon: 'replace' })], [T('edit.selectAll', 'Select', { icon: 'selectAll' })])),
       G('voice', 'Voice', L('dictation.toggle', 'Dictate'), L('transcribe.panel', 'Transcribe')),
       G('editor', 'Editor', L('proofing.editorPanel', 'Editor')),
       G('addins', 'Add-ins', L('collab.addins', 'Add-ins')),
+      G('copilot', 'AI', L('ai.togglePanel', 'AI')),
     ] },
     { id: 'insert', label: 'Insert', groups: [
-      G('pages', 'Pages', M('cover-page', 'coverPage', 'Cover Page', ['insert.coverPageDefault', P('insert.coverPage', 'Custom Cover Page...', {})]), R([T('insert.pageBreak', 'Page Break')], [T('insert.columnBreak', 'Column Break')], [T('insert.sectionBreak', 'Section Break', { icon: 'sectionBreak' })])),
+      G('pages', 'Pages', M('cover-page', 'coverPage', 'Cover Page', ['insert.coverPageDefault', P('insert.coverPage', 'Custom Cover Page...', {})]), L('insert.blankPage', 'Blank Page'), L('insert.pageBreak', 'Page Break')),
       G('tables', 'Tables', M('table', 'table', 'Table', TABLE_MENU)),
       G('illustrations', 'Illustrations',
         M('pictures', 'image', 'Pictures', PICTURE_MENU),
         M('shapes', 'shapes', 'Shapes', SHAPE_KINDS),
-        L('insert.icon', 'Icons'),
-        M('smartart', 'diagram', 'SmartArt', SMARTART_MENU),
-        M('chart', 'chart', 'Chart', CHART_MENU),
-        M('screenshot', 'screenshot', 'Screenshot', SCREENSHOT_MENU),
-        L('insert.mermaid', 'Mermaid')),
-      G('media', 'Media', L('insert.onlineVideo', 'Online Video'), R([T('insert.video', 'Video File')], [T('insert.audio', 'Audio File')])),
-      G('links', 'Links', L('insert.link', 'Link'), R([T('references.manageBookmarks', 'Bookmark')], [T('references.insertCrossReference', 'Cross-reference')], [M('links-more', 'linkMore', 'More Links', ['references.linkToHeading', 'references.linkChip', 'references.chipToLink'], { text: true })])),
+        R([T('insert.icon', 'Icons', { icon: 'iconLibrary' })], [T('insert.mermaid', 'Mermaid', { icon: 'mermaid' })]),
+        R([M('smartart', 'diagram', 'SmartArt', SMARTART_MENU, { text: true })], [M('chart', 'chart', 'Chart', CHART_MENU, { text: true })], [M('screenshot', 'screenshot', 'Screenshot', SCREENSHOT_MENU, { text: true })])),
+      G('links', 'Links', L('insert.link', 'Link'), R([T('references.manageBookmarks', 'Bookmark')], [T('references.insertCrossReference', 'Cross-reference')])),
       G('comments', 'Comments', L('review.newComment', 'Comment')),
-      G('headerfooter', 'Header & Footer', L('insert.headerFooter', 'Header & Footer'), M('page-number', 'pageNumber', 'Page Number', PAGE_NUMBER_MENU)),
+      G('headerfooter', 'Header & Footer',
+        M('header', 'header', 'Header', HEADER_MENU),
+        M('footer', 'footer', 'Footer', FOOTER_MENU),
+        M('page-number', 'pageNumber', 'Page Number', PAGE_NUMBER_MENU)),
       G('text', 'Text',
         L('insert.textBox', 'Text Box'),
-        M('quick-parts', 'quickParts', 'Quick Parts', QUICK_PARTS),
-        M('wordart', 'wordArt', 'WordArt', WORDART_MENU),
-        M('dropcap', 'dropCap', 'Drop Cap', DROPCAP_MENU),
-        R([L('signature.dialog', 'Signature Line', { text: true })], [C('insert.chip', 'Date & Time', { kind: 'date' }, { text: true, icon: 'dateTime' })], [L('insert.embeddedFile', 'Object', { text: true })]),
-        R([T('insert.codeBlock', 'Code Block')], [T('insert.tab', 'Tab')])),
-      G('chips', 'Smart Chips', M('chips', 'chip', 'Smart Chips', CHIP_MENU), M('controls', 'contentControl', 'Content Controls', CONTROL_MENU)),
-      G('symbols', 'Symbols', L('insert.equation', 'Equation'), L('insert.symbol', 'Symbol'), L('insert.emoji', 'Emoji')),
-      G('doctabs', 'Tabs', L('tabs.add', 'Add Tab'), R([T('tabs.rename', 'Rename Tab')], [T('tabs.delete', 'Delete Tab')])),
+        R([M('quick-parts', 'quickParts', 'Quick Parts', QUICK_PARTS, { text: true })], [M('wordart', 'wordArt', 'WordArt', WORDART_MENU, { text: true })], [M('dropcap', 'dropCap', 'Drop Cap', DROPCAP_MENU, { text: true })]),
+        R([T('signature.dialog', 'Signature Line')], [T('insert.dateTime', 'Date & Time')], [T('insert.embeddedFile', 'Object')])),
+      G('symbols', 'Symbols', L('insert.equation', 'Equation'), L('insert.symbol', 'Symbol')),
+      { ...G('chips', 'Chips & Tabs', M('chips', 'chip', 'Smart Chips', CHIP_MENU), M('controls', 'contentControl', 'Content Controls', CONTROL_MENU), M('media', 'media', 'Media', MEDIA_MENU), R([T('insert.codeBlock', 'Code Block')], [T('insert.emoji', 'Emoji')], [T('insert.tab', 'Tab')]), L('tabs.add', 'Add Tab'), R([T('tabs.rename', 'Rename Tab')], [T('tabs.delete', 'Delete Tab')])), rank: 6 },
     ] },
     { id: 'draw', label: 'Draw', groups: [
       G('tools', 'Drawing Tools',
@@ -458,6 +502,7 @@ export function wordTabs(): TabDef[] {
         M('para-spacing', 'paraSpacing', 'Paragraph Spacing', PARA_SPACING_MENU),
         M('fonts', 'fonts', 'Fonts', FONT_MANAGE_MENU),
         R([T('format.styles', 'Modify Style', { icon: 'styles' })], [T('document.headingNumbers', 'Number Headings', { icon: 'headingNumbers' })])),
+      G('pagebg', 'Page Background', M('watermark', 'watermark', 'Watermark', WATERMARK_MENU), M('page-color', 'pageColor', 'Page Color', PAGE_COLOR_MENU), M('page-borders', 'pageBorders', 'Page Borders', PAGE_BORDERS_MENU)),
     ] },
     { id: 'layout', label: 'Layout', groups: [
       GL('pagesetup', 'Page Setup', 'layout.pageSetup',
@@ -491,47 +536,44 @@ export function wordTabs(): TabDef[] {
     ] },
     { id: 'review', label: 'Review', groups: [
       G('proofing', 'Proofing',
-        L('proofing.checkDocument', 'Spelling & Grammar'),
-        L('tools.thesaurus', 'Thesaurus'),
-        L('tools.wordCount', 'Word Count'),
-        R([T('proofing.readability', 'Readability')], [T('tools.stats', 'Statistics')], [M('proofing-options', 'proofingOptions', 'Proofing Options', PROOFING_OPTIONS_MENU, { text: true })]),
-        M('suggestions', 'suggestions', 'Suggestions', SUGGESTIONS_MENU)),
-      G('speech', 'Speech', L('speech.readAloud', 'Read Aloud'), R([M('speech-options', 'speechOptions', 'Reading Options', SPEECH_MENU, { text: true })], [T('ai.listen', 'Listen to Document', { icon: 'listen' })], [T('ai.audioOverview', 'Audio Overview', { icon: 'audioOverview' })])),
-      G('accessibility', 'Accessibility', L('access.check', 'Check Accessibility'), R([T('access.panel', 'Accessibility Panel', { icon: 'accessibility' })])),
-      G('language', 'Language', M('translate', 'translate', 'Translate', TRANSLATE_MENU), M('language', 'language', 'Language', LANGUAGE_MENU)),
-      G('comments', 'Comments', L('review.newComment', 'New Comment'), R([T('review.deleteComment', 'Delete')], [T('review.resolveComment', 'Resolve', { icon: 'resolve' })], [T('review.reactToSelection', 'React', { icon: 'react' })],[T('review.panel', 'Show Comments', { icon: 'comment' })])),
-      G('tracking', 'Tracking', L('review.toggleTracking', 'Track Changes'), M('edit-mode', 'editMode', 'Editing Mode', EDIT_MODE_MENU), R([T('review.panel', 'Reviewing Pane', { icon: 'reviewPane' })], [T('review.showEditors', 'Show Editors', { icon: 'editors' })])),
+        L('proofing.checkDocument', 'Editor', { icon: 'spelling' }),
+        R([T('tools.thesaurus', 'Thesaurus')], [T('tools.wordCount', 'Word Count')], [T('proofing.readability', 'Readability')]),
+        R([T('tools.stats', 'Statistics')], [M('proofing-options', 'proofingOptions', 'Options', PROOFING_OPTIONS_MENU, { text: true })], [M('suggestions', 'suggestions', 'Suggestions', SUGGESTIONS_MENU, { text: true })])),
+      G('speech', 'Speech', M('speech-menu', 'readAloud', 'Read Aloud', SPEECH_MENU)),
+      G('accessibility', 'Accessibility', M('access', 'accessibility', 'Check Accessibility', ['access.check', 'access.panel'])),
+      G('language', 'Language', R([M('translate', 'translate', 'Translate', TRANSLATE_MENU, { text: true })], [M('language', 'language', 'Language', LANGUAGE_MENU, { text: true })])),
+      G('comments', 'Comments', L('review.newComment', 'New Comment'), R([T('review.deleteComment', 'Delete', { icon: 'trash' })], [T('review.resolveComment', 'Resolve', { icon: 'resolve' })], [T('review.reactToSelection', 'React', { icon: 'react' })]), R([T('review.prevComment', 'Previous')], [T('review.nextComment', 'Next')], [T('review.panel', 'Show Comments', { icon: 'comment' })])),
+      G('tracking', 'Tracking', L('review.toggleTracking', 'Track Changes'), R([M('show-markup', 'showMarkup', 'Display for Review', SHOW_MARKUP_MENU, { text: true })], [T('review.panel', 'Reviewing Pane', { icon: 'reviewPane' })], [M('edit-mode', 'editMode', 'Editing Mode', EDIT_MODE_MENU, { text: true })])),
       G('changes', 'Changes',
         M('accept', 'accept', 'Accept', ACCEPT_MENU), M('reject', 'reject', 'Reject', REJECT_MENU),
         R([T('review.previousChange', 'Previous', { icon: 'prevChange' })], [T('review.nextChange', 'Next', { icon: 'nextChange' })])),
       G('compare', 'Compare', M('compare', 'compare', 'Compare', COMPARE_MENU)),
-      G('protect', 'Protect', L('protect.dialog', 'Restrict Editing'), M('password', 'password', 'Password', PASSWORD_MENU), L('approval.dialog', 'Approvals')),
-      G('history', 'History', L('versions.panel', 'Version History'), L('activity.show', 'Activity')),
-      G('share', 'Share', L('collab.share', 'Share'), M('share-link', 'shareLink', 'Links and Email', SHARE_LINK_MENU), M('publish', 'publish', 'Publish', PUBLISH_MENU), R([T('collab.who', 'Who Is Here', { icon: 'people' })])),
+      G('protect', 'Protect', L('protect.dialog', 'Restrict Editing', { icon: 'restrict' }), R([M('password', 'password', 'Password', PASSWORD_MENU, { text: true })], [T('approval.dialog', 'Approvals', { icon: 'resolve' })])),
+      G('history', 'History', L('versions.panel', 'Version History'), L('activity.show', 'Activity', { icon: 'clock' })),
+      G('share', 'Share', L('collab.share', 'Share'), R([M('share-link', 'shareLink', 'Links and Email', SHARE_LINK_MENU, { text: true })], [M('publish', 'publish', 'Publish', PUBLISH_MENU, { text: true })], [T('collab.who', 'Who Is Here', { icon: 'people' })])),
     ] },
     { id: 'view', label: 'View', groups: [
       G('views', 'Views',
         L('view.read', 'Read Mode'), L('view.print', 'Print Layout'), L('view.pageless', 'Web Layout'),
-        R([T('view.outline', 'Outline')], [T('view.draft', 'Draft')], [T('view.focus', 'Focus')]),
-        R([T('view.collapseHeading', 'Collapse Heading', { icon: 'collapseHeading' })])),
-      G('show', 'Show', R([T('view.ruler', 'Ruler')], [T('view.gridlines', 'Gridlines')], [T('view.toggleTheme', 'Switch Theme', { icon: 'theme' })])),
-      G('zoom', 'Zoom', S('zoom'), L('view.onePage', 'One Page'), M('multi-page', 'multiPage', 'Multiple Pages', MULTI_PAGE_MENU), R([T('view.zoomIn', 'Zoom In')], [T('view.zoomOut', 'Zoom Out')], [C('view.zoom', '100%', { percent: 100 }, { text: true, icon: 'zoom100' })])),
-      G('window', 'Window', L('view.split', 'Split'), L('edit.commandPalette', 'Find a Command', { icon: 'search' })),
+        R([T('view.outline', 'Outline')], [T('view.draft', 'Draft')], [T('view.focus', 'Focus')])),
+      G('show', 'Show', R([T('view.ruler', 'Ruler')], [T('view.gridlines', 'Gridlines')], [T('view.navigationPane', 'Navigation Pane')]), R([T('view.formattingMarks', 'Formatting Marks')], [T('view.toggleTheme', 'Switch Theme', { icon: 'theme' })])),
+      G('zoom', 'Zoom', R([S('zoom')], [T('view.zoomIn', 'Zoom In')], [T('view.zoomOut', 'Zoom Out')]), L('view.zoom100', '100%'), L('view.onePageZoom', 'One Page'), L('view.pageWidth', 'Page Width'), M('multi-page', 'multiPage', 'Multiple Pages', MULTI_PAGE_MENU)),
+      G('window', 'Window', R([T('view.split', 'Split')], [T('view.collapseHeading', 'Collapse Heading', { icon: 'collapseHeading' })], [T('edit.commandPalette', 'Find a Command', { icon: 'search' })])),
       G('macros', 'Macros', M('macros', 'macros', 'Macros', MACROS_MENU)),
       G('properties', 'Properties', L('file.properties', 'Properties', { icon: 'properties' })),
     ] },
     { id: 'ai', label: 'AI', groups: [
       G('assistant', 'Assistant', L('ai.togglePanel', 'AI Panel'), R([T('ai.promptBox', 'Help Me Write', { icon: 'ai' })], [T('ai.chat', 'Chat About Document', { icon: 'chatDoc' })], [T('ai.draft', 'Draft at Caret', { icon: 'draftText' })]), L('ai.createDraft', 'First Draft')),
-      G('rewrite', 'Rewrite', R([T('ai.shorter', 'Shorter', { icon: 'shorter' }), T('ai.longer', 'Longer', { icon: 'longer' }), T('ai.simplify', 'Simplify', { icon: 'simplify' })], [T('ai.moreFormal', 'More Formal', { icon: 'formal' }), T('ai.moreCasual', 'More Casual', { icon: 'casual' }), T('ai.matchStyle', 'Match Style', { icon: 'matchStyle' })])),
-      G('docai', 'Document', L('ai.summarize', 'Summarize'), R([T('ai.summaryBlock', 'Summary Block', { icon: 'summaryBlock' })], [T('ai.summaryAuto', 'Keep Summary Updated', { icon: 'summaryAuto' })], [T('ai.editDocument', 'Edit Across Document', { icon: 'editDoc' })]), L('ai.matchFormat', 'Match Format'), L('ai.translate', 'Translate')),
+      G('rewrite', 'Rewrite', R([T('ai.shorter', 'Shorter', { icon: 'shorter' })], [T('ai.longer', 'Longer', { icon: 'longer' })], [T('ai.simplify', 'Simplify', { icon: 'simplify' })]), R([T('ai.moreFormal', 'More Formal', { icon: 'formal' })], [T('ai.moreCasual', 'More Casual', { icon: 'casual' })], [T('ai.matchStyle', 'Match Style', { icon: 'matchStyle' })])),
+      G('docai', 'Document', L('ai.summarize', 'Summarize'), R([T('ai.summaryBlock', 'Summary Block', { icon: 'summaryBlock' })], [T('ai.summaryAuto', 'Keep Updated', { icon: 'summaryAuto' })], [T('ai.editDocument', 'Edit Across', { icon: 'editDoc' })]), L('ai.matchFormat', 'Match Format', { icon: 'painter' }), L('ai.translate', 'Translate')),
       G('aichanges', 'AI Changes', R([T('ai.acceptChanges', 'Accept', { icon: 'accept' })], [T('ai.rejectChanges', 'Reject', { icon: 'reject' })], [T('ai.suggestChanges', 'As Suggestions', { icon: 'suggestChanges' })])),
       G('aimedia', 'Create', L('ai.image', 'Generate Image', { icon: 'aiImage' }), R([T('ai.imageOptions', 'Image Options', { icon: 'aiImage' })], [T('ai.banner', 'Banner', { icon: 'banner' })])),
-      G('listen', 'Listen', L('ai.listen', 'Listen', { icon: 'listen' }), R([T('ai.listenPause', 'Pause or Resume', { icon: 'pause' })], [T('ai.listenStop', 'Stop', { icon: 'stop' })], [T('ai.audioOverview', 'Save Audio Overview', { icon: 'audioOverview' })])),
-      G('aisearch', 'Library', L('ai.search', 'Search Library'), L('ai.thesaurus', 'Thesaurus and Dictionary')),
+      G('listen', 'Listen', L('ai.listen', 'Listen', { icon: 'listen' }), R([T('ai.listenPause', 'Pause', { icon: 'pause' })], [T('ai.listenStop', 'Stop', { icon: 'stop' })], [T('ai.audioOverview', 'Audio Overview', { icon: 'audioOverview' })])),
+      G('aisearch', 'Library', L('ai.search', 'Search Library'), L('ai.thesaurus', 'Thesaurus')),
       G('aisettings', 'Settings', L('ai.settings', 'AI Settings', { icon: 'settings' }), R([T('ai.setModel', 'Model and Effort', { icon: 'model' })], [T('ai.sources', 'Sources', { icon: 'sources' })])),
     ] },
     { id: 'help', label: 'Help', groups: [
-      G('help', 'Help', L('edit.commandPalette', 'Find a Command'), L('help.shortcuts', 'Keyboard Shortcuts'), L('app.preferences', 'Preferences', { icon: 'settings' })),
+      { ...G('help', 'Help', L('edit.commandPalette', 'Find a Command', { icon: 'search' }), L('help.shortcuts', 'Keyboard Shortcuts', { icon: 'keyboard' }), L('help.whatsNew', 'What\'s New'), L('help.feedback', 'Feedback'), L('help.about', 'About'), L('app.preferences', 'Preferences', { icon: 'settings' })), icon: 'info' },
     ] },
     { id: 'table-design', label: 'Table Design', ctx: 'table', groups: [
       G('tbl-options', 'Table Style Options', R([T('table.headerRow', 'Header Row')], [T('table.headerColumn', 'Header Column')], [T('table.repeatHeader', 'Repeat Header Rows')])),
@@ -540,12 +582,12 @@ export function wordTabs(): TabDef[] {
         R([M('border-style', 'borderStyle', 'Line Style', BORDER_STYLE_MENU, { text: true })], [M('border-weight', 'borderWeight', 'Line Weight', BORDER_WEIGHT_MENU, { text: true })], [M('border-color', 'penColor', 'Pen Colour', BORDER_COLOR_MENU, { text: true })])),
     ] },
     { id: 'table-layout', label: 'Table Layout', ctx: 'table', groups: [
-      G('tbl-table', 'Table', L('table.properties', 'Properties'), M('table-align', 'tableAlign', 'Alignment', TABLE_ALIGN_MENU)),
+      G('tbl-table', 'Table', M('table-select', 'tableSelect', 'Select', TABLE_SELECT_MENU), L('table.viewGridlines', 'View Gridlines'), L('table.properties', 'Properties'), M('table-align', 'tableAlign', 'Alignment', TABLE_ALIGN_MENU)),
       G('tbl-rowscols', 'Rows & Columns', M('table-delete', 'deleteTable', 'Delete', TABLE_DELETE_MENU),
         R([T('table.rowAbove', 'Insert Above')], [T('table.rowBelow', 'Insert Below')]), R([T('table.colLeft', 'Insert Left')], [T('table.colRight', 'Insert Right')])),
       G('tbl-merge', 'Merge', L('table.merge', 'Merge Cells'), L('table.split', 'Split Cells')),
-      G('tbl-size', 'Cell Size', L('table.distribute', 'Distribute Columns'), R([T('table.rowSplit', 'Rows Break Across Pages')])),
-      G('tbl-align', 'Alignment', R(CELL_VALIGN)),
+      G('tbl-size', 'Cell Size', L('table.distribute', 'Distribute Columns'), R([M('table-autofit', 'autofit', 'AutoFit', AUTOFIT_MENU, { text: true })], [T('table.rowHeight', 'Row Height')], [T('table.colWidth', 'Column Width')]), R([T('table.rowSplit', 'Rows Break Across Pages')])),
+      G('tbl-align', 'Alignment', R([CELL_VALIGN[0]], [CELL_VALIGN[1]], [CELL_VALIGN[2]]), M('table-direction', 'textDirection', 'Text Direction', CELL_DIRECTION_MENU), L('table.cellMargins', 'Cell Margins')),
       G('tbl-data', 'Data', M('table-sort', 'sort', 'Sort', TABLE_SORT_MENU), L('table.toText', 'Convert to Text'), L('insert.formula', 'Formula', { icon: 'sigma' }), L('field.edit', 'Edit Formula', { icon: 'sigma' })),
     ] },
     { id: 'picture-format', label: 'Picture Format', ctx: 'picture', groups: [
