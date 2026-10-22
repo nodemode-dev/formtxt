@@ -257,7 +257,7 @@ ${backstageMarkup()}
       else if (a === 'open' || a === 'choose') this.pick();
       else if (a === 'paste') this.pasteText();
       else if (a === 'prefs') this.hooks.preferences();
-      else if (a === 'agents') toast('Agent tools for Claude Code, Codex and Cursor arrive with the MCP server in Phase 9 of the plan.');
+      else if (a === 'agents') toast('Agents drive the open window through the command bridge: ./formtxt cli list, ./formtxt cli run <id>, or POST /api/commands/<id>. An MCP server is not built yet.');
       else if (a === 'local') toast('Your documents and templates stay in your FormTxt folder on this computer.');
       if (card?.dataset.doc) this.hooks.openDocument(card.dataset.doc);
       if (card?.dataset.template) {

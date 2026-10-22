@@ -81,7 +81,7 @@ export function paragraphDialog(ed: DocEditor): void {
     ['Space before (pt)', before], ['Space after (pt)', after], ['Line spacing (multiple)', line], ['Border', border],
     ['Shading', shading], ['No shading', noShade], ['Keep with next', keepNext], ['Keep lines together', keepLines], ['Widow and orphan control', widow]]);
   d.field('Tab stops (points, alignment, optional dot, dash or underline leader)', tabs);
-  d.body.appendChild(el('<p class="ft-note">Keep with next, keep lines together, widow and orphan control and tab stops take effect on the page and are exported to Word with the exchange phase.</p>'));
+  d.body.appendChild(el('<p class="ft-note">Keep with next, keep lines together, widow and orphan control and tab stops take effect on the page, in PDF export and in Word, OpenDocument and RTF files.</p>'));
   d.button('Cancel', 'ghost', () => d.close());
   d.button('Apply', 'primary', () => {
     const n = (i: HTMLInputElement): number | null => (i.value.trim() === '' ? null : Number(i.value));
