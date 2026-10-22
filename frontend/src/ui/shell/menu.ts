@@ -21,7 +21,7 @@ export class PopupMenu {
   onClose: (() => void) | null = null;
 
   constructor(private readonly commands: Commands, private readonly parent: PopupMenu | null = null, standalone = false) {
-    this.panel = el('<div class="ft-pm" role="menu" hidden></div>');
+    this.panel = el('<div class="ft-popm" role="menu" hidden></div>');
     (document.getElementById('overlay-root') ?? document.body).appendChild(this.panel);
     this.panel.addEventListener('contextmenu', (e) => e.preventDefault());
     this.panel.addEventListener('scroll', () => { if (this.panel.scrollTop !== this.subTop) this.closeSub(); }, { passive: true });
@@ -214,7 +214,7 @@ export class MenuBar {
 export interface MenuRow { label: string; run?: () => void; checked?: boolean; disabled?: boolean; sep?: boolean }
 
 export class ActionMenu {
-  private readonly panel = el('<div class="ft-pm" role="menu" hidden></div>');
+  private readonly panel = el('<div class="ft-popm" role="menu" hidden></div>');
   private opener: HTMLElement | null = null;
 
   constructor() {

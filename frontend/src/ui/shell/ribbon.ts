@@ -210,7 +210,7 @@ export class Ribbon {
       const sc = (e.target as HTMLElement).closest<HTMLElement>('.ft-rb-body');
       if (sc && Math.abs(e.deltaY) > Math.abs(e.deltaX)) sc.scrollLeft += e.deltaY;
     }, { passive: true });
-    const keepOpen = '.ft-pm, .ft-rb-pop, .ft-dd-pop, .ft-pop, .ft-flyout, .ft-scrim';
+    const keepOpen = '.ft-popm, .ft-rb-pop, .ft-dd-pop, .ft-pop, .ft-flyout, .ft-scrim';
     document.addEventListener('pointerdown', (e) => { const t = e.target as HTMLElement; if (this.popGroup && !this.gpop.contains(t) && !t.closest?.(`.ft-rb-gbtn, ${keepOpen}`)) this.closePop(false); }, true);
     this.root.addEventListener('focusout', (e) => { const to = e.relatedTarget as HTMLElement | null; if (this.popGroup && to && !this.gpop.contains(to) && !to.closest(`.ft-rb-gbtn, ${keepOpen}`)) this.closePop(false); });
     document.addEventListener('pointerdown', (e) => { if (this.float && !this.root.contains(e.target as Node) && !(e.target as HTMLElement).closest?.(keepOpen)) this.setFloat(false); }, true);
