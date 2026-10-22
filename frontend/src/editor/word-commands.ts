@@ -846,8 +846,10 @@ export function registerWordCommands(reg: CommandRegistry, ed: DocEditor): void 
     }
     const { state } = v;
     const { $from, $to } = state.selection;
-    if (isInTable(state) || $from.depth < 1 || $to.depth < 1) fail('Select two or more paragraphs outside a table.');
-    const start = $from.before(1), end = $to.after(1);
+    const whole = $from.depth < 1 && $to.depth < 1 && $from.pos === 0 && $to.pos === state.doc.content.size;
+    if (!whole && (isInTable(state) || $from.depth < 1 || $to.depth < 1)) fail('Select two or more paragraphs outside a table.');
+    let start = whole ? 0 : $from.before(1), end = whole ? state.doc.content.size : $to.after(1);
+    if (whole) { while (end > start && state.doc.resolve(end).nodeBefore?.type === schema.nodes.paragraph && state.doc.resolve(end).nodeBefore?.content.size === 0) end -= state.doc.resolve(end).nodeBefore!.nodeSize; }
     const nodes: PMNode[] = [];
     state.doc.nodesBetween(start, end, (n, pos) => { if (pos >= start && pos < end && state.doc.resolve(pos).depth === 0) nodes.push(n); return false; });
     if (nodes.length < 2) fail('Select two or more paragraphs to sort.');
