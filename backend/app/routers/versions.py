@@ -63,6 +63,20 @@ def _version(doc_id: str, vid: str):
         raise HTTPException(404, f"No version {vid} exists for document {doc_id}.")
 
 
+class AutoSettings(BaseModel):
+    autoVersionMinutes: float = Field(10.0, ge=0, le=100000)
+
+
+@router.get("/auto-settings")
+def auto_settings_get() -> dict:
+    return versions.auto_settings()
+
+
+@router.post("/auto-settings")
+def auto_settings_set(body: AutoSettings) -> dict:
+    return versions.set_auto_minutes(body.autoVersionMinutes)
+
+
 @router.get("/cloud")
 def cloud_get() -> dict:
     return versions.cloud_status()
@@ -213,6 +227,16 @@ def read_version(doc_id: str, vid: str) -> dict:
     except vault.Locked:
         cur = old
     return {"version": {k: v for k, v in row.items() if k not in ("doc", "hash")}, "title": old.get("title", ""), "outline": versions.outline(old, 400), "diff": versions.diff(old, cur)}
+
+
+@router.get("/{doc_id}/v/{vid}/compare")
+def compare_version(doc_id: str, vid: str) -> dict:
+    old, _, row = _version(doc_id, vid)
+    try:
+        cur = vault.unpack(_data(doc_id))[0]
+    except vault.Locked:
+        raise HTTPException(423, "Unlock the document to compare versions.")
+    return {"version": {k: v for k, v in row.items() if k not in ("doc", "hash")}, **versions.compare(old, cur)}
 
 
 @router.get("/{doc_id}/v/{vid}/thumb.svg")

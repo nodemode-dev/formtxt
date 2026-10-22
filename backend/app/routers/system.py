@@ -44,7 +44,12 @@ def get_settings() -> dict:
 
 @router.post("/settings")
 def set_settings(patch: dict) -> dict:
-    allowed = {k: v for k, v in patch.items() if k in {"author", "units", "defaultPageSize", "theme", "autosave", "pinned", "recentHidden", "keys", "pexelsKey", "stockImages", "linkPreviews"}}
+    allowed = {k: v for k, v in patch.items() if k in {"author", "units", "defaultPageSize", "theme", "autosave", "pinned", "recentHidden", "keys", "pexelsKey", "stockImages", "linkPreviews", "autoVersionMinutes"}}
+    if "autoVersionMinutes" in allowed:
+        try:
+            allowed["autoVersionMinutes"] = max(2.0, min(240.0, float(allowed["autoVersionMinutes"] or 10)))
+        except (TypeError, ValueError):
+            allowed.pop("autoVersionMinutes")
     if "linkPreviews" in allowed:
         allowed["linkPreviews"] = bool(allowed["linkPreviews"])
     if "pexelsKey" in allowed:

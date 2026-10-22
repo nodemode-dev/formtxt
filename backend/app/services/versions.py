@@ -13,13 +13,51 @@ from pathlib import Path
 from app.core import config
 from app.services import model, secrets, versions_vault as vault
 
-AUTO_GAP = 300.0
-MAX_AUTO = 100
-MAX_NAMED = 200
+DEFAULT_AUTO_MINUTES = 10
+MIN_AUTO_MINUTES = 2
+MAX_AUTO_MINUTES = 240
+KEEP_ALL = 86400.0
+KEEP_HOURLY = 7 * 86400.0
+KEEP_DAILY = 30 * 86400.0
+MAX_AUTO = 600
+MAX_NAMED = 500
 AGENT_SECONDS = 8.0
 _lock = threading.RLock()
 _agent_until = 0.0
+_pending: dict[str, dict[str, float]] = {}
 VID = re.compile(r"^v_\d{10,16}$")
+
+
+def _now() -> float:
+    return time.time()
+
+
+def auto_minutes() -> float:
+    raw = config.read_settings().get("autoVersionMinutes")
+    try:
+        minutes = float(raw) if raw not in (None, "") else float(DEFAULT_AUTO_MINUTES)
+    except (TypeError, ValueError):
+        minutes = float(DEFAULT_AUTO_MINUTES)
+    return max(float(MIN_AUTO_MINUTES), min(float(MAX_AUTO_MINUTES), minutes))
+
+
+def auto_gap() -> float:
+    override = os.environ.get("FORMTXT_AUTOVERSION_SECONDS")
+    if override:
+        try:
+            return max(0.0, float(override))
+        except ValueError:
+            pass
+    return auto_minutes() * 60.0
+
+
+def auto_settings() -> dict:
+    return {"autoVersionMinutes": auto_minutes(), "min": MIN_AUTO_MINUTES, "max": MAX_AUTO_MINUTES, "default": DEFAULT_AUTO_MINUTES, "seconds": auto_gap()}
+
+
+def set_auto_minutes(minutes: float) -> dict:
+    config.write_settings({"autoVersionMinutes": max(float(MIN_AUTO_MINUTES), min(float(MAX_AUTO_MINUTES), float(minutes)))})
+    return auto_settings()
 
 
 def agent_mark() -> None:
@@ -88,9 +126,12 @@ def _thin(rows: list[dict], now: float) -> list[dict]:
     drop: set[str] = set()
     for r in autos:
         age = now - r["ts"]
-        if age < 3600:
+        if age < KEEP_ALL:
             continue
-        bucket = ("h", int(r["ts"] // 3600)) if age < 86400 else ("d", int(r["ts"] // 86400))
+        if age >= KEEP_DAILY:
+            drop.add(r["id"])
+            continue
+        bucket = ("h", int(r["ts"] // 3600)) if age < KEEP_HOURLY else ("d", int(r["ts"] // 86400))
         if bucket in seen:
             drop.add(r["id"])
         else:
@@ -112,7 +153,7 @@ def _thin(rows: list[dict], now: float) -> list[dict]:
 def snapshot(doc: dict, data: bytes, name: str = "", auto: bool = True, reason: str = "") -> dict | None:
     doc_id = doc["id"]
     digest = content_hash(doc)
-    now = time.time()
+    now = _now()
     with _lock:
         rows = _read_index(doc_id)
         last = max(rows, key=lambda r: r["ts"], default=None)
@@ -125,8 +166,12 @@ def snapshot(doc: dict, data: bytes, name: str = "", auto: bool = True, reason: 
             if not name:
                 return None
         vid = f"v_{int(now * 1000)}"
+        who = actor(doc)
+        editors = sorted(set(_pending.pop(doc_id, {}).keys()) | {who})
+        while vid in {r["id"] for r in rows}:
+            vid = f"v_{int(now * 1000) + len(rows) + 1}"
         (_root(doc_id) / f"{vid}.ftxt").write_bytes(data)
-        row = {"id": vid, "doc": doc_id, "ts": now, "name": name[:120], "auto": auto, "author": actor(doc), "words": model.summary(doc)["words"], "bytes": len(data), "hash": digest, "reason": reason}
+        row = {"id": vid, "doc": doc_id, "ts": now, "name": name[:120], "auto": auto, "author": who, "editors": editors, "words": model.summary(doc)["words"], "bytes": len(data), "hash": digest, "reason": reason}
         rows.append(row)
         _write_index(doc_id, _thin(rows, now))
         return row
@@ -135,10 +180,11 @@ def snapshot(doc: dict, data: bytes, name: str = "", auto: bool = True, reason: 
 def after_save(doc: dict, data: bytes) -> None:
     try:
         log(doc["id"], "edit", doc=doc)
+        _pending.setdefault(doc["id"], {})[actor(doc)] = _now()
         rows = _read_index(doc["id"])
         last = max((r["ts"] for r in rows), default=0.0)
-        if time.time() - last >= AUTO_GAP:
-            snapshot(doc, data)
+        if _now() - last >= auto_gap():
+            snapshot(doc, data, reason="auto")
         copy_out(doc, data)
     except Exception:
         pass
@@ -279,6 +325,45 @@ def diff(old: dict, new: dict) -> dict:
         if len(out["changes"]) < 12:
             out["changes"].append({"removed": " ".join(a[i1:i2])[:160], "added": " ".join(b[j1:j2])[:160]})
     return out
+
+
+def compare(old: dict, cur: dict, limit: int = 400) -> dict:
+    from app.services import review
+    result, count = review.compare(old, cur, "Current")
+    paragraphs: list[dict] = []
+
+    def segments(content: list) -> list[dict]:
+        out: list[dict] = []
+        for run in content or []:
+            if not isinstance(run, dict):
+                continue
+            marks = run.get("marks") or {}
+            kind = "del" if marks.get("del") else "ins" if marks.get("ins") else "same"
+            text = _run_text(run)
+            if not text:
+                continue
+            if out and out[-1]["kind"] == kind:
+                out[-1]["text"] += text
+            else:
+                out.append({"kind": kind, "text": text})
+        return out
+
+    def walk(blocks: list) -> None:
+        for block in blocks or []:
+            if not isinstance(block, dict):
+                continue
+            if block.get("type") == "table":
+                for row in block.get("rows") or []:
+                    for cell in (row or {}).get("cells") or []:
+                        walk(cell.get("body") or [])
+            elif block.get("type", "paragraph") == "paragraph":
+                segs = segments(block.get("content") or [])
+                paragraphs.append({"style": block.get("style", "Normal"), "segments": segs, "changed": any(s["kind"] != "same" for s in segs)})
+
+    for tab in result.get("tabs") or []:
+        walk(tab.get("body") or [])
+    changed = [p for p in paragraphs if p["changed"]]
+    return {"changes": count, "paragraphs": len(paragraphs), "changed": len(changed), "rows": changed[:limit], "truncated": len(changed) > limit}
 
 
 def _activity_path(doc_id: str) -> Path:
