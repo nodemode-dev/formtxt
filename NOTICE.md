@@ -17,6 +17,9 @@ FormTxt. Copyright 2026 nodemode-ai. Licensed under the Apache License 2.0 (`LIC
 | Tabler Icons 3.49.0 (https://tabler.io/icons), copyright (c) 2020-2026 Paweł Kuna: 4,808 outline and 1,009 filled icons with names, categories and tags, as FormDeck re-encoded them into `frontend/src/data/tabler-icons.json` (copied byte for byte from FormDeck 0.23.0) | MIT | Insert > Icons |
 | Vite, TypeScript | MIT, Apache-2.0 | build tools, not shipped |
 | @tauri-apps/cli, Tauri | MIT or Apache-2.0 | desktop shell |
+| @tauri-apps/api 2.12.1 | MIT or Apache-2.0 | the macOS menu bar (loaded only in the desktop app) |
+| tauri-plugin-shell, tauri-plugin-dialog, regex, serde, serde_json, objc2, objc2-app-kit, objc2-foundation (Rust crates) | MIT or Apache-2.0 | desktop shell: engine process, error dialog, window and title bar on macOS |
+| keyring 25.7.0 | MIT or Apache-2.0 | engine: keys and passwords in the system password store |
 | FastAPI, Starlette, Pydantic | MIT | engine |
 | Uvicorn | BSD-3-Clause | engine server |
 | python-multipart | Apache-2.0 | engine uploads |
