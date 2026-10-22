@@ -12,7 +12,7 @@ import { FormDialog, setOptions } from './refs/forms';
 import {
   XREF_WHAT, addBookmark, addSource, bookmarkNames, chipToLink, convertNotes, defaultCaptionLabel, insertBibliography, insertCaption, insertCitation, insertCrossRef,
   insertFiguresTable, insertIndex, insertIndexEntry, insertNote, insertToc, linkToTarget, makeLinkChip, noteAt, quick, refreshAll, removeBookmark, selectedText, setNoteText,
-  linkUnderSelection, targetsFor,
+  linkUnderSelection, targetsFor, tocSpot,
 } from './refs/ops';
 import { headings, jump, saveSources, saveStyle, sourcesOf } from './refs/util';
 import { addMenuItems } from './ui';
@@ -104,7 +104,8 @@ export function register(reg: CommandRegistry, ed: DocEditor): void {
     { key: 'links', label: 'Entries jump to the heading', kind: 'check' },
   ], 'Insert');
   add('references.insertToc', 'Table of contents', 'Insert a table of contents built from the headings, with page numbers and links that jump to each heading. With no parameters, asks which levels to show.', (p) => {
-    const run = (from: number, to: number, pages: boolean, links: boolean): boolean => { insertToc(ed, from, to, pages, links); return true; };
+    const spot = tocSpot(ed);
+    const run = (from: number, to: number, pages: boolean, links: boolean): boolean => { insertToc(ed, from, to, pages, links, spot); return true; };
     if (has(p, 'from', 'to')) return run(Number(p.from) || 1, Number(p.to) || 3, p.pages !== false, p.links !== false);
     tocForm.open({ from: '1', to: '3', pages: true, links: true }, (v) => { run(Number(v.from), Number(v.to), !!v.pages, !!v.links); });
     return true;

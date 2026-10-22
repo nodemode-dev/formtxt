@@ -1,5 +1,5 @@
 import type { Node as PMNode } from 'prosemirror-model';
-import { NodeSelection, TextSelection } from 'prosemirror-state';
+import { NodeSelection, type Selection, TextSelection } from 'prosemirror-state';
 import { api } from '../../../io/api';
 import type { Style } from '../../../engine/model';
 import type { DocEditor } from '../../editor';
@@ -24,6 +24,9 @@ export function quick(ed: DocEditor, pages = false): void {
 }
 
 export function refreshAll(ed: DocEditor): number {
+  let hasToc = false;
+  view(ed).state.doc.forEach((n) => { if (n.type === schema.nodes.ref_toc) hasToc = true; });
+  if (hasToc) ensureHeadingIds(ed);
   return updateAll(ed);
 }
 
@@ -36,11 +39,81 @@ function insertInline(ed: DocEditor, node: PMNode, afterSelection = false): void
   v.focus();
 }
 
-export function insertToc(ed: DocEditor, from: number, to: number, pages: boolean, links: boolean): void {
+function ensureHeadingIds(ed: DocEditor): void {
+  const v = view(ed);
+  const missing = headings(v.state.doc).filter((h) => !h.id);
+  if (!missing.length) return;
+  const tr = v.state.tr;
+  for (const h of missing) {
+    const n = tr.doc.nodeAt(h.pos);
+    if (n) tr.setNodeMarkup(h.pos, undefined, { ...n.attrs, id: newId('h_') });
+  }
+  v.dispatch(tr.setMeta('addToHistory', false).setMeta('refs', true));
+}
+
+export interface TocSpot { sel: Selection; doc: PMNode }
+
+export function tocSpot(ed: DocEditor): TocSpot {
+  const v = view(ed);
+  return { sel: v.state.selection, doc: v.state.doc };
+}
+
+function tocAt(doc: PMNode, sel: Selection): { pos: number; node: PMNode } | null {
+  if (sel instanceof NodeSelection && sel.node.type === schema.nodes.ref_toc) return { pos: sel.from, node: sel.node };
+  if (sel.$from.depth >= 1 && sel.$from.node(1).type === schema.nodes.ref_toc) return { pos: sel.$from.before(1), node: sel.$from.node(1) };
+  if (sel.$from.depth === 0) {
+    const after = doc.nodeAt(sel.from);
+    if (after && after.type === schema.nodes.ref_toc && sel.from !== sel.to) return { pos: sel.from, node: after };
+  }
+  return null;
+}
+
+export function insertToc(ed: DocEditor, from: number, to: number, pages: boolean, links: boolean, spot?: TocSpot): void {
   const lo = Math.max(1, Math.min(9, from));
   const hi = Math.max(lo, Math.min(9, to));
-  insertBlock(view(ed), schema.nodes.ref_toc.create({ title: 'Contents', entries: [], opts: { from: lo, to: hi, pages, links } }));
+  const v = view(ed);
+  const sameDoc = !!spot && spot.doc === v.state.doc;
+  const sel = sameDoc && spot ? spot.sel : v.state.selection;
+  const opts = { from: lo, to: hi, pages, links };
+  const existing = tocAt(v.state.doc, sel);
+  if (existing) {
+    const rep = v.state.tr.setNodeMarkup(existing.pos, undefined, { ...existing.node.attrs, opts });
+    v.dispatch(rep.setSelection(NodeSelection.create(rep.doc, existing.pos)));
+    ensureHeadingIds(ed);
+    refreshAll(ed);
+    v.focus();
+    return;
+  }
+  const doc = v.state.doc;
+  const node = schema.nodes.ref_toc.create({ title: 'Contents', entries: [], opts });
+  const tr = v.state.tr;
+  let at: number;
+  let replaceTo = -1;
+  const $from = sel.$from;
+  if (sel instanceof TextSelection && $from.depth >= 1) {
+    const topNode = $from.node(1);
+    const start = $from.before(1);
+    const end = $from.after(1);
+    if ($from.depth === 1 && topNode.isTextblock) {
+      if (topNode.content.size === 0) { at = start; replaceTo = end; }
+      else if ($from.parentOffset === 0) at = start;
+      else if ($from.parentOffset === topNode.content.size) at = end;
+      else {
+        tr.split(sel.from);
+        at = sel.from + 1;
+      }
+    } else at = end;
+  } else if (sel.$from.depth >= 1) at = sel.$from.after(1);
+  else at = Math.min(sel.to, doc.content.size);
+  if (replaceTo >= 0) tr.replaceWith(at, replaceTo, node);
+  else tr.insert(at, node);
+  const afterPos = at + node.nodeSize;
+  if (afterPos >= tr.doc.content.size) tr.insert(afterPos, schema.nodes.paragraph.create());
+  tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(afterPos + 1, tr.doc.content.size)), 1));
+  v.dispatch(tr.scrollIntoView());
+  ensureHeadingIds(ed);
   refreshAll(ed);
+  v.focus();
 }
 
 export function insertFiguresTable(ed: DocEditor, label: string): void {
