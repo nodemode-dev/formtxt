@@ -4,7 +4,7 @@
 
 Documents in the form family. An open, local-first alternative to Microsoft Word and Google Docs: paginated and pageless documents, .docx and .odt round trips, and Claude Code, Codex or Cursor drafting and editing live through the same commands a person uses.
 
-Version 0.29.0 · Apache-2.0 · macOS, Windows, Linux (browser, or the desktop app built with ./build_app)
+Version 0.29.1 · Apache-2.0 · macOS, Windows, Linux (browser, or the desktop app built with ./build_app)
 
 ## Status
 
@@ -15,6 +15,8 @@ Phases 5 to 11 arrive in 0.27.0. References: a table of contents, footnotes at t
 0.28.0 gives FormTxt Word's layout. The title bar carries the menu bar (File, Edit, View, Insert, Format, Tools, Table, Window, Help; on macOS in the system menu bar), the Quick Access Toolbar, the document name, a command search (Alt+Q), Preferences, Comments, the Editing, Suggesting and Viewing switch and Share. Below it is a ribbon with Word's tabs (Home, Insert, Draw, Design, Layout, References, Mailings, Review, View, AI, Help) and contextual tabs for tables, pictures, shapes, charts, SmartArt, equations and headers and footers, a Styles gallery, Alt key tips, Customize Ribbon and Quick Access Toolbar, and simplified, tabs-only and icons-only displays. The status bar shows the page, words, proofing, language, accessibility and tracking, with view buttons and a zoom slider. File opens Backstage (Info, New, Open, Save a Copy, Print, Share, Export, Close, Account, Options), and Preferences (Ctrl+,) covers startup, 29 themes, display, proofing, saving, language, accessibility, the ribbon, keyboard, add-ins, sharing, AI and privacy. Word files now keep comments with replies, tracked changes, bookmarks, real fields, content controls, drop caps and the table of contents; suggesting mode tracks every edit including paragraph formatting; version history takes automatic versions; printing adds odd or even pages, manual two-sided, pages per sheet and paper size; grammar checks agreement, pronoun case and verb forms. The desktop app opens with the family's splash card and no white frame, and keys and passwords live in the system password store.
 
 0.29.0 fills the ribbon with Word's pickers: colour palettes, bullet, numbering and multilevel libraries, the table grid, cover page, header, footer, page number, shape, equation and symbol galleries, margins, size, columns and breaks galleries with previews, paragraph spinners, and the References, Review, View, Draw and contextual tab galleries. The font box lists every font installed on the computer. `./build_app` builds the desktop app in one step.
+
+0.29.1 uses the real FormTxt logo everywhere: the app icon on macOS, Windows and Linux, the favicon, the splash card, Home, the title bar and About. View > Dark Page shows the page dark with light text, separate from the app theme; it inverts black and white, keeps coloured text and pictures recognisable, and never changes printing or exports. The ruler follows the app theme.
 
 With the window open, every command also runs from a terminal: `./formtxt cli run tools.stats`, `./formtxt cli run edit.replaceAll find=draft replace=final`, `./formtxt cli run tabs.add title=Appendix`. The roadmap is `DEV_PLAN.md` in the planning sidecar, and the research baseline (199 Word and Google Docs capabilities, each with its vendor source) is the FormTxt page of the FormAI Parity Tracker.
 
