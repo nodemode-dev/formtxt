@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel, Field
 
-from app.services.proofing import dictionary, prefs, wordnet
+from app.services.proofing import dictionary, posdata, prefs, wordnet
 
 router = APIRouter()
 
@@ -71,6 +71,11 @@ def personal(body: WordBody) -> dict:
     elif word not in current:
         current = [*current, word]
     return {"dictionary": prefs.write({"dictionary": current})["dictionary"]}
+
+
+@router.get("/proofing/lexicon")
+def lexicon() -> dict:
+    return posdata.lexicon()
 
 
 @router.get("/proofing/thesaurus")

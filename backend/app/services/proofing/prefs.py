@@ -7,7 +7,7 @@ from app.core import config
 _lock = threading.Lock()
 
 RULES = ("list", "smartQuotes", "dashes", "symbols", "arrows", "fractions", "capitalize", "ellipsis")
-GRAMMAR_RULES = ("repeated", "article", "capital", "spaces", "punctuation", "long", "passive", "wordy", "confusion", "formal", "inclusive", "vocabulary")
+GRAMMAR_RULES = ("repeated", "article", "capital", "spaces", "punctuation", "long", "passive", "wordy", "confusion", "formal", "inclusive", "vocabulary", "agreement", "pronoun", "modal", "negation", "fewer", "comparison", "fragment", "splice")
 
 DEFAULTS: dict = {
     "dictionary": [],
