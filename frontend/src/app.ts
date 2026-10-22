@@ -2,62 +2,43 @@ import { mirrorCatalogue } from './automation/catalogue';
 import type { DocSummary, FtxtDocument } from './engine/model';
 import { commands } from './engine/registry';
 import { api, type TemplateSummary } from './io/api';
-import { Dialog } from './ui/dialog';
-import { delayedIndicator, el, mountOnce, q, revealApp, setClass, setHidden, setHtml, setText, setTitle } from './ui/dom';
+import { delayedIndicator, mountOnce, q, revealApp, setHidden } from './ui/dom';
 import { Home } from './ui/home';
 import { icon } from './ui/icons';
+import { mountShell, type Shell } from './shell';
+import { applyPrefs, openPreferences, registerPrefsCommands } from './ui/prefs/dialog';
+import { isLightTheme, readChoice, setTheme as setThemeId } from './ui/themes';
 import { DocEditor } from './editor/editor';
 import { registerEditorCommands } from './editor/register';
 import { registerExtensions } from './editor/ext/index';
-import { networkPreference } from './editor/ext/collab/share';
 import { unlockDocument } from './editor/ext/versions';
-import { vx } from './editor/ext/versions/api';
 import { connectBridge } from './automation/bridge';
 import { noteEdit, takeEditor } from './automation/actor';
 import { CommandPalette } from './ui/palette';
 import { Shortcuts } from './ui/shortcuts';
 import { toast } from './ui/toast';
-import { VERSION } from './version';
 
 type Theme = 'dark' | 'light';
 
 const SHELL = `
-<header class="ft-titlebar">
-  <span class="ft-brand">${icon('brand', 18)}<span>FormTxt</span></span>
-  <span class="ft-docname" data-ref="docname"></span>
-  <span class="ft-actions">
-    <button type="button" class="ft-btn" data-cmd="home.open">${icon('home', 16)}<span>Home</span></button>
-    <button type="button" class="ft-btn square" data-cmd="view.toggleTheme" data-ref="theme" aria-label="Switch theme"></button>
-    <button type="button" class="ft-btn primary" data-cmd="file.new">${icon('plus', 16)}<span>New document</span></button>
-  </span>
-</header>
 <main class="ft-main">
   <section class="ft-empty" data-ref="empty">
     ${icon('document', 48)}
     <h1>No document open</h1>
     <p>Open one from Home, start a blank document, or pick a template.</p>
   </section>
-</main>
-<footer class="ft-status">
-  <span class="ft-engine"><i class="ft-dot" data-ref="dot"></i><span data-ref="engine"></span></span>
-  <span class="ft-docstatus" data-ref="docstatus"></span>
-  <span>FormTxt ${VERSION}</span>
-</footer>`;
+</main>`;
 
 function currentTheme(): Theme {
   return document.documentElement.getAttribute('data-theme') === 'light' ? 'light' : 'dark';
 }
 
-function paintThemeButton(button: HTMLElement): void {
-  const next = currentTheme() === 'dark' ? 'light' : 'dark';
-  setHtml(button, icon(next === 'light' ? 'sun' : 'moon', 16), next);
-  setTitle(button, next === 'light' ? 'Switch to the light theme' : 'Switch to the dark theme');
-}
-
 function setTheme(theme: Theme): void {
-  document.documentElement.setAttribute('data-theme', theme);
-  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'light' ? '#ecebe6' : '#111111');
-  try { localStorage.setItem('formtxt.theme', theme); } catch { void 0; }
+  const was = readChoice().theme;
+  if (theme === 'light') { try { localStorage.setItem('formtxt.lastDarkTheme', was); } catch { void 0; } setThemeId(isLightTheme(was) ? was : 'light'); return; }
+  let dark = 'studio';
+  try { dark = localStorage.getItem('formtxt.lastDarkTheme') || 'studio'; } catch { void 0; }
+  setThemeId(isLightTheme(dark) ? 'studio' : dark);
 }
 
 async function fontsReady(timeout = 1500): Promise<void> {
@@ -68,22 +49,19 @@ async function fontsReady(timeout = 1500): Promise<void> {
 export async function startApp(): Promise<void> {
   const root = q<HTMLElement>(document, '#app');
   mountOnce(root, SHELL);
-  const docname = q<HTMLElement>(root, '[data-ref="docname"]');
-  const engine = q<HTMLElement>(root, '[data-ref="engine"]');
-  const dot = q<HTMLElement>(root, '[data-ref="dot"]');
-  const themeButton = q<HTMLElement>(root, '[data-ref="theme"]');
-  paintThemeButton(themeButton);
 
   commands.register({
     id: 'view.toggleTheme',
     label: 'Switch theme',
     group: 'View',
     description: 'Switch between the dark and light themes.',
-    run: () => { setTheme(currentTheme() === 'dark' ? 'light' : 'dark'); paintThemeButton(themeButton); return currentTheme(); },
+    run: () => { setTheme(currentTheme() === 'dark' ? 'light' : 'dark'); return currentTheme(); },
   });
   const main = q<HTMLElement>(root, '.ft-main');
   const empty = q<HTMLElement>(root, '[data-ref="empty"]');
-  const docStatus = q<HTMLElement>(root, '[data-ref="docstatus"]');
+  let shell: Shell | null = null;
+  let openId = '';
+  let homeRef: Home | null = null;
   let saveTimer = 0;
   let saving: Promise<void> = Promise.resolve();
   let pending: FtxtDocument | null = null;
@@ -95,26 +73,31 @@ export async function startApp(): Promise<void> {
     const by = takeEditor();
     saving = saving.then(() => api.put<DocSummary>(`/documents/${encodeURIComponent(doc.id)}${by ? `?by=${by}` : ''}`, doc)).then((s) => {
       doc.meta.modified = s.modified;
-      if (!pending) setText(docStatus, `${s.words} word${s.words === 1 ? '' : 's'} · Saved`);
+      if (!pending) { shell?.status.setSaved('saved'); shell?.titlebar.setDocument(s.title, false); }
       home.upsert({ id: s.id, title: s.title, modified: s.modified, created: s.created, words: s.words, bytes: s.bytes });
-    }).catch((e: Error) => { setText(docStatus, 'Not saved'); toast(`Could not save: ${e.message}`, 'error'); });
+    }).catch((e: Error) => { shell?.status.setSaved('unsaved'); toast(`Could not save: ${e.message}`, 'error'); });
     return saving;
   };
   const editor = new DocEditor(main, {
     changed: (doc) => {
       noteEdit();
       pending = doc;
+      shell?.status.setSaved('saving');
       window.clearTimeout(saveTimer);
       saveTimer = window.setTimeout(() => void flush(), 700);
     },
-    status: (words) => {
-      const pages = editor.pageCount();
-      const paged = !(editor.doc?.settings as unknown as { pageless?: boolean } | undefined)?.pageless;
-      setText(docStatus, `${paged ? `${pages} page${pages === 1 ? '' : 's'} · ` : ''}${words} word${words === 1 ? '' : 's'}${pending ? ' · Editing' : ''}`);
-    },
+    status: () => { shell?.syncDocument(); },
   });
   registerEditorCommands(commands, editor);
   registerExtensions(commands, editor);
+  shell = mountShell({
+    root,
+    editor,
+    recent: () => (homeRef?.recentDocs() ?? []).slice(0, 9).map((dsum) => ({ id: dsum.id, title: dsum.title })),
+    onFile: () => { void flush(); homeRef?.backstage('info'); },
+  });
+  root.prepend(shell.titlebar.root);
+  shell.titlebar.root.after(shell.ribbonHost);
   const shortcuts = new Shortcuts(commands);
   const palette = new CommandPalette(commands);
   commands.register({ id: 'edit.commandPalette', label: 'Find a command', group: 'Help', description: 'Search every command by name and run it.', keys: ['Ctrl+Shift+P'], run: () => { palette.open(); return true; } });
@@ -140,8 +123,10 @@ export async function startApp(): Promise<void> {
     await editor.load(doc);
     setHidden(empty, true);
     editor.show(true);
-    setText(docname, doc.title);
-    document.title = `${doc.title} · FormTxt`;
+    openId = doc.id;
+    shell?.titlebar.setDocument(doc.title, false);
+    shell?.status.setSaved('saved');
+    shell?.syncDocument();
     home.close();
     const words = doc.tabs.flatMap((t) => t.body).flatMap((b) => b.content ?? []).reduce((n, r) => n + (typeof r.text === 'string' ? r.text.split(/\s+/).filter(Boolean).length : 0), 0);
     home.upsert({ id: doc.id, title: doc.title, modified: doc.meta.modified, created: doc.meta.created, words, bytes: 0 });
@@ -161,46 +146,46 @@ export async function startApp(): Promise<void> {
       toast((e as Error).message, 'error');
     }
   };
-  const preferences = (): void => {
-    const d = new Dialog('Preferences', 460);
-    const author = el<HTMLInputElement>('<input class="ft-input" type="text" spellcheck="false" placeholder="Your name">');
-    d.field('Author name for new documents', author);
-    const stock = el<HTMLInputElement>('<input type="checkbox" checked aria-label="Allow stock picture search">');
-    const stockRow = el('<label class="ft-pref-check"></label>');
-    stockRow.append(stock, document.createTextNode(' Search stock pictures online (Insert > Stock images contacts Openverse and, with a key, Pexels through the engine; nothing else leaves this computer)'));
-    d.body.appendChild(stockRow);
-    d.body.appendChild(networkPreference());
-    const pexels = el<HTMLInputElement>('<input class="ft-input" type="password" autocomplete="off" spellcheck="false" placeholder="Paste a key to add or replace it">');
-    d.field('Pexels API key (free at pexels.com/api)', pexels);
-    const cloud = el<HTMLInputElement>('<input class="ft-input" type="text" autocomplete="off" spellcheck="false" placeholder="https://cloud.example.com/remote.php/dav/files/you/FormTxt/ or a folder">');
-    d.field('Cloud storage: a WebDAV address (Nextcloud, ownCloud, Box, a NAS) or a synced folder such as Dropbox or OneDrive', cloud);
-    const davUser = el<HTMLInputElement>('<input class="ft-input" type="text" autocomplete="off" spellcheck="false" placeholder="User name (WebDAV only)">');
-    const davPass = el<HTMLInputElement>('<input class="ft-input" type="password" autocomplete="off" placeholder="Password or app password (WebDAV only)">');
-    d.field('Cloud user name', davUser);
-    d.field('Cloud password', davPass);
-    let cloudWas = '';
-    void vx.cloud().then((c) => { cloud.value = c.folder; cloudWas = c.folder; }).catch(() => undefined);
-    void api.get<Record<string, unknown>>('/settings').then((s) => {
-      if (!author.value) author.value = String(s.author ?? '');
-      stock.checked = s.stockImages !== false;
-      if (s.pexelsKeySet) pexels.placeholder = 'A key is saved; paste a new one to replace it';
-    });
-    d.button('Cancel', 'ghost', () => d.close());
-    d.button('Save', 'primary', () => {
-      d.close();
-      const patch: Record<string, unknown> = { author: author.value.trim(), stockImages: stock.checked };
-      if (pexels.value.trim()) patch.pexelsKey = pexels.value.trim();
-      void api.post('/settings', patch).then(() => toast('Preferences saved.'));
-      if (cloud.value.trim() !== cloudWas || davPass.value) void vx.setCloud(cloud.value.trim(), davUser.value.trim(), davPass.value).then(() => toast(cloud.value.trim() ? 'Every save also goes to cloud storage.' : 'Cloud storage is off.')).catch((e: Error) => toast(e.message, 'error'));
-    });
-    d.open(author);
-  };
+  const preferences = (): void => openPreferences();
   const home = new Home({
     openDocument: (id) => { void openDocument(id).catch((e: Error) => toast(`Could not open the document: ${e.message}`, 'error')); },
     createDocument: async (template, title) => { await createDocument(template, title).catch((e: Error) => toast(`Could not create the document: ${e.message}`, 'error')); },
     importFiles,
     preferences,
+    hasDocument: () => !!openId,
+    currentDocument: () => (openId && editor.doc ? { id: editor.doc.id, title: editor.doc.title } : null),
+    flush,
+    closeDocument: async () => { await commands.run('file.close'); },
   }, root);
+  homeRef = home;
+  registerPrefsCommands();
+  applyPrefs();
+
+  commands.register({
+    id: 'file.close',
+    label: 'Close',
+    group: 'File',
+    description: 'Close the open document (it is already saved) and return to Home.',
+    keys: ['Ctrl+W'],
+    run: async () => {
+      await flush();
+      openId = '';
+      editor.show(false);
+      setHidden(empty, false);
+      shell?.titlebar.setDocument(null, false);
+      home.documentClosed();
+      if (!home.isOpen) home.open('start');
+      return true;
+    },
+  });
+  commands.register({
+    id: 'file.backstage',
+    label: 'File',
+    group: 'File',
+    description: 'Open the File tab (Backstage): info, new, open, save a copy, print, share, export, account and options.',
+    params: [{ name: 'page', type: 'string', description: 'info, new, open, save, print, share, export or account' }],
+    run: (p) => { void flush(); home.backstage(String(p.page ?? 'info') as never); return true; },
+  });
 
   commands.register({
     id: 'home.open',
@@ -258,7 +243,8 @@ export async function startApp(): Promise<void> {
     id: 'app.preferences',
     label: 'Preferences',
     group: 'App',
-    description: 'Set the author name used for new documents.',
+    description: 'Open Preferences: startup, theme, display, proofing, saving, language, accessibility, ribbon, keyboard, add-ins, sharing, AI and privacy.',
+    keys: ['Ctrl+,'],
     run: () => { preferences(); return true; },
   });
   commands.register({
@@ -271,22 +257,22 @@ export async function startApp(): Promise<void> {
 
   root.addEventListener('click', (e) => {
     const target = (e.target as HTMLElement).closest<HTMLElement>('button[data-cmd]');
-    if (target?.dataset.cmd) void commands.run(target.dataset.cmd).catch((err: Error) => setText(engine, err.message));
+    if (!target || target.closest('.ft-rb, .ft-titlebar, .ft-status, .ft-qat')) return;
+    if (target.dataset.cmd) void commands.run(target.dataset.cmd).catch((err: Error) => toast(err.message, 'error'));
   });
 
   await Promise.all([fontsReady(), Promise.race([home.load().catch(() => undefined), new Promise((r) => setTimeout(r, 1500))])]);
   revealApp();
 
-  const stop = delayedIndicator(() => setText(engine, 'Connecting to the engine'), () => undefined);
+  const st = shell.status;
+  const stop = delayedIndicator(() => st.setEngine('Connecting to the engine', false), () => undefined);
   try {
     const h = await api.get<{ version: string }>('/health');
     stop();
-    setClass(dot, 'ok', true);
-    setText(engine, `Engine ${h.version} ready`);
-    await mirrorCatalogue(commands).catch(() => setText(engine, `Engine ${h.version} ready, command catalogue not shared`));
+    st.setEngine(`Engine ${h.version} ready`, true);
+    await mirrorCatalogue(commands).catch(() => st.setEngine(`Engine ${h.version} ready`, true, 'The command catalogue was not shared with the engine.'));
   } catch {
     stop();
-    setClass(dot, 'bad', true);
-    setText(engine, 'Engine not reachable. Start it with ./formtxt');
+    st.setEngine('Engine offline', false, 'Engine not reachable. Start it with ./formtxt');
   }
 }

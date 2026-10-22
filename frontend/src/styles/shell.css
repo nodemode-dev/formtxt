@@ -2,9 +2,11 @@
   position: fixed;
   inset: 0;
   display: grid;
-  grid-template-rows: var(--ft-titlebar-h) 1fr var(--ft-status-h);
+  grid-template-rows: var(--ft-titlebar-h) auto minmax(0, 1fr) var(--ft-status-h);
   background: var(--bg-primary);
 }
+
+.ft-ribbon-host { position: relative; overflow: visible; min-width: 0; z-index: var(--z-chrome); }
 
 .ft-titlebar {
   position: relative;
@@ -60,6 +62,7 @@
   place-items: center;
 }
 .ft-empty { display: grid; justify-items: center; gap: var(--space-4); text-align: center; max-width: 420px; padding: var(--space-8); }
+.ft-empty[hidden] { display: none; }
 .ft-empty .icon { color: var(--text-muted); }
 .ft-empty h1 { font-size: var(--ft-20); font-weight: 600; }
 .ft-empty p { font-size: var(--ft-14); color: var(--text-secondary); line-height: 1.5; }

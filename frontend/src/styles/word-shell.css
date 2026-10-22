@@ -1,0 +1,3 @@
+.ft-editor, .ft-editor[data-view="read"], .ft-editor[data-view="focus"] { grid-template-rows: minmax(0, 1fr); }
+.ft-editor > .ft-toolbar, .ft-editor > .ft-menubar { display: none; }
+:root:has(.ft-editor:not([hidden])[data-view="read"]) .ft-ribbon-host { display: none; }

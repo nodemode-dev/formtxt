@@ -612,6 +612,8 @@ ${backstageMarkup()}
 
   get isOpen(): boolean { return !this.root.hidden; }
 
+  recentDocs(): DocSummary[] { return [...this.docs].sort((a, b) => b.modified - a.modified); }
+
   upsert(doc: DocSummary): void {
     const rest = this.docs.filter((d) => d.id !== doc.id);
     const old = this.docs.find((d) => d.id === doc.id);
