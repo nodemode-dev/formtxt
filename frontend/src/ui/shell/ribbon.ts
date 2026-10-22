@@ -165,7 +165,7 @@ export class Ribbon {
   }
 
   private watchLayout(): void {
-    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => this.queueFit()).observe(this.body);
+    if (typeof ResizeObserver !== 'undefined') new ResizeObserver(() => this.fit()).observe(this.body);
     const bump = (): void => { this.rev++; this.queueFit(); };
     document.fonts?.addEventListener?.('loadingdone', bump);
     this.look = this.lookKey();
@@ -291,9 +291,9 @@ export class Ribbon {
     const attrs = it.k === 'cmd' ? `data-cmd="${escapeHtml(it.id)}"${params}` : it.k === 'act' ? `data-act="${escapeHtml(it.id)}" aria-haspopup="true"` : `data-menu="${escapeHtml(it.id)}" aria-haspopup="menu" aria-expanded="false"`;
     const drop = it.k === 'menu' || it.k === 'act';
     if (it.k === 'menu') this.menuItems.set(it.id, it.items ?? []);
-    const cls = `ft-rb-btn${large ? ' is-large' : ' is-small'}${it.text ? ' has-text' : ''}${it.swatch ? ' ft-rb-color' : ''}`;
+    const cls = `ft-rb-btn${large ? ' is-large' : ' is-small'}${it.text ? ' has-text' : ''}${it.swatch ? ' ft-rb-color' : ''}${large && label.trim().split(/\s+/).length <= 2 ? ' is-w2' : ''}`;
     const common = `type="button" ${attrs}${it.keep ? ' data-keep="1"' : ''} data-tip="1" data-label="${escapeHtml(it.title ?? label)}" data-ic="${ic}" data-ic0="${escapeHtml(it.icon ?? '')}"${it.label ? '' : ' data-dyn="1"'} aria-label="${escapeHtml(label)}"`;
-    if (large) return el(`<button class="${cls}" ${common}><span class="ft-rb-ic">${icon(ic, 28)}</span><span class="ft-rb-lbl"><span>${escapeHtml(label)}</span>${drop ? icon('chevronDown', 10) : ''}</span></button>`);
+    if (large) return el(`<button class="${cls}" ${common}><span class="ft-rb-ic">${icon(ic, 28)}</span><span class="ft-rb-lbl"><span>${escapeHtml(label)}</span>${drop ? `&#8288;${icon('chevronDown', 10)}` : ''}</span></button>`);
     return el(`<button class="${cls}" ${common}><span class="ft-rb-ic">${icon(ic, 16)}</span>${it.text ? `<span class="ft-rb-t">${escapeHtml(label)}</span>` : ''}${drop && it.text ? icon('chevronDown', 10) : ''}</button>`);
   }
 
@@ -556,7 +556,16 @@ export class Ribbon {
   }
 
   private applyVisibility(): void {
-    for (const [id, btn] of this.tabBtns) setHidden(btn, this.tabHidden(id));
+    let ctxFirst = true;
+    for (const node of Array.from(this.list.children)) {
+      const btn = node as HTMLButtonElement;
+      const id = btn.dataset.tab as string;
+      const hide = this.tabHidden(id);
+      setHidden(btn, hide);
+      const first = !hide && ctxFirst && !!this.defs.get(id)?.ctx;
+      if (first) ctxFirst = false;
+      setClass(btn, 'is-ctx-first', first);
+    }
     for (const panel of this.panels.values()) {
       for (const g of Array.from(panel.querySelectorAll<HTMLElement>('.ft-rb-group'))) setHidden(g, this.config.hiddenGroups.includes(g.dataset.g as string));
     }
@@ -727,28 +736,25 @@ export class Ribbon {
     let total = ms.reduce((s, m) => s + m.w[0], 0);
     if (total > avail) {
       const order = groups.map((_, i) => i).sort((a, b) => Number(groups[b].dataset.rank ?? 0) - Number(groups[a].dataset.rank ?? 0) || b - a);
-      const tier = (s: Step): number => s.lv * 4 + (s.gal ? 5 - s.gal : 0);
-      const tiers = [...new Set(ms.flatMap((m) => m.steps.map(tier)))].sort((a, b) => a - b);
-      done: for (const t of tiers) {
+      const galRank = (s: Step): number => (s.lv === 0 && s.gal ? 8 - s.gal : 0);
+      done: {
+        for (let t = 1; t <= 6; t++) {
+          for (const i of order) {
+            let to = pick[i];
+            while (to + 1 < ms[i].steps.length && galRank(ms[i].steps[to + 1]) > 0 && galRank(ms[i].steps[to + 1]) <= t) to++;
+            if (to === pick[i]) continue;
+            total += ms[i].w[to] - ms[i].w[pick[i]];
+            pick[i] = to;
+            if (total <= avail) break done;
+          }
+        }
         for (const i of order) {
-          let to = pick[i];
-          while (to + 1 < ms[i].steps.length && tier(ms[i].steps[to + 1]) <= t) to++;
-          if (to === pick[i]) continue;
-          total += ms[i].w[to] - ms[i].w[pick[i]];
-          pick[i] = to;
-          if (total <= avail) break done;
+          while (pick[i] + 1 < ms[i].steps.length) {
+            total += ms[i].w[pick[i] + 1] - ms[i].w[pick[i]];
+            pick[i]++;
+            if (total <= avail) break done;
+          }
         }
-      }
-      const back = [...order].reverse();
-      for (;;) {
-        let best = -1;
-        for (const i of back) {
-          if (pick[i] === 0 || total + ms[i].w[pick[i] - 1] - ms[i].w[pick[i]] > avail) continue;
-          if (best < 0 || tier(ms[i].steps[pick[i]]) > tier(ms[best].steps[pick[best]])) best = i;
-        }
-        if (best < 0) break;
-        total += ms[best].w[pick[best] - 1] - ms[best].w[pick[best]];
-        pick[best]--;
       }
     }
     const ae = document.activeElement as HTMLElement | null;
@@ -767,18 +773,18 @@ export class Ribbon {
     if (avail - base < 2) return;
     setStyleVar(panel, '--rb-gap', '1px');
     const slope = width() - base;
-    const gap = slope > 0 ? Math.min(6, Math.floor(((avail - base) / 2 / slope) * 2) / 2) : 0;
+    const gap = slope > 0 ? Math.min(1, Math.floor(((avail - base) / 2 / slope) * 2) / 2) : 0;
     setStyleVar(panel, '--rb-gap', gap ? `${gap}px` : '');
-    const pad = Math.min(40, Math.floor(((avail - width()) / (groups.length * 2)) * 2) / 2);
+    const pad = Math.min(3,Math.floor(((avail - width()) / (groups.length * 2)) * 2) / 2);
     setStyleVar(panel, '--rb-pad', pad > 0 ? `${pad}px` : '');
   }
 
   private candidates(g: HTMLElement): Step[] {
     if (this.compact) return g.querySelector('.ft-gal') ? [{ lv: 3, gal: 0 }] : [{ lv: 2, gal: 0 }, { lv: 3, gal: 0 }];
-    const gal = g.querySelector('.ft-gal') ? 2 : 0;
+    const gal = g.querySelector('.ft-gal, .ft-wgal') ? 2 : 0;
     const out: Step[] = [{ lv: 0, gal: 0 }];
-    if (gal) out.push({ lv: 0, gal: 4 }, { lv: 0, gal: 3 }, { lv: 0, gal: 2 });
-    out.push({ lv: 1, gal }, { lv: 2, gal }, { lv: 3, gal: 0 });
+    if (gal) out.push({ lv: 0, gal: 6 }, { lv: 0, gal: 5 }, { lv: 0, gal: 4 }, { lv: 0, gal: 3 }, { lv: 0, gal: 2 });
+    out.push({ lv: 1, gal }, { lv: 3, gal: 0 });
     return out;
   }
 
