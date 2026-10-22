@@ -47,6 +47,14 @@ export interface GrammarRules {
   formal: boolean;
   inclusive: boolean;
   vocabulary: boolean;
+  agreement: boolean;
+  pronoun: boolean;
+  modal: boolean;
+  negation: boolean;
+  fewer: boolean;
+  comparison: boolean;
+  fragment: boolean;
+  splice: boolean;
 }
 
 export const RULE_LABELS: Record<keyof GrammarRules, string> = {
@@ -62,6 +70,14 @@ export const RULE_LABELS: Record<keyof GrammarRules, string> = {
   formal: 'Formal writing: contractions, slang and casual words',
   inclusive: 'Inclusive language: gendered and exclusionary terms',
   vocabulary: 'Vocabulary: vague intensifiers and cliches',
+  agreement: 'Subject-verb agreement',
+  pronoun: 'Pronoun case: for we, between you and I, me and him went',
+  modal: 'Verb form after modals and did: can goes, will went',
+  negation: 'Double negatives',
+  fewer: 'Fewer and less, many and much',
+  comparison: 'Comparisons: more taller, as good than, incomplete as',
+  fragment: 'Sentence fragments without a verb',
+  splice: 'Comma splices',
 };
 
 export interface AutoCorrectRules {
@@ -95,7 +111,7 @@ export const DEFAULT_PREFS: ProofingPrefs = {
   dictionary: [],
   spelling: true,
   grammar: true,
-  grammarRules: { repeated: true, article: true, capital: true, spaces: true, punctuation: true, long: true, passive: true, wordy: true, confusion: true, formal: false, inclusive: true, vocabulary: true },
+  grammarRules: { repeated: true, article: true, capital: true, spaces: true, punctuation: true, long: true, passive: true, wordy: true, confusion: true, formal: false, inclusive: true, vocabulary: true, agreement: true, pronoun: true, modal: true, negation: true, fewer: true, comparison: true, fragment: true, splice: true },
   autocorrect: {
     enabled: true,
     rules: { list: true, smartQuotes: true, dashes: true, symbols: true, arrows: true, fractions: true, capitalize: false, ellipsis: true },

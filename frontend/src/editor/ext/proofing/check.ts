@@ -2,6 +2,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { Plugin, PluginKey, TextSelection, type EditorState } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import { grammarIssues } from './grammar';
+import { ensureLexicon } from './lexload';
 import { forgetWord, suggest, unknownWords } from './spell';
 import { checkVersion, documentLanguage, engineAvailable, getPrefs, ignoreAllHas, ignoreOnceHas, onChange } from './state';
 import { type ParaText, WORD_RE, paraText, spanAt } from './text';
@@ -98,6 +99,7 @@ async function analyse(p: ParaText, fallback: string): Promise<Issue[]> {
   const prefs = getPrefs();
   const issues: Issue[] = [];
   if (prefs.grammar) {
+    ensureLexicon();
     const skip = (i: number): boolean => { const s = spanAt(p, i); return !s || s.skip || s.code || !ENGINE_LANG.test(s.lang); };
     for (const raw of grammarIssues(p.text, prefs.grammarRules, skip)) issues.push(toIssue(raw, p, fallback));
   }
@@ -207,7 +209,13 @@ class ProofView {
     const lang = documentLanguage();
     const results: Replace[] = [];
     const focused = view.hasFocus();
+    let slice = performance.now();
     for (const { node, pos } of batch) {
+      if (performance.now() - slice > 6) {
+        await new Promise<void>((r) => { if (typeof requestIdleCallback === 'function') requestIdleCallback(() => r(), { timeout: 120 }); else window.setTimeout(r, 0); });
+        slice = performance.now();
+        if (view.state.doc !== doc) { this.again = true; return; }
+      }
       const p = paraText(node, pos, lang);
       let issues = stale ? [] : await analyse(p, lang);
       if (view.state.doc !== doc) { this.again = true; return; }

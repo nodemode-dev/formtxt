@@ -1,5 +1,6 @@
 import { type Fix, type GrammarRules, type RawIssue } from './types';
 import { OBJECT, sentences } from './text';
+import { grammarExtra } from './grammar2';
 
 export const WORDY: Array<[string, string]> = [
   ['in order to', 'to'],
@@ -70,7 +71,7 @@ export function passiveMatches(text: string): Array<{ index: number; length: num
 }
 
 const VOWEL_AN =/^(hour|honest|honou?r|heir|herb)/i;
-const CONS_A = /^(uni[cflqostv]|use|usu|uti|ubiq|euro|eulog|euph|one(?![a-z])|once|ewe|utensil|ukulele|uranium|urin)/i;
+const CONS_A = /^(uni[cflqostv]|use|usu|usa|uti|ubiq|eu|euro|eulog|euph|one(?![a-z])|once|ewe|utensil|ukulele|uranium|urin)/i;
 
 function caseLike(src: string, out: string): string {
   if (!out) return out;
@@ -82,6 +83,7 @@ function vowelSound(word: string): boolean | null {
   const w = word.replace(/^['\u2019-]+/, '');
   if (w.length < 2) return null;
   if (w === w.toUpperCase() && /\p{L}/u.test(w)) return null;
+  if (!/[aeiouy]/i.test(w.split('-')[0])) return null;
   if (VOWEL_AN.test(w)) return true;
   if (CONS_A.test(w)) return false;
   return /^[aeiou]/i.test(w);
@@ -120,9 +122,12 @@ export function grammarIssues(text: string, rules: GrammarRules, skip: (i: numbe
       if (!first || first !== first.toLowerCase() || first === first.toUpperCase()) continue;
       const token = /^\S+/.exec(text.slice(s.from))?.[0] ?? '';
       if (!/^\p{Ll}[\p{Ll}'\u2019]*[,.;:!?)"'\u201d]*$/u.test(token)) continue;
+      if (/[?!,]["'\u201d\u2019]\s*$/.test(text.slice(Math.max(0, s.from - 4), s.from))) continue;
       push({ from: s.from, to: s.from + 1, cat: 'grammar', rule: 'capital', message: 'Start the sentence with a capital letter', fixes: [fix('Capitalise', s.from, s.from + 1, first.toUpperCase())] });
     }
   }
+
+  grammarExtra(text, rules, sents, push);
 
   if (rules.spaces) {
     for (const m of text.matchAll(/(?<=\S) {2,}(?=\S)/g)) {
@@ -147,6 +152,18 @@ export function grammarIssues(text: string, rules: GrammarRules, skip: (i: numbe
     }
     for (const m of text.matchAll(/(?<=\p{L}) +([,.;:!?])(?![,.;:!?])(?=\s|$)/gu)) {
       push({ from: m.index, to: m.index + m[0].length, cat: 'grammar', rule: 'punctuation', message: 'Remove the space before the punctuation mark', fixes: [fix('Remove the space', m.index, m.index + m[0].length - 1, '')] });
+    }
+    for (const m of text.matchAll(/(?<=\p{L}) +,(?=\p{L})/gu)) {
+      push({ from: m.index, to: m.index + m[0].length, cat: 'grammar', rule: 'punctuation', message: 'Move the comma next to the word and add a space after it', fixes: [fix('Fix the spacing', m.index, m.index + m[0].length, ', ')] });
+    }
+    for (const m of text.matchAll(/(?<=\() +(?=\p{L})/gu)) {
+      push({ from: m.index, to: m.index + m[0].length, cat: 'grammar', rule: 'punctuation', message: 'Remove the space after the opening bracket', fixes: [fix('Remove the space', m.index, m.index + m[0].length, '')] });
+    }
+    for (const m of text.matchAll(/(?<=[\p{L}\p{N}]) +(?=\))/gu)) {
+      push({ from: m.index, to: m.index + m[0].length, cat: 'grammar', rule: 'punctuation', message: 'Remove the space before the closing bracket', fixes: [fix('Remove the space', m.index, m.index + m[0].length, '')] });
+    }
+    for (const m of text.matchAll(/(?<=\p{L}),{2,}/gu)) {
+      push({ from: m.index, to: m.index + m[0].length, cat: 'grammar', rule: 'punctuation', message: 'Repeated comma', fixes: [fix('Keep one comma', m.index, m.index + m[0].length, ',')] });
     }
   }
 
@@ -263,7 +280,16 @@ const CONFUSIONS: Confusion[] = [
   { re: re('they[\'\u2019]re([ \\t]+)(own|house|car|cars|home|friends?|family|children|parents|team|names?|jobs?|books?|money|dog|cat|kids?)'), part: 'first', to: 'their', message: (r) => did(r, 'belonging to them') },
   { re: re('(more|less|better|worse|bigger|smaller|larger|greater|rather|fewer|higher|lower|faster|slower|older|younger|taller|longer|shorter|easier|harder|stronger|weaker|cheaper|different|other)([ \\t]+)then'), part: 'last', to: 'than', message: (r) => did(r, 'used in comparisons') },
   { re: re('(if|and|until|from|since|so|first)([ \\t]+)than'), part: 'last', to: 'then', message: (r) => did(r, 'at that time or next') },
-  { re: re('your([ \\t]+)(a|an|the|going|welcome|not|being|doing|right|wrong|so|very|too|always|never)'), part: 'first', to: "you're", message: (r) => did(r, 'you are') },
+  { re: re('your([ \\t]+)(a|an|the|going|welcome|not|being|doing|so|too|always|never)'), part: 'first', to: "you're", message: (r) => did(r, 'you are') },
+  { re: re('(?<!\\b(?:on|to|at|in|from|by|of|with|for|about|toward|towards|into|onto)[ \\t]+)your([ \\t]+)(right|wrong)(?![ \\t]+\\p{L}*(?:hand|side|foot|ear|eye|answer|choice|turn|track|path|direction)\\b)(?=[ \\t]*[,.;!?]|[ \\t]+(?:about|to|and|but|for|on|in|when|if|that|as)\\b)'), part: 'first', to: "you're", message: (r) => did(r, 'you are') },
   { re: re('you[\'\u2019]re([ \\t]+)(own|name|house|car|friends?|mom|dad|family|book|email|account|order|files?|documents?|team)'), part: 'first', to: 'your', message: (r) => did(r, 'belonging to you') },
-  { re: re('(could|would|should|must|might)([ \\t]+)of'), part: 'last', to: 'have', message: (r) => `Use "${r}", not "of"` },
+  { re: re('(could|would|should|must|might|may|couldn[\'’]t|wouldn[\'’]t|shouldn[\'’]t|mustn[\'’]t|mightn[\'’]t)([ \\t]+)of'), part: 'last', to: 'have', message: (r) => `Use "${r}", not "of"` },
+  { re: re('its([ \\t]+)(raining|snowing|late|early|okay|ok|fine|obvious|unlikely|likely|worth|impossible|difficult|necessary|always|never|still|already|almost|probably|clearly|certainly|simply|quite|rather|pretty|because|what|how|why)(?!-)'), part: 'first', to: "it's", message: (r) => did(r, 'it is or it has') },
+  { re: re('it[\'’]s([ \\t]+)(tail|wings|paws|eyes|head|surface|edge|contents|capacity|ability|function|title|author|creator|members|mouth|legs|roots|branches|walls|doors|windows|engine|battery|screen|licen[sc]e|appearance|performance|location|address|behaviou?r|length|width|height|weight|age|population|leader|leaders|customers|developers|employees)'), part: 'first', to: 'its', message: (r) => did(r, 'belonging to it') },
+  { re: re('your([ \\t]+)(sure|ready|done|invited|supposed|allowed|quite|also|still|mistaken|kidding|joking|crazy)(?!-)'), part: 'first', to: "you're", message: (r) => did(r, 'you are') },
+  { re: re('you[\'’]re([ \\t]+)(mother|father|phone|job|website|password|mom|dad|sister|brother|wife|husband|boss|birthday|idea|turn|fault|choice)'), part: 'first', to: 'your', message: (r) => did(r, 'belonging to you') },
+  { re: re('their([ \\t]+)(here|gone|too|really|also)'), part: 'first', to: "they're", message: (r) => did(r, 'they are') },
+  { re: re('there([ \\t]+)(mother|father|brother|sister|son|daughter|wife|husband|school|company|country|hands|eyes|feet|heads|minds|hearts|lives|opinions|ideas|teacher|teachers)'), part: 'first', to: 'their', message: (r) => did(r, 'belonging to them') },
+  { re: re('(smarter|richer|cooler|warmer|colder|hotter|cleaner|safer|simpler|happier|healthier|heavier|lighter|louder|quieter|newer|closer|deeper|wider|thicker|thinner|brighter|darker|earlier|worth more|much more|far more|a bit more)([ \\t]+)then'), part: 'last', to: 'than', message: (r) => did(r, 'used in comparisons') },
+  { re: re('(back|next)([ \\t]+)than'), part: 'last', to: 'then', message: (r) => did(r, 'at that time or next') },
 ];
