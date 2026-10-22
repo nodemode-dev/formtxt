@@ -132,7 +132,7 @@ export const insertPageBreak: Command = (state, dispatch) => insertBreakNode(sta
 function insertBreakNode(state: Parameters<Command>[0], dispatch: Parameters<Command>[1], type: 'page_break' | 'column_break'): boolean {
   if (dispatch) {
     const tr = state.tr.replaceSelectionWith(schema.nodes[type].create());
-    const after = tr.selection.$to.after();
+    const after = tr.selection.$to.depth ? tr.selection.$to.after() : tr.selection.to;
     if (after >= tr.doc.content.size || tr.doc.resolve(after).nodeAfter === null) tr.insert(tr.doc.content.size, schema.nodes.paragraph.create());
     dispatch(tr.setSelection(TextSelection.near(tr.doc.resolve(Math.min(tr.doc.content.size, tr.selection.to + 1)))).scrollIntoView());
   }
