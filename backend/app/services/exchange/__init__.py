@@ -30,7 +30,7 @@ def export(doc: dict, media: dict[str, bytes], fmt: str) -> tuple[bytes, str, st
     from app.services import package
     doc, media = package.prune(doc, media)
     from app.services.exchange import flatten
-    doc = flatten.prepare(doc)
+    doc = flatten.prepare(doc, fmt in ("docx", "dotx"))
     if fmt in ("docx", "dotx"):
         from app.services.exchange import docx_out
         data = docx_out.build(doc, media, fmt == "dotx")

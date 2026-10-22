@@ -18,11 +18,20 @@ def _entry(e: dict, section: str) -> dict:
     return common.para("Normal", runs, section, props)
 
 
-def _runs(runs: list[dict], counter: dict[str, int], notes: list[dict]) -> list[dict]:
+def _runs(runs: list[dict], counter: dict[str, int], notes: list[dict], native: bool = False) -> list[dict]:
     out: list[dict] = []
     for r in runs:
         t = r.get("type")
+        if native and t == "bookmark":
+            out.append(r)
+            continue
         if t in DROP_RUNS:
+            continue
+        if native and t == "sequence" and r.get("label"):
+            out.append(r)
+            continue
+        if native and t == "crossRef" and r.get("kind") != "note" and r.get("target"):
+            out.append(r)
             continue
         if t in ("sequence", "crossRef", "citation"):
             if r.get("text"):
@@ -43,17 +52,19 @@ def _runs(runs: list[dict], counter: dict[str, int], notes: list[dict]) -> list[
             continue
         if t == "shape" and r.get("content"):
             r = dict(r)
-            r["content"] = _blocks(r["content"], "", counter, notes)
+            r["content"] = _blocks(r["content"], "", counter, notes, native)
         out.append(r)
     return out
 
 
-def _blocks(blocks: list[dict], section: str, counter: dict[str, int], notes: list[dict]) -> list[dict]:
+def _blocks(blocks: list[dict], section: str, counter: dict[str, int], notes: list[dict], native: bool = False) -> list[dict]:
     out: list[dict] = []
     for b in blocks:
         t = b.get("type")
         sec = b.get("section") or section
-        if t in GENERATED:
+        if native and t == "toc":
+            out.append(b)
+        elif t in GENERATED:
             if b.get("title"):
                 out.append(common.para("Heading2", [common.text_run(str(b["title"]))], sec))
             out.extend(_entry(e, sec) for e in b.get("entries") or [])
@@ -61,7 +72,7 @@ def _blocks(blocks: list[dict], section: str, counter: dict[str, int], notes: li
             continue
         elif t == "paragraph":
             b = dict(b)
-            b["content"] = _runs(b.get("content") or [], counter, notes)
+            b["content"] = _runs(b.get("content") or [], counter, notes, native)
             out.append(b)
         elif t == "table":
             b = copy.copy(b)
@@ -70,7 +81,7 @@ def _blocks(blocks: list[dict], section: str, counter: dict[str, int], notes: li
                 cells = []
                 for c in row if isinstance(row, list) else row.get("cells", []):
                     c = dict(c)
-                    c["body"] = _blocks(c.get("body") or [], sec, counter, notes)
+                    c["body"] = _blocks(c.get("body") or [], sec, counter, notes, native)
                     cells.append(c)
                 rows.append(cells if isinstance(row, list) else {**row, "cells": cells})
             b["rows"] = rows
@@ -80,14 +91,14 @@ def _blocks(blocks: list[dict], section: str, counter: dict[str, int], notes: li
     return out
 
 
-def prepare(doc: dict) -> dict:
+def prepare(doc: dict, native: bool = False) -> dict:
     doc = dict(doc)
     counter: dict[str, int] = {}
     notes: list[dict] = []
     tabs = []
     for tab in doc.get("tabs") or []:
         tab = dict(tab)
-        tab["body"] = _blocks(tab.get("body") or [], "", counter, notes)
+        tab["body"] = _blocks(tab.get("body") or [], "", counter, notes, native)
         tabs.append(tab)
     doc["tabs"] = tabs
     doc["notes"] = {

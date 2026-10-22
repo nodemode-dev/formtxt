@@ -8,7 +8,9 @@ from docx.oxml.ns import qn
 
 from app.core.ids import new_id
 from app.services import model
-from app.services.exchange import common, notes, omml
+import json
+
+from app.services.exchange import common, docx_comments, docx_rev, notes, omml
 from app.services.exchange.common import Builder
 
 A = "http://schemas.openxmlformats.org/drawingml/2006/main"
@@ -130,6 +132,52 @@ class Reader:
         self.section_id = ""
         self.sect_elements: list = []
         self.table_styles: dict[str, bool] = {}
+        self.rev_active: dict[str, tuple] = {}
+        self.rev_cur: dict[str, str] = {}
+        self.bm_pid: dict[str, str] = {}
+        self.bm_names: set[str] = set()
+        self.bm_seen: set[str] = set()
+        self.p_ids: dict = {}
+        self.cap_pids: set[str] = set()
+        self.pending_cap: dict | None = None
+        self.pending_split: dict | None = None
+        self.merge_names: list[str] = []
+        self.cm_map: dict[str, str] = {}
+        self.cm_active: list[str] = []
+        self.cm_quote: dict[str, str] = {}
+
+    def rev_info(self, el) -> dict:
+        return {"author": (el.get(qn("w:author")) or "Unknown")[:200], "time": docx_rev.parse_iso(el.get(qn("w:date")))}
+
+    def rev_id(self, kind: str, info: dict, extra: str = "") -> str:
+        key = (kind, info["author"], info["time"], extra)
+        if self.rev_active.get(kind) != key:
+            self.rev_active[kind] = key
+            self.rev_cur[kind] = new_id("r_")
+        return self.rev_cur[kind]
+
+    def prepass(self, body) -> None:
+        for bs in body.iter(qn("w:bookmarkStart")):
+            name = bs.get(qn("w:name")) or ""
+            if name.startswith("_"):
+                p = next(bs.iterancestors(qn("w:p")), None)
+                if p is not None and name != "_GoBack":
+                    pid = self.p_ids.get(p) or new_id("p_")
+                    self.p_ids[p] = pid
+                    self.bm_pid[name] = pid
+            elif docx_rev.BOOKMARK.match(name):
+                self.bm_names.add(name)
+        for p, pid in self.p_ids.items():
+            sid = val(child(child(p, "w:pPr"), "w:pStyle"))
+            if sid and sid.lower() == "caption":
+                self.cap_pids.add(pid)
+
+    def anchor_url(self, anchor: str) -> str:
+        if anchor in self.bm_pid:
+            return "#" + self.bm_pid[anchor]
+        if anchor in self.bm_names:
+            return "#bm:" + anchor
+        return "#" + anchor
 
     @staticmethod
     def untemplate(data: bytes) -> bytes:
@@ -160,7 +208,17 @@ class Reader:
         body = self.d.element.body
         self.sections(body)
         self.section_id = self.sect_ids[0]
+        docx_comments.read(self)
+        self.prepass(body)
         self.doc["tabs"][0]["body"] = self.blocks(list(body), self.d.part) or self.doc["tabs"][0]["body"]
+        for fid, quote in self.cm_quote.items():
+            if fid in self.doc.get("comments", {}):
+                self.doc["comments"][fid]["quote"] = quote.strip()[:240]
+        if self.merge_names:
+            mm = self.doc["settings"].setdefault("mailMerge", {"source": "", "columns": [], "rows": []})
+            for name in self.merge_names:
+                if name not in mm["columns"] and len(mm["columns"]) < 60:
+                    mm["columns"].append(name)
         notes.read_docx(self)
         return self.doc, self.b.media
 
@@ -186,6 +244,15 @@ class Reader:
             self.doc["settings"]["defaultTab"] = tab
         if st.find(qn("w:trackRevisions")) is not None:
             self.doc["settings"]["trackChanges"] = True
+        dv = st.find(qn("w:docVars"))
+        if dv is not None:
+            variables = {}
+            for item in dv.findall(qn("w:docVar")):
+                name, value = item.get(qn("w:name")), item.get(qn("w:val"))
+                if name and value is not None and len(variables) < 100:
+                    variables[name[:40]] = value[:500]
+            if variables:
+                self.doc["variables"] = variables
 
     def styles(self) -> None:
         root = self.d.styles.element
@@ -543,21 +610,138 @@ class Reader:
                 props["tabs"] = out
         return props
 
+    @staticmethod
+    def toc_instr(p) -> str | None:
+        begun = False
+        for el in p.iter(qn("w:fldChar"), qn("w:instrText")):
+            if el.tag == qn("w:fldChar"):
+                if begun:
+                    return None
+                if el.get(qn("w:fldCharType")) != "begin":
+                    return None
+                begun = True
+                continue
+            text = (el.text or "").strip()
+            return text if re.match(r"^TOC(\s|$)", text) else None
+        return None
+
+    def take_field(self, nodes: list, i: int) -> tuple[int, list]:
+        depth = 0
+        j = i
+        group = []
+        while j < len(nodes) and nodes[j].tag == qn("w:p"):
+            group.append(nodes[j])
+            for f in nodes[j].iter(qn("w:fldChar")):
+                kind = f.get(qn("w:fldCharType"))
+                depth += 1 if kind == "begin" else -1 if kind == "end" else 0
+            j += 1
+            if depth <= 0:
+                break
+        return j, group
+
+    def toc_block(self, out: list[dict], group: list, instr: str) -> None:
+        title = ""
+        if out and out[-1].get("type") == "paragraph" and out[-1].get("style") == "TOCHeading":
+            title = common.plain(out.pop()["content"]).strip()
+        lo, hi = 1, 3
+        m = re.search(r'\\o\s*"(\d)\s*-\s*(\d)"', instr)
+        if m:
+            lo, hi = int(m.group(1)), int(m.group(2))
+        opts = {"from": lo, "to": max(lo, hi), "pages": "\\n" not in instr, "links": "\\h" in instr}
+        stack: list[dict] = []
+        entries: list[dict] = []
+        for p in group:
+            text = page = ""
+            after_tab = False
+            anchor = None
+            sid = val(child(child(p, "w:pPr"), "w:pStyle")) or ""
+            sm = re.fullmatch(r"(?i)toc\s*(\d)", sid)
+            for el in p.iter():
+                tag = el.tag
+                if tag == qn("w:fldChar"):
+                    kind = el.get(qn("w:fldCharType"))
+                    if kind == "begin":
+                        stack.append({"instr": "", "phase": "instr"})
+                    elif kind == "separate" and stack:
+                        stack[-1]["phase"] = "result"
+                    elif kind == "end" and stack:
+                        stack.pop()
+                elif tag == qn("w:instrText"):
+                    if stack and stack[-1]["phase"] == "instr":
+                        stack[-1]["instr"] += el.text or ""
+                elif tag == qn("w:hyperlink"):
+                    if anchor is None and el.get(qn("w:anchor")):
+                        anchor = el.get(qn("w:anchor"))
+                elif tag == qn("w:tab") and el.getparent() is not None and el.getparent().tag == qn("w:r"):
+                    if not (stack and stack[-1]["phase"] == "instr"):
+                        after_tab = True
+                elif tag == qn("w:t"):
+                    inner = stack[1:]
+                    if inner and inner[-1]["phase"] == "instr":
+                        continue
+                    if after_tab:
+                        page += el.text or ""
+                    else:
+                        text += el.text or ""
+            if not text.strip():
+                continue
+            entry: dict = {"text": text.strip()}
+            level = max(0, int(sm.group(1)) - lo) if sm else 0
+            if level:
+                entry["level"] = min(8, level)
+            if page.strip():
+                entry["page"] = page.strip()
+            if anchor:
+                target = self.bm_pid.get(anchor) or ("bm:" + anchor if anchor in self.bm_names else None)
+                if target:
+                    entry["target"] = target
+            entries.append(entry)
+        out.append({"type": "toc", "id": new_id("r_"), "title": title, "entries": entries, "opts": opts})
+
     def blocks(self, nodes: list, part) -> list[dict]:
         out: list[dict] = []
-        for el in nodes:
+        i = 0
+        while i < len(nodes):
+            el = nodes[i]
             tag = el.tag
+            i += 1
             if tag == qn("w:p"):
+                instr = self.toc_instr(el)
+                if instr is not None:
+                    i, group = self.take_field(nodes, i - 1)
+                    self.toc_block(out, group, instr)
+                    continue
                 out.extend(self.paragraph(el, part))
             elif tag == qn("w:tbl"):
+                self.pending_split = None
                 out.append(self.table(el, part))
             elif tag == qn("w:sdt"):
                 content = el.find(qn("w:sdtContent"))
                 if content is not None:
-                    out.extend(self.blocks(list(content), part))
+                    sub = self.blocks(list(content), part)
+                    if sub and sub[0].get("type") == "toc" and not sub[0].get("title") and out and out[-1].get("type") == "paragraph" and out[-1].get("style") == "TOCHeading":
+                        sub[0]["title"] = common.plain(out.pop()["content"]).strip()
+                    out.extend(sub)
             elif tag in (qn("w:ins"), qn("w:customXml")):
                 out.extend(self.blocks(list(el), part))
+            elif tag == qn("w:commentRangeStart"):
+                self.cm_start(el.get(qn("w:id")))
+            elif tag == qn("w:commentRangeEnd"):
+                self.cm_end(el.get(qn("w:id")))
+        if self.pending_cap:
+            cap, self.pending_cap = self.pending_cap, None
+            out.append(common.para("Normal", [common.text_run(cap["text"])], self.section_id))
         return out
+
+    def cm_start(self, cid) -> None:
+        fid = self.cm_map.get(cid or "")
+        if fid and fid not in self.cm_active:
+            self.cm_active.append(fid)
+
+    def cm_end(self, cid) -> None:
+        fid = self.cm_map.get(cid or "")
+        if fid and fid in self.cm_active:
+            self.cm_active.remove(fid)
 
     def new_section(self) -> dict:
         self.sect_cursor += 1
@@ -573,8 +757,22 @@ class Reader:
             style = "Normal"
         style_el = self.pstyles.get(sid or "")
         props = self.para_props(ppr)
+        fp = child(ppr, "w:framePr")
+        if fp is not None and fp.get(qn("w:dropCap")) in ("drop", "margin"):
+            letters = "".join(t.text or "" for t in p.iter(qn("w:t")))
+            if letters.strip():
+                cap = {"mode": "margin" if fp.get(qn("w:dropCap")) == "margin" else "dropped", "lines": max(1, min(10, int(num(fp.get(qn("w:lines"))) or 3))),
+                       "distance": round(num(fp.get(qn("w:hSpace")), 20) or 0.0, 2)}
+                rf = p.find(".//" + qn("w:rFonts"))
+                font = (rf.get(qn("w:ascii")) or rf.get(qn("w:hAnsi"))) if rf is not None else None
+                if font:
+                    cap["font"] = font
+                self.pending_cap = {"cap": cap, "text": letters.strip()}
+                return []
         lst = self.list_of(ppr, style_el)
         sect = child(ppr, "w:sectPr")
+        mark = child(child(ppr, "w:rPr"), "w:ins") if ppr is not None else None
+        mark_del = child(child(ppr, "w:rPr"), "w:del") if ppr is not None else None
         segments = self.segments(p, part, ppr)
         before = []
         if ppr is not None and on(child(ppr, "w:pageBreakBefore")) and child(ppr, "w:pageBreakBefore") is not None:
@@ -611,15 +809,33 @@ class Reader:
                     continue
                 if not runs and sect is not None:
                     continue
-                out.append(common.para(style, runs, self.section_id, dict(props) if props else None, lst if first else None))
+                pprops = dict(props) if props else {}
+                if self.pending_cap:
+                    cap, self.pending_cap = self.pending_cap, None
+                    lead = next((r for r in runs if r.get("type") == "text"), None)
+                    runs = common.merge_runs([common.text_run(cap["text"], dict(lead["marks"]) if lead and lead.get("marks") else None)] + runs)
+                    pprops["dropCap"] = cap["cap"]
+                out.append(common.para(style, runs, self.section_id, pprops or None, lst if first else None))
                 first = False
+        paras = [b for b in out if b.get("type") == "paragraph"]
+        if paras:
+            if self.pending_split:
+                paras[0].setdefault("props", {})["rvSplit"] = self.pending_split
+                self.pending_split = None
+            pid = self.p_ids.get(p)
+            if pid:
+                paras[0]["id"] = pid
+            if mark_del is not None:
+                paras[-1].setdefault("props", {})["rvJoin"] = {"id": new_id("r_"), **self.rev_info(mark_del)}
+        if mark is not None:
+            self.pending_split = {"id": new_id("r_"), **self.rev_info(mark)}
         if sect is not None:
             out.append(self.new_section())
         return out
 
     def segments(self, p, part, ppr) -> dict:
         items: list = [[]]
-        state = {"check": None, "field": [], "result_link": None}
+        state = {"check": None, "field": [], "result_link": None, "rev": {}, "bm_open": {}}
         marks_cache: dict = {}
 
         def cur() -> list:
@@ -633,10 +849,34 @@ class Reader:
             m = dict(marks)
             if link:
                 m["link"] = link
+            if self.cm_active:
+                m["comment"] = list(self.cm_active)
+                for fid in self.cm_active:
+                    if len(self.cm_quote.get(fid, "")) < 240:
+                        self.cm_quote[fid] = self.cm_quote.get(fid, "") + text
+            for kind in ("ins", "del"):
+                info = state["rev"].get(kind)
+                if info:
+                    m[kind] = {"id": self.rev_id(kind, info), **info}
+                else:
+                    self.rev_active.pop(kind, None)
+            fmt = m.pop("fmt", None)
+            if fmt:
+                m["fmt"] = {"id": self.rev_id("fmt", fmt, json.dumps(fmt["ops"], sort_keys=True)), **fmt}
+            else:
+                self.rev_active.pop("fmt", None)
+            for bm in state["bm_open"].values():
+                bm[1] += text
             cur().append(common.text_run(text, m or None))
 
         def handle_run(r, link: str | None) -> None:
-            marks = run_marks(child(r, "w:rPr"), self.charstyles)
+            rpr_el = child(r, "w:rPr")
+            marks = run_marks(rpr_el, self.charstyles)
+            change = child(rpr_el, "w:rPrChange")
+            if change is not None:
+                ops = docx_rev.diff(run_marks(child(change, "w:rPr"), self.charstyles), marks)
+                if ops:
+                    marks["fmt"] = {**self.rev_info(change), "ops": ops}
             for c in r:
                 t = c.tag
                 fields = state["field"]
@@ -664,7 +904,7 @@ class Reader:
 
         def emit_child(c, marks: dict, link: str | None) -> None:
             t = c.tag
-            if t == qn("w:t"):
+            if t == qn("w:t") or t == qn("w:delText"):
                 add_text(c.text or "", marks, link)
             elif t == qn("w:tab"):
                 cur().append({"type": "tab"})
@@ -703,8 +943,9 @@ class Reader:
                 for c, marks in result:
                     emit_child(c, marks, url or link)
                 return
+            text = "".join(c.text or "" for c, _ in result if c.tag == qn("w:t"))
+            parts = instr.split()
             if instr.startswith("="):
-                text = "".join(c.text or "" for c, _ in result if c.tag == qn("w:t"))
                 code = "=" + instr[1:].split("\\#")[0].strip()
                 fm = re.search(r'\\#\s*"([^"]*)"', instr)
                 run: dict = {"type": "field", "kind": "formula", "code": code, "result": text}
@@ -712,8 +953,91 @@ class Reader:
                     run["format"] = fm.group(1)
                 cur().append(run)
                 return
+            if word in ("REF", "PAGEREF") and len(parts) > 1:
+                name = parts[1]
+                pid = self.bm_pid.get(name)
+                what = "page" if word == "PAGEREF" else "number" if re.search(r"\\[nrw]\b", instr) else "text"
+                if pid:
+                    cur().append({"type": "crossRef", "kind": "caption" if pid in self.cap_pids else "heading", "target": pid, "what": what, "text": text})
+                    return
+                if name in self.bm_names:
+                    cur().append({"type": "crossRef", "kind": "bookmark", "target": name, "what": what, "text": text})
+                    return
+            elif word == "SEQ" and len(parts) > 1:
+                label = parts[1].strip('"')
+                if text.strip().isdigit():
+                    items_now = cur()
+                    if items_now and items_now[-1].get("type") == "text":
+                        last = items_now[-1]["text"]
+                        for suffix in (label + " ", label + "\u00a0", label):
+                            if last.endswith(suffix):
+                                last = last[:-len(suffix)]
+                                break
+                        if last:
+                            items_now[-1] = {**items_now[-1], "text": last}
+                        else:
+                            items_now.pop()
+                    cur().append({"type": "sequence", "label": label, "n": int(text.strip()), "text": f"{label} {text.strip()}"})
+                    return
+            elif word == "DOCVARIABLE" and len(parts) > 1:
+                name = instr[len(parts[0]):].split("\\")[0].strip().strip('"')
+                if name:
+                    cur().append({"type": "field", "kind": "variable", "code": name[:40], "result": text})
+                    return
+            elif word == "MERGEFIELD" and len(parts) > 1:
+                name = instr[len(parts[0]):].split("\\")[0].strip().strip('"')
+                if name:
+                    if name not in self.merge_names:
+                        self.merge_names.append(name)
+                    cur().append({"type": "mergefield", "name": name})
+                    return
+            elif word in docx_rev.INFO_CODES:
+                run = {"type": "field", "kind": "info", "code": word, "result": text}
+                fm = re.search(r'\\[@#]\s*"([^"]*)"', instr)
+                if fm:
+                    run["format"] = fm.group(1)
+                else:
+                    cm = re.search(r"\\\*\s*(Upper|Lower|Caps|FirstCap)", instr)
+                    if cm:
+                        run["format"] = {"Upper": "upper", "Lower": "lower"}.get(cm.group(1), "title")
+                cur().append(run)
+                return
             for c, marks in result:
                 emit_child(c, marks, link)
+
+        def control_run(pr, kind: str, unused: str, gathered: list, checked: bool) -> dict:
+            title = val(child(pr, "w:alias")) or ""
+            tg = val(child(pr, "w:tag")) or ""
+            if tg in ("ftxt-control", "ftxt-check"):
+                tg = ""
+            run: dict = {"type": "control", "kind": kind, "title": title[:80]}
+            if tg:
+                run["tag"] = tg[:60]
+            texts = [r for r in gathered if r.get("type") == "text"]
+            text = "".join(r["text"] for r in texts)
+            showing = child(pr, "w:showingPlcHdr") is not None
+            if kind == "checkbox":
+                run["checked"] = checked
+                run["text"] = ""
+                return run
+            if showing:
+                run["placeholder"] = text[:120]
+                run["text"] = ""
+            else:
+                run["text"] = text
+            if kind == "dropdown":
+                lst = child(pr, "w:dropDownList")
+                if lst is None:
+                    lst = child(pr, "w:comboBox")
+                run["options"] = [(li.get(qn("w:displayText")) or li.get(qn("w:value")) or "") for li in lst.findall(qn("w:listItem"))] if lst is not None else []
+            if kind == "date":
+                run["format"] = val(child(child(pr, "w:date"), "w:dateFormat")) or ""
+            if kind in ("text", "richtext") and not showing:
+                skip = ("comment", "ins", "del", "fmt")
+                content = [common.text_run(r["text"], {k: v for k, v in r["marks"].items() if k not in skip} or None) for r in texts if r.get("marks")]
+                if any(r.get("marks") for r in content):
+                    run["content"] = [common.text_run(r["text"], {k: v for k, v in (r.get("marks") or {}).items() if k not in skip} or None) for r in texts]
+            return run
 
         def walk(el, link: str | None) -> None:
             for c in el:
@@ -726,25 +1050,68 @@ class Reader:
                     if rid and rid in part.rels:
                         url = part.rels[rid].target_ref
                     elif c.get(qn("w:anchor")):
-                        url = "#" + c.get(qn("w:anchor"))
+                        url = self.anchor_url(c.get(qn("w:anchor")))
                     walk(c, url or link)
                 elif t == qn("w:fldSimple"):
-                    instr = (c.get(qn("w:instr")) or "").strip()
-                    if instr.startswith("="):
-                        text = "".join(x.text or "" for x in c.iter(qn("w:t")))
-                        cur().append({"type": "field", "kind": "formula", "code": "=" + instr[1:].split("\\#")[0].strip(), "result": text})
-                    else:
-                        walk(c, link)
-                elif t in (qn("w:ins"), qn("w:smartTag"), qn("w:moveTo"), qn("w:customXml")):
+                    result = []
+                    for r in c.findall(qn("w:r")):
+                        rm = run_marks(child(r, "w:rPr"), self.charstyles)
+                        result.extend((x, rm) for x in r if x.tag != qn("w:rPr"))
+                    finish_field({"instr": c.get(qn("w:instr")) or "", "result": result}, link)
+                elif t in (qn("w:ins"), qn("w:del"), qn("w:moveTo"), qn("w:moveFrom")):
+                    kind = "ins" if t in (qn("w:ins"), qn("w:moveTo")) else "del"
+                    saved = state["rev"].get(kind)
+                    state["rev"][kind] = self.rev_info(c)
                     walk(c, link)
+                    if saved is None:
+                        state["rev"].pop(kind, None)
+                    else:
+                        state["rev"][kind] = saved
+                elif t in (qn("w:smartTag"), qn("w:customXml")):
+                    walk(c, link)
+                elif t == qn("w:commentRangeStart"):
+                    self.cm_start(c.get(qn("w:id")))
+                elif t == qn("w:commentRangeEnd"):
+                    self.cm_end(c.get(qn("w:id")))
+                elif t == qn("w:bookmarkStart"):
+                    name = c.get(qn("w:name")) or ""
+                    if docx_rev.BOOKMARK.match(name) and name not in self.bm_seen:
+                        self.bm_seen.add(name)
+                        run = {"type": "bookmark", "name": name, "text": ""}
+                        cur().append(run)
+                        state["bm_open"][c.get(qn("w:id"))] = [run, ""]
+                elif t == qn("w:bookmarkEnd"):
+                    open_bm = state["bm_open"].pop(c.get(qn("w:id")), None)
+                    if open_bm and open_bm[1].strip():
+                        open_bm[0]["covers"] = open_bm[1][:200]
                 elif t == qn("w:sdt"):
                     pr = child(c, "w:sdtPr")
+                    content = child(c, "w:sdtContent")
                     cb = pr.find("{%s}checkbox" % W14) if pr is not None else None
+                    tag = val(child(pr, "w:tag")) if pr is not None else None
                     if cb is not None:
                         ch = cb.find("{%s}checked" % W14)
-                        state["check"] = (ch is not None and ch.get("{%s}val" % W14) in ("1", "true"))
+                        checked = ch is not None and ch.get("{%s}val" % W14) in ("1", "true")
+                        lead = not any(isinstance(s, list) and s for s in items)
+                        if tag == "ftxt-check" or (lead and tag is None and child(pr, "w:alias") is None):
+                            state["check"] = checked
+                            continue
+                        cur().append(control_run(pr, "checkbox", "", [], checked))
                         continue
-                    content = child(c, "w:sdtContent")
+                    kind = None
+                    if pr is not None:
+                        for name, k in (("w:text", "text"), ("w:richText", "richtext"), ("w:dropDownList", "dropdown"), ("w:comboBox", "dropdown"), ("w:date", "date")):
+                            if child(pr, name) is not None:
+                                kind = k
+                                break
+                    if kind is not None and content is not None:
+                        mark = len(items)
+                        items.append([])
+                        walk(content, link)
+                        gathered = [r for seg in items[mark:] if isinstance(seg, list) for r in seg]
+                        del items[mark:]
+                        cur().append(control_run(pr, kind, "", gathered, False))
+                        continue
                     if content is not None:
                         walk(content, link)
                 elif t in ("{%s}oMath" % M_NS, "{%s}oMathPara" % M_NS):
@@ -752,6 +1119,9 @@ class Reader:
                     if latex:
                         cur().append({"type": "math", "latex": latex, **({"display": True} if t.endswith("oMathPara") else {})})
         walk(p, None)
+        for open_bm in state["bm_open"].values():
+            if open_bm[1].strip():
+                open_bm[0]["covers"] = open_bm[1][:200]
         return {"items": items, "check": state["check"]}
 
     def drawing(self, el, part) -> dict | None:
@@ -903,6 +1273,9 @@ class Reader:
                 va = val(child(pr, "w:vAlign"))
                 if va in ("center", "bottom"):
                     cell["valign"] = "middle" if va == "center" else "bottom"
+                td = val(child(pr, "w:textDirection"))
+                if td in ("btLr", "tbRl", "tbRlV", "btLrV"):
+                    cell["textDirection"] = "rotate270" if td.startswith("btLr") else "rotate90"
                 tb = child(pr, "w:tcBorders")
                 if tb is not None:
                     borders = {}
@@ -915,7 +1288,12 @@ class Reader:
                     if borders:
                         cell["borders"] = borders
                 cells.append(cell)
-            rows_out.append({"cells": cells})
+            row_out: dict = {"cells": cells}
+            th = child(r["pr"], "w:trHeight")
+            height = num(val(th), 20) if th is not None else None
+            if height and height > 0:
+                row_out = {"height": round(height, 2), "cells": cells}
+            rows_out.append(row_out)
         pr = child(tbl, "w:tblPr")
         sid = val(child(pr, "w:tblStyle"))
         direct = child(pr, "w:tblBorders")
@@ -933,6 +1311,17 @@ class Reader:
             block["repeatHeader"] = True
         if val(child(pr, "w:jc")) == "center":
             block["align"] = "center"
+        cm = child(pr, "w:tblCellMar")
+        if cm is not None:
+            margins = {}
+            for side, names in (("top", ("top",)), ("right", ("right", "end")), ("bottom", ("bottom",)), ("left", ("left", "start"))):
+                for nm in names:
+                    v = num(val(child(cm, "w:" + nm), "w:w"), 20)
+                    if v is not None:
+                        margins[side] = round(max(0.0, v), 2)
+                        break
+            if margins:
+                block["cellMargins"] = {"top": 0.0, "right": 0.0, "bottom": 0.0, "left": 0.0, **margins}
         return block
 
 
