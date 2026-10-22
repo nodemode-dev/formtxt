@@ -1,0 +1,48 @@
+#!/usr/bin/env bash
+set -e
+source "$(dirname "$0")/lib.sh"
+ft_venv
+python -c "import PyInstaller" 2>/dev/null || ft_die "PyInstaller missing, run: pip install pyinstaller in backend/venv"
+os="linux"
+case "$(uname -s 2>/dev/null)" in
+  Darwin) os=macos ;;
+  MINGW*|MSYS*|CYGWIN*) os=windows ;;
+esac
+if [ -n "${FORMTXT_TARGET:-}" ]; then
+  triple="$FORMTXT_TARGET"
+else
+  command -v rustc >/dev/null 2>&1 || ft_die "rustc not found; install Rust or set FORMTXT_TARGET"
+  triple="$(rustc -vV | awk '/^host:/ {print $2}')"
+fi
+ext=""
+sep=":"
+if [ "$os" = windows ]; then ext=".exe"; sep=";"; fi
+[ -f "$FORMTXT_ROOT/frontend/dist/index.html" ] || "$FORMTXT_ROOT/setup/build_frontend"
+cd "$FORMTXT_ROOT/backend"
+extra=()
+[ -z "${FORMTXT_PYI_ARCH:-}" ] || extra+=(--target-arch "$FORMTXT_PYI_ARCH")
+mode=--onefile
+if [ "$os" = macos ]; then
+  mode=--onedir
+  [ -z "${APPLE_SIGNING_IDENTITY:-}" ] || extra+=(--codesign-identity "$APPLE_SIGNING_IDENTITY" --osx-entitlements-file "$FORMTXT_ROOT/src-tauri/entitlements.plist")
+fi
+rm -rf build/pyinstaller dist-engine
+pyinstaller --noconfirm --clean "$mode" --name formtxt-engine \
+  --distpath dist-engine --workpath build/pyinstaller --specpath build/pyinstaller \
+  --add-data "$FORMTXT_ROOT/frontend/dist${sep}frontend_dist" \
+  --collect-submodules app --collect-submodules uvicorn \
+  "${extra[@]}" \
+  "$FORMTXT_ROOT/backend/formtxt_engine.py"
+if [ "$mode" = --onedir ]; then
+  out="$FORMTXT_ROOT/src-tauri/engine"
+  rm -rf "$out"
+  cp -R dist-engine/formtxt-engine "$out"
+  "$out/formtxt-engine" --selfcheck
+  ft_say "engine folder ready: $out"
+  exit 0
+fi
+mkdir -p "$FORMTXT_ROOT/src-tauri/binaries"
+out="$FORMTXT_ROOT/src-tauri/binaries/formtxt-engine-${triple}${ext}"
+cp "dist-engine/formtxt-engine${ext}" "$out"
+"$out" --selfcheck
+ft_say "sidecar ready: $out"
