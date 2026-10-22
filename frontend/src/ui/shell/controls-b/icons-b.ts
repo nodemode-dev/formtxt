@@ -1,0 +1,90 @@
+import { icon } from '../../icons';
+
+const L = (body: string): string => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+const PG = '<path d="M14 3.5H7A1.5 1.5 0 0 0 5.5 5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3.5V8h4.5"/>';
+const cell = (x: number, y: number): string => `<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M9 4.5v15M15 4.5v15M3.5 9.5h17M3.5 14.5h17"/><rect x="${x}" y="${y}" width="5" height="4" fill="currentColor" stroke="none"/>`;
+const wrap = (obj: string, lines: string): string => `<rect x="3.5" y="3.5" width="17" height="17" rx="1.5" stroke-opacity="0.35"/>${lines}${obj}`;
+
+const BODY: Record<string, string> = {
+  addPen: L('<path d="M14 4.5l4.5 4.5-9.5 9.5H4.5V14z"/><path d="M17.5 14.5v6M14.5 17.5h6"/>'),
+  addText: L('<path d="M4 6.5h9M4 11h6M4 15.5h4"/><path d="M15.5 14.5h5M18 12v5"/>'),
+  addressBlock: L('<rect x="3.5" y="5" width="17" height="14" rx="1.5"/><path d="M7 9.5h6M7 12.5h8M7 15.5h5"/>'),
+  alignText: L('<path d="M4 5.5h16M7 10h10M4 14.5h16M7 19h10"/>'),
+  artistic: L('<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.5 0 2-1 1.5-2s-.3-2.2 1-2.2h2.2A3.3 3.3 0 0 0 20.5 12 8.5 8.5 0 0 0 12 3.5z"/><path d="M8 11h.01M11 7.8h.01M15 8.5h.01" stroke-width="2.4"/>'),
+  borderPainter: L('<path d="M4 20l4-1 9-9-3-3-9 9z"/><path d="M14 7l3-3 3 3-3 3"/><path d="M4 20h0"/>'),
+  cellTL: L(cell(4, 5)), cellTC: L(cell(9.5, 5)), cellTR: L(cell(15.5, 5)),
+  cellML: L(cell(4, 10.5)), cellMC: L(cell(9.5, 10.5)), cellMR: L(cell(15.5, 10.5)),
+  cellBL: L(cell(4, 15)), cellBC: L(cell(9.5, 15)), cellBR: L(cell(15.5, 15)),
+  changePicture: L('<rect x="3.5" y="4.5" width="14" height="12" rx="1.5"/><circle cx="8" cy="9" r="1.4"/><path d="M4 14.5l4-4 3 3 2-2 4 4"/><path d="M15.5 19.5h5M18.5 17l2.5 2.5-2.5 2.5"/>'),
+  closeHF: '<svg viewBox="0 0 24 24" fill="none" stroke="#dc2626" stroke-width="3" stroke-linecap="round"><path d="M5 5l14 14M19 5L5 19"/></svg>',
+  colorPic: L('<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><circle cx="9" cy="10" r="2" fill="currentColor" stroke="none"/><circle cx="15" cy="10" r="2" stroke-opacity="0.7"/><path d="M4 17l5-4 4 3 3-2 4 3"/>'),
+  corrections: L('<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><circle cx="12" cy="12" r="4"/><path d="M12 8v8" /><path d="M12 8a4 4 0 0 1 0 8z" fill="currentColor"/>'),
+  dataLabels: L('<path d="M4.5 4.5v15h15"/><path d="M8 16v-4M12 16V8.5M16 16v-6"/><path d="M7 9.5h2M11 6h2M15 8h2"/>'),
+  deleteColumn: L('<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 4.5v15M14.5 4.5v15"/><path d="M10.5 11h3M12 9.5v0M10.8 11.8l2.4 2.4M13.2 11.8l-2.4 2.4" stroke="#dc2626"/>'),
+  deleteRow: L('<rect x="3.5" y="4.5" width="17" height="15" rx="1.5"/><path d="M3.5 9.5h17M3.5 14.5h17M9.5 4.5v15M14.5 4.5v15"/><path d="M10.8 10.8l2.4 2.4M13.2 10.8l-2.4 2.4" stroke="#dc2626"/>'),
+  deleteComment: L('<path d="M4.5 5.5h15a1 1 0 0 1 1 1V15a1 1 0 0 1-1 1H11l-4 3.5V16H4.5a1 1 0 0 1-1-1V6.5a1 1 0 0 1 1-1z"/><path d="M9.5 8.5l5 4.5M14.5 8.5l-5 4.5" stroke="#dc2626"/>'),
+  docInfo: L(`${PG}<path d="M9 12.5h6M9 16h4"/>`),
+  editEquation: L('<path d="M15 4.5H6.5l5 6-5 6H15"/><path d="M15.5 20l1-3 4-4 2 2-4 4z" transform="translate(-2 1)"/>'),
+  editRecipients: L('<circle cx="9" cy="8" r="3"/><path d="M3.5 19c0-3 2.5-5 5.5-5s5.5 2 5.5 5"/><path d="M15.5 20l1-3 4-4 2 2-4 4z" transform="translate(-1 0)"/>'),
+  eqAccent: L('<path d="M7 19l5-12 5 12M8.7 15h6.6"/><path d="M9 3.5l3 2 3-2"/>'),
+  eqBracket: L('<path d="M8.5 4.5c-3 3-3 12 0 15M15.5 4.5c3 3 3 12 0 15"/>'),
+  eqFraction: L('<path d="M5 12h14"/><path d="M10 5.5H8v-.5M9 4v4M15 15.5h-3v1.5l3 1.5v1.5h-3" />'),
+  eqFunction: L('<path d="M6 17.5l3-7 2 4 2.5-9" /><path d="M5 19.5h14" />'),
+  eqIntegral: L('<path d="M14.5 4.2c-1.7-1.3-3 .2-3 2.3v11c0 2.2-1.3 3.600-3 2.300"/>'),
+  eqLimit: L('<path d="M4.5 10.5h5M6.5 10.5l1 3M6 13.5h-1M13 6.5v7M13 13.5h4M16 18l2-2 2 2" />'),
+  eqLinear: L('<path d="M3.5 12h5M10 12h4M15.5 12h5M6 9.500v5M18 9.500v5"/>'),
+  eqMatrix: L('<path d="M7.500 4.500H5.500v15h2M16.500 4.500h2v15h-2"/><path d="M9.500 9h.01M14.500 9h.01M9.500 15h.01M14.500 15h.01" stroke-width="2.600"/>'),
+  eqOperator: L('<path d="M5 9h14M5 15h14M15 6l4 3M9 18l-4-3"/>'),
+  eqProfessional: L('<path d="M5 12h14M12 5.500v3M12 15.500v3M8 8.500h8M8 15.500h8"/>'),
+  eqRadical: L('<path d="M3.500 12.500l2-1 3 7 5-13.500H20.500"/>'),
+  eqScript: L('<path d="M4.500 19l7-11M11.500 19l-7-11"/><path d="M15 6.500h2.500a1.500 1.500 0 0 1 1 2.500L15 12.500h4"/>'),
+  eqSum: L('<path d="M17.500 6V4.500h-11l6 7.500-6 7.500h11V18"/>'),
+  eqSymbols: L('<path d="M7 19.500h3.500v-2a6 6 0 1 1 3 0v2H17"/>'),
+  finishMerge: L('<rect x="3.500" y="5" width="12" height="14" rx="1.500"/><path d="M6.500 9h6M6.500 12.500h6M6.500 16h4"/><path d="M16 12h5M18.500 9.500l2.500 2.500-2.500 2.500"/>'),
+  firstRecord: L('<path d="M6 5.500v13M18 6l-8 6 8 6z"/>'),
+  prevRecord: L('<path d="M16 6l-8 6 8 6z"/>'),
+  nextRecord: L('<path d="M8 6l8 6-8 6z"/>'),
+  lastRecord: L('<path d="M18 5.500v13M6 6l8 6-8 6z"/>'),
+  gotoFooter: L('<rect x="4.500" y="3.500" width="15" height="17" rx="1.500"/><path d="M4.500 16.500h15M9 19h6" stroke-width="2.200"/>'),
+  gotoHeader: L('<rect x="4.500" y="3.500" width="15" height="17" rx="1.500"/><path d="M4.500 7.500h15M9 5.500h6" stroke-width="2.200"/>'),
+  greetingLine: L('<path d="M4 8.500h9M4 13h16M4 17h11"/><path d="M16 6.500c1.500-1.500 4-.5 4 1.500 0 1.500-2 2-4 3.500"/>'),
+  insertField: L('<path d="M8 5.500H5.500v13H8M16 5.500h2.500v13H16"/><path d="M9.500 9.500h5M9.500 12.500h5M9.500 15.500h3"/>'),
+  legend: L('<rect x="3.500" y="4.500" width="17" height="15" rx="1.500"/><path d="M14 9.500h4M14 14.500h4"/><path d="M6.500 9.500h4v0M6.500 14.500h4"/>'),
+  newComment: L('<path d="M4.500 5.500h15a1 1 0 0 1 1 1V15a1 1 0 0 1-1 1H11l-4 3.500V16H4.500a1 1 0 0 1-1-1V6.500a1 1 0 0 1 1-1z"/><path d="M12 8v5M9.500 10.500h5"/>'),
+  nextNote: L('<path d="M5 6.500h8M5 11h6M5 15.500h4"/><path d="M14 16h6M17.500 13l3 3-3 3"/>'),
+  nextSection: L('<path d="M5 5.500h10v13H5z"/><path d="M17 9l3 3-3 3M20 12h-5"/>'),
+  prevSection: L('<path d="M9 5.500h10v13H9z"/><path d="M7 9l-3 3 3 3M4 12h5"/>'),
+  pageNumber: L(`${PG}<path d="M9 16.500h6"/>`),
+  pageSide: L('<rect x="3.500" y="6" width="7" height="12" rx="1"/><rect x="13.500" y="6" width="7" height="12" rx="1"/><path d="M9 3.500h6" stroke-opacity="0.5"/>'),
+  pageVertical: L('<rect x="7" y="2.500" width="10" height="8" rx="1"/><rect x="7" y="13.500" width="10" height="8" rx="1"/>'),
+  person: L('<circle cx="12" cy="8" r="3.500"/><path d="M5 20c0-3.500 3-6 7-6s7 2.500 7 6"/>'),
+  picture: L('<rect x="3.500" y="4.500" width="17" height="15" rx="2"/><circle cx="9" cy="9.500" r="1.600"/><path d="M4 17l5-5 3.500 3.500 2.500-2.500 5 5"/>'),
+  previewResults: L('<path d="M2.500 12s3.500-6 9.500-6 9.500 6 9.500 6-3.500 6-9.500 6-9.500-6-9.500-6z"/><circle cx="12" cy="12" r="2.800"/>'),
+  quickLayout: L('<rect x="3.500" y="3.500" width="17" height="17" rx="1.500"/><path d="M3.500 9h17M10 9v11.500"/>'),
+  recordMacro: L('<circle cx="12" cy="12" r="8.500"/><circle cx="12" cy="12" r="3.500" fill="#dc2626" stroke="#dc2626"/>'),
+  repeatHeader: L('<rect x="3.500" y="4.500" width="17" height="15" rx="1.500"/><path d="M3.500 9.500h17M9.500 9.500v10M15 9.500v10"/><path d="M3.500 7h17" stroke-width="3.200" stroke-opacity="0.45"/>'),
+  rotateLeft: L('<path d="M5 9a7.500 7.500 0 1 1-.5 6.500"/><path d="M4 4.500V9h4.500"/>'),
+  rotateRight: L('<path d="M19 9a7.500 7.500 0 1 0 .5 6.500"/><path d="M20 4.500V9h-4.500"/>'),
+  selectData: L('<rect x="3.500" y="4.500" width="17" height="15" rx="1.500"/><path d="M3.500 9.500h17M3.500 14.500h17M9.500 4.500v15M15 4.500v15"/><rect x="9.500" y="9.500" width="5.500" height="5" fill="currentColor" fill-opacity="0.25"/>'),
+  selectObjects: L('<path d="M6 3.500l12 9-5.500 1 3 5.500-2.500 1.200-3-5.500L6 18.500z"/>'),
+  showMarkupMenu: L('<path d="M4 6.500h16M4 11h16M4 15.500h9"/><path d="M16 17l2 2 3-4"/>'),
+  showNotes: L('<path d="M5 6.500h14M5 11h14M5 15.500h8"/><path d="M16.500 15.500h3.500v3.500h-3.500z"/>'),
+  smooth: L('<path d="M3.500 17c3-8 5.500-8 8.500-2s5.500 2 8.500-9"/>'),
+  stacked: L('<path d="M4.500 4.500v15h15"/><rect x="7.500" y="12" width="3.500" height="5.500"/><rect x="7.500" y="8" width="3.500" height="4"/><rect x="13.500" y="9" width="3.500" height="8.500"/><rect x="13.500" y="5.500" width="3.500" height="3.500"/>'),
+  switchRowCol: L('<path d="M4 8h13M14 5l3 3-3 3M20 16H7M10 13l-3 3 3 3"/>'),
+  textFill: L('<path d="M7 17.500l5-12 5 12M8.800 13h6.400"/><path d="M5 21h14" stroke-width="3"/>'),
+  wrapInline: L(wrap('<rect x="8" y="9.500" width="6" height="4" fill="currentColor" stroke="none"/>', '<path d="M6 7h12M6 11.500h2M16 11.500h2M6 16h12"/>')),
+  wrapSquare: L(wrap('<rect x="7" y="8.500" width="6" height="6" fill="currentColor" stroke="none"/>', '<path d="M6 6.500h12M15 10h3M15 13.500h3M6 18h12"/>')),
+  wrapTight: L(wrap('<path d="M10 8l3 3-3 4-3-4z" fill="currentColor" stroke="none"/>', '<path d="M6 6.500h12M14 10h4M14 13.500h4M6 18h12"/>')),
+  wrapTopBottom: L(wrap('<rect x="8" y="10" width="8" height="4" fill="currentColor" stroke="none"/>', '<path d="M6 6.500h12M6 17.500h12"/>')),
+  wrapBehind: L(wrap('<rect x="8" y="9" width="8" height="6" fill="currentColor" fill-opacity="0.3" stroke="none"/>', '<path d="M6 7h12M6 10.500h12M6 14h12M6 17.500h12"/>')),
+  wrapFront: L(wrap('<rect x="8" y="9" width="8" height="6" fill="currentColor" stroke="none"/>', '<path d="M6 7h12M6 10.500h2M16 10.500h2M6 14h2M16 14h2M6 17.500h12" stroke-opacity="0.6"/>')),
+};
+
+export function bi(name: string, size = 16): string {
+  const body = BODY[name];
+  const wrapIc = (b: string): string => `<span class="icon" style="width:${size}px;height:${size}px" aria-hidden="true">${b}</span>`;
+  if (body) return wrapIc(body);
+  const found = icon(name, size);
+  return found === icon('__bi_missing__', size) ? wrapIc(L('<rect x="4.5" y="4.5" width="15" height="15" rx="2"/>')) : found;
+}
