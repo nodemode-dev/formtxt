@@ -1,0 +1,26 @@
+const L = (body: string): string => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">${body}</svg>`;
+
+export const HOME_ICONS: Record<string, string> = {
+  print: L('<path d="M7.5 9V4.5h9V9"/><rect x="4" y="9" width="16" height="7.5" rx="1.5"/><path d="M7.5 14h9v5.5h-9z"/><path d="M16.5 11.8h.01" stroke-width="2.2"/>'),
+  share: L('<circle cx="6.5" cy="12" r="2.5"/><circle cx="17.5" cy="6" r="2.5"/><circle cx="17.5" cy="18" r="2.5"/><path d="M8.7 10.8l6.6-3.6M8.7 13.2l6.6 3.6"/>'),
+  download: L('<path d="M12 4.5v11M7.5 11L12 15.5 16.5 11"/><path d="M4.5 15v3.5a2 2 0 0 0 2 2h11a2 2 0 0 0 2-2V15"/>'),
+  saveCopy: L('<path d="M14 3.5H7A1.5 1.5 0 0 0 5.5 5v14A1.5 1.5 0 0 0 7 20.5h5"/><path d="M14 3.5L18.5 8v3"/><path d="M14 3.5V8h4.5"/><path d="M17.5 14v6M14.5 17h6"/>'),
+  exportDoc: L('<path d="M13 3.5H7A1.5 1.5 0 0 0 5.5 5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5v-6"/><path d="M13 3.5L18.5 9"/><path d="M12 14.5l6.5-6.5M14.5 8h4v4"/>'),
+  shield: L('<path d="M12 3.5l7 2.5v5.5c0 4.2-2.8 7.4-7 9-4.2-1.6-7-4.8-7-9V6z"/><path d="M9 12l2.2 2.2L15.5 10"/>'),
+  lock: L('<rect x="5.5" y="10.5" width="13" height="9.5" rx="1.8"/><path d="M8.5 10.5V8a3.5 3.5 0 0 1 7 0v2.5"/><path d="M12 14.2v2.3"/>'),
+  user: L('<circle cx="12" cy="8.5" r="3.5"/><path d="M5 19.5c.8-3.6 3.6-5.5 7-5.5s6.2 1.9 7 5.5"/>'),
+  access: L('<circle cx="12" cy="5.5" r="1.8"/><path d="M5 9l7 1.5L19 9M12 10.5v4.5M9 20l3-5 3 5"/>'),
+  versions: L('<path d="M4.5 12a7.5 7.5 0 1 0 2.4-5.5"/><path d="M4.5 4.5v4h4"/><path d="M12 8v4.2l2.8 1.6"/>'),
+  pdf: L('<path d="M14 3.5H7A1.5 1.5 0 0 0 5.5 5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3.5V8h4.5"/><path d="M8.5 16.5v-4h1.4a1.2 1.2 0 0 1 0 2.4H8.5M12.6 16.5v-4h.9a2 2 0 0 1 0 4zM16.5 16.5v-4h1.8M16.5 14.5h1.5"/>'),
+  mail: L('<rect x="3.5" y="5.5" width="17" height="13" rx="2"/><path d="M4 7l8 6 8-6"/>'),
+  globe: L('<circle cx="12" cy="12" r="8.5"/><path d="M3.5 12h17M12 3.5c2.4 2.4 3.4 5.2 3.4 8.5s-1 6.1-3.4 8.5c-2.4-2.4-3.4-5.2-3.4-8.5s1-6.1 3.4-8.5z"/>'),
+  link: L('<path d="M10 14a4 4 0 0 0 5.7 0l3-3a4 4 0 0 0-5.7-5.7l-1 1"/><path d="M14 10a4 4 0 0 0-5.7 0l-3 3A4 4 0 0 0 11 18.7l1-1"/>'),
+  arrowLeft: L('<path d="M19 12H5M11 6l-6 6 6 6"/>'),
+  closeDoc: L('<path d="M14 3.5H7A1.5 1.5 0 0 0 5.5 5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V8z"/><path d="M14 3.5V8h4.5"/><path d="M9.5 12.5l5 5M14.5 12.5l-5 5"/>'),
+  options: L('<path d="M4.5 7h8M16.5 7h3M4.5 17h3M11.5 17h8"/><circle cx="14.5" cy="7" r="2"/><circle cx="9.5" cy="17" r="2"/>'),
+  viewGrid: L('<rect x="4" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="4" width="6.5" height="6.5" rx="1.2"/><rect x="4" y="13.5" width="6.5" height="6.5" rx="1.2"/><rect x="13.5" y="13.5" width="6.5" height="6.5" rx="1.2"/>'),
+  viewList: L('<path d="M9 6.5h11M9 12h11M9 17.5h11"/><path d="M4.5 6.5h.01M4.5 12h.01M4.5 17.5h.01" stroke-width="2.2"/>'),
+  pageBlank: L('<rect x="6.5" y="3.5" width="11" height="17" rx="1.2"/>'),
+  key: L('<circle cx="8" cy="15" r="3.5"/><path d="M10.5 12.5L19 4M16 7l2.5 2.5M13.5 9.5l2 2"/>'),
+  edit: L('<path d="M15 4.5l4.5 4.5L9 19.5H4.5V15z"/><path d="M12.5 7l4.5 4.5"/>'),
+};
