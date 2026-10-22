@@ -62,7 +62,7 @@ export class TitleBar {
       '<header class="ft-titlebar">' +
       '<nav class="ft-menubar" aria-label="Main menu"></nav>' +
       '<div class="ft-qat-host"></div>' +
-      `<div class="ft-tb-title"><span class="ft-tb-doc"></span><span class="ft-tb-app">${this.appName}</span></div>` +
+      `<div class="ft-tb-title"><img class="ft-logo ft-tb-logo" src="/formtxt-logo.png" width="16" height="16" alt="" draggable="false"><span class="ft-tb-doc"></span><span class="ft-tb-app">${this.appName}</span></div>` +
       '<div class="ft-tb-tools">' +
       `<div class="ft-search"><span class="ft-search-icon">${chromeIcon('tbSearch', 14)}</span><input class="ft-search-input" type="text" placeholder="Search" spellcheck="false" autocomplete="off" role="combobox" aria-expanded="false" aria-label="Search commands" title="Search commands (Alt+Q)"><div class="ft-search-pop" role="listbox" hidden></div></div>` +
       '<button class="ft-tt-btn" type="button" data-tt="theme"></button>' +
