@@ -14,7 +14,10 @@ usage: ./formtxt [command] [options]
   backend             boot the engine only
   frontend            boot the frontend only
   build               production build of the frontend into frontend/dist
+  install-desktop     install PyInstaller and check the Tauri toolchain
+  freeze              freeze the engine into the desktop app's sidecar
   desktop dev         run the Tauri desktop shell against the engine
+  desktop build       build the window, freeze the engine and bundle the app (./build_app does all of it)
   cli list|describe|run  the editor's command catalogue from a terminal; run <id> [key=value ...] needs the window open
   clean [--all]       remove build output (--all also venv and node_modules)
   help                this text
@@ -28,11 +31,14 @@ case "$cmd" in
   backend) cd backend && exec ./boot_backend "$@" ;;
   frontend) cd frontend && exec ./boot_frontend "$@" ;;
   build) exec setup/build_frontend "$@" ;;
+  install-desktop) exec setup/install_desktop "$@" ;;
+  freeze) exec setup/freeze_backend "$@" ;;
   desktop)
     sub="${1:-dev}"
     [ $# -gt 0 ] && shift
     case "$sub" in
       dev) exec setup/desktop_dev "$@" ;;
+      build) exec setup/desktop_build "$@" ;;
       *) usage; exit 2 ;;
     esac ;;
   cli) exec python3 setup/catalogue.py "$@" ;;

@@ -24,6 +24,15 @@ With the window open, every command also runs from a terminal: `./formtxt cli ru
 
 Windows: `formtxt_oc_install.bat`, then `formtxt.bat`. Requires Python 3.12 or newer and Node 20.19 or newer.
 
+### Desktop app
+
+```bash
+./build_app               # tools check, installs, window, frozen engine, tauri build; log in build_app.log
+./build_app --open        # and open it when done (macOS copies FormTxt.app to Applications)
+```
+
+On macOS this makes `FormTxt.app` and a disk image (the engine ships as a one-folder build inside the app); on Linux a `.deb` (`./build_app --install` installs it). Windows: `build_app.bat` makes the MSI and NSIS installers. The Rust build goes to a cache folder outside the repo (`FORMTXT_CARGO_TARGET` overrides it). Needs the Xcode command line tools on macOS, WebKitGTK 4.1 on Linux, and Rust (installed with rustup if missing).
+
 ## Stack and ports
 
 | Side | Choice | Port |
