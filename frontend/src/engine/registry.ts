@@ -30,6 +30,10 @@ export class CommandRegistry {
     return this.commands.has(id);
   }
 
+  get(id: string): Command | undefined {
+    return this.commands.get(id);
+  }
+
   list(): Command[] {
     return Array.from(this.commands.values());
   }
