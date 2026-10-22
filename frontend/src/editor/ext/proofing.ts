@@ -213,7 +213,7 @@ export function register(reg: CommandRegistry, ed: DocEditor): void {
   add('proofing.suggestions', 'Show suggestions', 'Tools', 'Open the suggestions menu for the marked word at the cursor.', () => openAtCaret(ed), [], ['Shift+F10']);
   add('proofing.spelling', 'Check spelling as you type', 'Tools', 'Turn the spelling underlines on or off.', async (p) => { const on = p.on === undefined ? !getPrefs().spelling : !!p.on; await savePrefs({ spelling: on }); return on; }, [{ name: 'on', type: 'boolean', description: 'true to turn on; omit to toggle' }]);
   add('proofing.grammar', 'Check grammar as you type', 'Tools', 'Turn the grammar, clarity and conciseness underlines on or off.', async (p) => { const on = p.on === undefined ? !getPrefs().grammar : !!p.on; await savePrefs({ grammar: on }); return on; }, [{ name: 'on', type: 'boolean', description: 'true to turn on; omit to toggle' }]);
-  add('proofing.rule', 'Turn a grammar rule on or off', 'Tools', 'Switch one rule: repeated, article, capital, spaces, punctuation, long, passive, wordy or confusion.', async (p) => {
+  add('proofing.rule', 'Turn a grammar rule on or off', 'Tools', 'Switch one rule: repeated, article, capital, spaces, punctuation, long, passive, wordy, confusion, agreement, pronoun, modal, negation, fewer, comparison, fragment or splice.', async (p) => {
     const rule = String(p.rule ?? '');
     if (!(rule in getPrefs().grammarRules)) throw new Error(`Unknown rule ${rule}. Use one of ${Object.keys(getPrefs().grammarRules).join(', ')}.`);
     await savePrefs({ grammarRules: { [rule]: !!p.on } });
