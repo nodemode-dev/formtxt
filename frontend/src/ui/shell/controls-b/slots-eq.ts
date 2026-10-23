@@ -12,16 +12,18 @@ const put = (latex: string): (() => void) => () => run('equation.append', { late
 const tpl = (id: string, name: string, latex: string, group?: string): GItem => ({ id, name, group, thumb: () => math(latex), run: put(latex) });
 
 const EQUATIONS: Array<[string, string, string]> = [
-  ['Area of Circle', 'A = \\pi r^{2}', 'Built-In'],
-  ['Binomial Theorem', '(x+a)^{n} = \\sum_{k=0}^{n} \\binom{n}{k} x^{k} a^{n-k}', 'Built-In'],
-  ['Expansion of a Sum', '(1+x)^{n} = 1 + nx + \\frac{n(n-1)}{2!}x^{2} + \\cdots', 'Built-In'],
-  ['Fourier Series', 'f(x) = a_0 + \\sum_{n=1}^{\\infty}\\left(a_n\\cos\\frac{n\\pi x}{L} + b_n\\sin\\frac{n\\pi x}{L}\\right)', 'Built-In'],
-  ['Pythagorean Theorem', 'a^{2} + b^{2} = c^{2}', 'Built-In'],
-  ['Quadratic Formula', 'x = \\frac{-b \\pm \\sqrt{b^{2} - 4ac}}{2a}', 'Built-In'],
-  ['Taylor Expansion', 'e^{x} = 1 + x + \\frac{x^{2}}{2!} + \\frac{x^{3}}{3!} + \\cdots', 'Built-In'],
-  ['Trig Identity 1', '\\sin^{2}\\alpha + \\cos^{2}\\alpha = 1', 'Built-In'],
-  ['Euler Identity', 'e^{i\\pi} + 1 = 0', 'Built-In'],
-  ['Mass-Energy', 'E = mc^{2}', 'Built-In'],
+  ['Pythagorean theorem', 'a^{2} + b^{2} = c^{2}', 'Common equations'],
+  ['Quadratic formula', 'x = \\frac{-b \\pm \\sqrt{b^{2} - 4ac}}{2a}', 'Common equations'],
+  ['Area of a circle', 'A = \\pi r^{2}', 'Common equations'],
+  ['Binomial theorem', '(x+a)^{n} = \\sum_{k=0}^{n} \\binom{n}{k} x^{k} a^{n-k}', 'Common equations'],
+  ['Binomial series', '(1+x)^{n} = 1 + nx + \\frac{n(n-1)}{2!}x^{2} + \\cdots', 'Common equations'],
+  ['Euler\'s identity', 'e^{i\\pi} + 1 = 0', 'Common equations'],
+  ['Exponential series', 'e^{x} = 1 + x + \\frac{x^{2}}{2!} + \\frac{x^{3}}{3!} + \\cdots', 'Common equations'],
+  ['Pythagorean identity', '\\sin^{2}\\theta + \\cos^{2}\\theta = 1', 'Common equations'],
+  ['Fourier series', 'f(x) = a_0 + \\sum_{n=1}^{\\infty}\\left(a_n\\cos\\frac{n\\pi x}{L} + b_n\\sin\\frac{n\\pi x}{L}\\right)', 'Common equations'],
+  ['Mass-energy equivalence', 'E = mc^{2}', 'Common equations'],
+  ['Compound interest', 'A = P\\left(1 + \\frac{r}{n}\\right)^{nt}', 'Common equations'],
+  ['Normal distribution', 'f(x) = \\frac{1}{\\sigma\\sqrt{2\\pi}} e^{-\\frac{(x-\\mu)^{2}}{2\\sigma^{2}}}', 'Common equations'],
 ];
 
 const equationItems = (): GItem[] => EQUATIONS.map(([n, l, g], k) => ({ ...tpl(`e${k}`, n, l, g), run: () => run('insert.equation', { latex: l, display: true }) }));
@@ -61,7 +63,7 @@ const hasDisplay = (i: Info): boolean => !!eq(i)?.display;
 
 export function eqSlots(): Record<string, () => HTMLElement> {
   const out: Record<string, () => HTMLElement> = {
-    'q.equation': () => S(galleryButton({ label: 'Equation', icon: 'equation', large: true, items: equationItems, tw: 150, th: 36, popCols: 2, popHead: 'Built-In', footer: [{ label: 'Insert New Equation', icon: 'equation', cmd: 'insert.equation' }] })),
+    'q.equation': () => S(galleryButton({ label: 'Equation', icon: 'equation', large: true, items: equationItems, tw: 150, th: 36, popCols: 2, popHead: 'Common equations', footer: [{ label: 'Insert New Equation', icon: 'equation', cmd: 'insert.equation' }] })),
     'q.edit': () => S(button({ label: 'Edit Equation', icon: 'editEquation', large: true, cmd: 'equation.edit', needs: NEED, enabled: isMath })),
     'q.professional': () => S(button({ label: 'Professional', icon: 'eqProfessional', text: true, run: () => run('equation.display', { display: true }), checked: hasDisplay, needs: NEED, enabled: isMath })),
     'q.linear': () => S(button({ label: 'Linear', icon: 'eqLinear', text: true, run: () => run('equation.display', { display: false }), checked: (i) => isMath(i) && !hasDisplay(i), needs: NEED, enabled: isMath })),

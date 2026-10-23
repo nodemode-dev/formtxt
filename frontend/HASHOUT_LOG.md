@@ -55,6 +55,17 @@ frontend/
 - [App icon and brand glyph](#app-icon)
 - [src/ui/palette.ts, shortcuts.ts, automation/bridge.ts](#commands-ui)
 - [Vendor feature names out of the UI](#vendor-names)
+- [Equation gallery: Common equations](#equation-gallery)
+
+---
+
+## Equation gallery: Common equations {#equation-gallery}
+
+- refers-to: src/ui/shell/controls-b/slots-eq.ts :: EQUATIONS, q.equation popHead; src/ui/shell/controls/panels-insert.ts :: EQUATIONS, the equation panel's heading
+- kind: rationale
+- logged: v0.29.3 · 2026-10-23
+
+The owner's copyright plan (C6, approved 2026-10-23). Both galleries had Word's built-in equation list, with Word's names, order and "Built-In" heading. They now share one FormTxt set of twelve in its own order and sentence-case names under "Common equations": Pythagorean theorem, Quadratic formula, Area of a circle, Binomial theorem, Binomial series, Euler's identity, Exponential series, Pythagorean identity, Fourier series, Mass-energy equivalence, Compound interest, Normal distribution. Word's sum-to-product "Trig Identity" is dropped; Euler's identity, compound interest and the normal distribution are added to the ribbon panel. Bug fixed on the way: panels-insert.ts had the binomial formulas swapped (the series under "Binomial Theorem" and the summation under "Expansion of a Sum"); both lists now put the summation under Binomial theorem and the series under Binomial series. The formulas are standard mathematics written here; keep the names and set FormTxt's own.
 
 ---
 

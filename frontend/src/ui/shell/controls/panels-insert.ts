@@ -18,14 +18,18 @@ const CHARTS: Array<[string, string]> = [
 ];
 
 const EQUATIONS: Array<[string, string]> = [
-  ['Area of Circle', 'A=\\pi r^{2}'],
-  ['Pythagorean Theorem', 'a^{2}+b^{2}=c^{2}'],
-  ['Quadratic Formula', 'x=\\frac{-b\\pm\\sqrt{b^{2}-4ac}}{2a}'],
-  ['Binomial Theorem', '(1+x)^{n}=1+\\frac{nx}{1!}+\\frac{n(n-1)x^{2}}{2!}+\\cdots'],
-  ['Expansion of a Sum', '(x+a)^{n}=\\sum_{k=0}^{n}\\binom{n}{k}x^{k}a^{n-k}'],
-  ['Fourier Series', 'f(x)=a_{0}+\\sum_{n=1}^{\\infty}\\left(a_{n}\\cos\\frac{n\\pi x}{L}+b_{n}\\sin\\frac{n\\pi x}{L}\\right)'],
-  ['Taylor Expansion', 'e^{x}=1+\\frac{x}{1!}+\\frac{x^{2}}{2!}+\\frac{x^{3}}{3!}+\\cdots'],
-  ['Trig Identity', '\\sin\\alpha\\pm\\sin\\beta=2\\sin\\frac{1}{2}(\\alpha\\pm\\beta)\\cos\\frac{1}{2}(\\alpha\\mp\\beta)'],
+  ['Pythagorean theorem', 'a^{2}+b^{2}=c^{2}'],
+  ['Quadratic formula', 'x=\\frac{-b\\pm\\sqrt{b^{2}-4ac}}{2a}'],
+  ['Area of a circle', 'A=\\pi r^{2}'],
+  ['Binomial theorem', '(x+a)^{n}=\\sum_{k=0}^{n}\\binom{n}{k}x^{k}a^{n-k}'],
+  ['Binomial series', '(1+x)^{n}=1+nx+\\frac{n(n-1)}{2!}x^{2}+\\cdots'],
+  ['Euler\'s identity', 'e^{i\\pi}+1=0'],
+  ['Exponential series', 'e^{x}=1+x+\\frac{x^{2}}{2!}+\\frac{x^{3}}{3!}+\\cdots'],
+  ['Pythagorean identity', '\\sin^{2}\\theta+\\cos^{2}\\theta=1'],
+  ['Fourier series', 'f(x)=a_{0}+\\sum_{n=1}^{\\infty}\\left(a_{n}\\cos\\frac{n\\pi x}{L}+b_{n}\\sin\\frac{n\\pi x}{L}\\right)'],
+  ['Mass-energy equivalence', 'E=mc^{2}'],
+  ['Compound interest', 'A=P\\left(1+\\frac{r}{n}\\right)^{nt}'],
+  ['Normal distribution', 'f(x)=\\frac{1}{\\sigma\\sqrt{2\\pi}}e^{-\\frac{(x-\\mu)^{2}}{2\\sigma^{2}}}'],
 ];
 
 const symbols = (): string[] => {
@@ -296,7 +300,7 @@ export function registerInsertPanels(): void {
     id: 'equation',
     w: 332,
     secs: [
-      { t: 'head', text: 'Built-In' },
+      { t: 'head', text: 'Common equations' },
       {
         t: 'tiles', cols: 1, tw: 300, th: 52, names: false,
         tiles: EQUATIONS.map(([n, latex]) => ({ label: n, glyph: equationGlyph(renderMath(latex, false)), cmd: 'insert.equation', params: { latex, display: true } })),
