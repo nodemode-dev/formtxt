@@ -22,6 +22,11 @@ Documents in the form family: an open, local-first Word and Google Docs alternat
 - Never import or trace Microsoft Fluent or Office icons, and never bundle Office templates, fonts, sample files or stock images. Proofing rules, AutoCorrect lists and Editor categories stay in FormTxt's own words.
 - Every new dependency, binary, model, font, dictionary or data file gets a row in `NOTICE.md` before it is used. GPL stays outside the distributed bundle, AGPL nowhere, LGPL dynamically linked and replaceable, MPL files unedited; CC BY credited, CC BY-SA only unmodified, CC NC and ND never.
 
+## Ribbon fitting and Dark Page (declined for patent risk, 2026-10-23)
+
+- Ribbon groups collapse whole. `fit()` in `frontend/src/ui/shell/ribbon.ts` steps a group through its sizes (large, small, label-less, gallery columns) and last turns the whole group into one popup button that holds all its controls. Never move part of a group's controls into an overflow pane, menu or "more" button while the rest stay in the ribbon, and never rank individual controls for overflow; priority (`data-rank`) stays at group level.
+- Dark Page stays a whole-page filter (`data-page-dark` with the CSS filter in `frontend/src/styles/editor.css`). Never parse the page into objects, measure a contrast ratio, compare text and background colours against a threshold, or fix colours per object or per text size. No per-region options either: one global toggle.
+
 ## Commands
 
 `./build_app` at the root builds the desktop app start to finish (tools check, installs, window, frozen engine with its fonts, dictionaries and WordNet data, `tauri build`, bundle) and logs to `build_app.log`; it is the one command for a desktop build (`build_app.bat` on Windows). `./formtxt_oc_install`, then `./formtxt` boots both sides. With the window open, `./formtxt cli list` reads the command catalogue and `./formtxt cli run <id> key=value` runs a command in the window through the `/api/live` bridge (`POST /api/commands/<id>` and `/api/commands/batch` do the same over HTTP).
