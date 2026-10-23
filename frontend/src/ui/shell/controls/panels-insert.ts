@@ -240,7 +240,7 @@ export function registerInsertPanels(): void {
       {
         t: 'tiles', cols: 3, tw: 72, th: 60,
         tiles: [
-          { label: 'Simple Text Box', glyph: SHAPE_GLYPH.textBox, cmd: 'insert.textBox' },
+          { label: 'Plain Text Box', glyph: SHAPE_GLYPH.textBox, cmd: 'insert.textBox' },
           { label: 'Pull Quote', glyph: SHAPE_GLYPH.callout, cmd: 'insert.textBox', params: { text: 'Type a quote from the document, or the summary of an interesting point.' } },
           { label: 'Sidebar', glyph: SHAPE_GLYPH.rect, cmd: 'insert.textBox', params: { text: 'Sidebar' } },
         ],

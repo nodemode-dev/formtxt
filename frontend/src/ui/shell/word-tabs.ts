@@ -143,7 +143,7 @@ const PARA_SHADING_MENU: MenuItem[] = [...colorItems('paragraph.shading', 'color
 const FIND_MENU: MenuItem[] = ['edit.find', 'edit.goTo'];
 
 const WATERMARK_MENU: MenuItem[] = [
-  ...['CONFIDENTIAL', 'DRAFT', 'DO NOT COPY', 'SAMPLE', 'ASAP', 'URGENT'].map((n) => P('design.watermark', n, { preset: n })),
+  ...['DRAFT', 'CONFIDENTIAL', 'INTERNAL', 'REVIEW', 'DO NOT COPY', 'SAMPLE'].map((n) => P('design.watermark', n, { preset: n })),
   '-', P('design.watermark', 'Custom Watermark...', {}), P('design.watermark', 'Remove Watermark', { preset: 'remove' }),
 ];
 

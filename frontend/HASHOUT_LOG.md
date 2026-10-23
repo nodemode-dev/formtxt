@@ -758,3 +758,11 @@ The owner's trademark plan (rename table approved 2026-10-23) takes Microsoft's 
 - kind: rationale
 - logged: v0.29.1 · 2026-10-22
 - The ruler used to take the document page colour with hard-coded greys. It now uses --ruler-* tokens derived from each theme's own variables, so every dark and light theme gets a matching ruler without per-theme entries.
+
+## gallery names {#gallery-names}
+
+### built-in galleries · FormTxt's own names and sets
+- refers-to: frontend/src/ui/shell/controls-b/slots-refs.ts :: TOC items, controls-b/slots-table.ts :: presets, controls/panels-insert.ts :: textbox, editor/word-commands.ts, controls/panels-design.ts, word-tabs.ts :: WATERMARKS
+- kind: rationale
+- logged: v0.29.4 · 2026-10-23
+- The family IP review's originality check (C5) compared FormTxt's galleries with the other suite's built-in building blocks. Five names were exact matches and are now FormTxt's own: the contents gallery is Linked Contents, Linked Table of Contents and Typed Contents; the text box gallery's first tile is Plain Text Box; the table looks Full Grid and No Borders. The watermark presets were the other suite's six in its order; they are now Draft, Confidential, Internal, Review, Do Not Copy and Sample. Ids (`auto1`, `auto2`, `manual`, `look:grid`, `look:plain`) are unchanged, so saved documents and agent calls that name a variant keep working; a `design.watermark` preset of ASAP or Urgent is now refused with the new list, and `text` still takes any wording. Cover pages, headers and footers, style sets, the bibliography headings (common academic terms) and the document templates were checked and are FormTxt's own.

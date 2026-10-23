@@ -20,7 +20,7 @@ const SPACING: Array<[string, number, number, number]> = [
   ['Double', 2, 0, 8],
 ];
 
-const WATERMARKS = ['CONFIDENTIAL', 'DRAFT', 'DO NOT COPY', 'SAMPLE', 'ASAP', 'URGENT'];
+const WATERMARKS = ['DRAFT', 'CONFIDENTIAL', 'INTERNAL', 'REVIEW', 'DO NOT COPY', 'SAMPLE'];
 
 export function registerDesignPanels(): void {
   registerPanel({

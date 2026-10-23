@@ -15,9 +15,9 @@ const tocPreview = (title: string, manual: boolean): string => {
 const bibPreview = (title: string): string => `<span class="ft-bprev"><b class="ft-bprev-h">${title}</b><span class="ft-bprev-r">Author, A. (2020). Title of a source. Publisher.</span><span class="ft-bprev-r">Author, B. (2018). Another source title. Journal, 4(2).</span></span>`;
 
 const tocItems = (): GItem[] => [
-  { id: 'auto1', name: 'Automatic Table 1', title: 'Automatic Table 1: Contents with page numbers and links', thumb: () => tocPreview('Contents', false), run: () => run('references.insertTocStyle', { variant: 'auto1' }) },
-  { id: 'auto2', name: 'Automatic Table 2', title: 'Automatic Table 2: Table of Contents with page numbers and links', thumb: () => tocPreview('Table of Contents', false), run: () => run('references.insertTocStyle', { variant: 'auto2' }) },
-  { id: 'manual', name: 'Manual Table', title: 'Manual Table: Table of Contents without links', thumb: () => tocPreview('Table of Contents', true), run: () => run('references.insertTocStyle', { variant: 'manual' }) },
+  { id: 'auto1', name: 'Linked Contents', title: 'Linked Contents: a Contents heading with page numbers and links', thumb: () => tocPreview('Contents', false), run: () => run('references.insertTocStyle', { variant: 'auto1' }) },
+  { id: 'auto2', name: 'Linked Table of Contents', title: 'Linked Table of Contents: a Table of Contents heading with page numbers and links', thumb: () => tocPreview('Table of Contents', false), run: () => run('references.insertTocStyle', { variant: 'auto2' }) },
+  { id: 'manual', name: 'Typed Contents', title: 'Typed Contents: entries you type yourself, without links', thumb: () => tocPreview('Table of Contents', true), run: () => run('references.insertTocStyle', { variant: 'manual' }) },
 ];
 
 const bibItems = (): GItem[] => [

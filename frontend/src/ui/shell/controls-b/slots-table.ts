@@ -42,8 +42,8 @@ interface Preset { id: string; name: string; def: TableStyleDef | null; look: st
 
 const presets = (): Preset[] => {
   const out: Preset[] = [
-    { id: 'look:grid', name: 'Table Grid', def: null, look: 'grid', html: thumb({ mode: 'grid' }) },
-    { id: 'look:plain', name: 'Plain Table', def: null, look: 'plain', html: thumb({ mode: 'none' }) },
+    { id: 'look:grid', name: 'Full Grid', def: null, look: 'grid', html: thumb({ mode: 'grid' }) },
+    { id: 'look:plain', name: 'No Borders', def: null, look: 'plain', html: thumb({ mode: 'none' }) },
     { id: 'look:rows', name: 'Rows Table', def: null, look: 'rows', html: thumb({ mode: 'rows', headLine: '#374151' }) },
     { id: 'look:banded', name: 'Banded Table', def: null, look: 'banded', html: thumb({ mode: 'grid', band: '#eef2f7', line: '#d1d5db' }) },
     { id: 'look:accent', name: 'Accent Header', def: null, look: 'accent', html: thumb({ mode: 'grid', header: '#f97316', line: '#d1d5db' }) },

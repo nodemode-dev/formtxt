@@ -19,7 +19,7 @@ type Run = (p: Record<string, unknown>) => unknown;
 
 const PX = 96 / 72;
 const SIZE_STEPS = [8, 9, 10, 11, 12, 14, 16, 18, 20, 22, 24, 26, 28, 36, 48, 72];
-const WATERMARKS = ['CONFIDENTIAL', 'DRAFT', 'DO NOT COPY', 'SAMPLE', 'ASAP', 'URGENT'];
+const WATERMARKS = ['DRAFT', 'CONFIDENTIAL', 'INTERNAL', 'REVIEW', 'DO NOT COPY', 'SAMPLE'];
 const HEADING = /^(Title|Heading[1-6])$/;
 const MARK_CAP = 30000;
 
