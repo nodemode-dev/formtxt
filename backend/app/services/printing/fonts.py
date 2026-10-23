@@ -10,6 +10,8 @@ from reportlab.pdfbase.ttfonts import TTFont
 
 from app.core import config
 
+from . import full_fonts
+
 BUNDLED = {
     "inter": "inter",
     "source serif 4": "source-serif-4",
@@ -143,6 +145,20 @@ def family(name: str) -> Family:
             return _registered[key]
         faces: dict[str, str] = {}
         extras: dict[str, str] = {}
+        full = full_fonts.faces(folder)
+        if full:
+            for face, data in full.items():
+                name = f"{key}-{face}"
+                if name not in pdfmetrics.getRegisteredFontNames():
+                    font = TTFont(name, io.BytesIO(data))
+                    font.face.name = name.encode("latin-1")
+                    pdfmetrics.registerFont(font)
+                faces[face] = name
+            pdfmetrics.registerFontFamily(key, normal=faces["regular"], bold=faces["bold"], italic=faces["italic"], boldItalic=faces["boldItalic"])
+            pdfmetrics.registerFontFamily(faces["regular"], normal=faces["regular"], bold=faces["bold"], italic=faces["italic"], boldItalic=faces["boldItalic"])
+            fam = Family(faces["regular"], faces, True, [])
+            _registered[key] = fam
+            return fam
         try:
             for face, weight, style in FACES:
                 path = _face_file(folder, weight, style, "latin")

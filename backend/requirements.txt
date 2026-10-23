@@ -13,3 +13,4 @@ openpyxl==3.1.5
 cryptography==50.0.2
 keyring==25.7.0
 rapidocr-onnxruntime==1.2.3
+fonttools==4.66.1

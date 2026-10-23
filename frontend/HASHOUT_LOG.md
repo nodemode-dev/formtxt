@@ -2,8 +2,10 @@
 
 Living log of comment content, rationale and removed code for the frontend. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.27.0
-Last updated: 2026-10-21 · app icon; Phase 3b ruler, views, line numbers, cover page, header and footer editing
+Current build version: v0.29.5
+Last updated: 2026-10-23 · full fonts for the Reserved Font Name families
+
+- v0.29.5: `src/styles/doc-fonts.css` imports `./full-fonts.css` where the twelve Fontsource imports of Playfair Display, Lora and Merriweather were. That sheet declares a normal and an italic face per family over the file's weight range (Playfair 400 to 900, Lora 400 to 700, Merriweather 300 to 900), pointing at the unmodified upstream variable TTFs in `public/fonts/full` (google/fonts e7db6ca, each folder with OFL.txt). The three `@fontsource` packages are uninstalled. Reason: those families declare a Reserved Font Name, and a subset may not keep it. Checked: tsc clean, vite build copies the three folders to `dist/fonts/full` and the built CSS points at them.
 
 ---
 
