@@ -47,3 +47,7 @@ The table formula engine in `backend/app/services/formula.py` is a Python port o
 ## Online picture services
 
 Insert > Stock images asks the engine to search and download from Openverse (https://openverse.org, openly licensed works; each picture keeps its own Creative Commons or public domain licence, which FormTxt records with the picture and writes as a credit line) and, when you add your own API key, Pexels (https://www.pexels.com, photos under the Pexels License). FormTxt includes no pictures from either service and contacts them only when you search.
+
+## Trademarks
+
+Microsoft, Word and Office are trademarks of the Microsoft group of companies. Google Docs is a trademark of Google LLC. FormTxt is not affiliated with or endorsed by Microsoft or Google; the names describe file formats, key sets and compatibility only.
