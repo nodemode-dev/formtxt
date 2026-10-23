@@ -2,10 +2,16 @@
 
 Living log of comment content, rationale and removed code for the engine. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.27.0
-Last updated: 2026-10-21 · Phase 2b window bridge, keys in settings
+Current build version: v0.29.5
+Last updated: 2026-10-23 · full fonts in PDF export, reportlab modules only, macOS opencv guard
 
 ---
+
+## v0.29.5 · bundle audit fixes (2026-10-23)
+
+- `services/printing/full_fonts.py`: Lora, Merriweather and Playfair Display carry a Reserved Font Name, so their Fontsource subsets are gone. `faces(slug)` finds the full variable TTF (the `DIST` window, the frozen `frontend_dist`, else `frontend/public/fonts/full`) and returns static instances at 400 and 700, normal and italic, every other axis at its default, made with fontTools' instancer (`updateFontNames=True`, falling back without it) and cached. `fonts.family` registers these before trying the Fontsource WOFF files; the full fonts cover latin-ext, so no extension chain is needed. Checked: a PDF with the three families embeds `ft-lora-*`, `ft-merriweather-*` and `ft-playfair-display-*`, with `ő` drawn.
+- `setup/freeze_backend` and `.bat`: `--collect-submodules reportlab` replaces `--collect-all reportlab`, so the bundle no longer carries reportlab's `fonts/` folder (the GPL DarkGarden font, its GPL text, and Type 1 files). Checked by rendering the same PDF with that folder moved away: nothing in FormTxt reads it; the standard fonts' metrics are Python modules.
+- macOS: the opencv-python binary wheel carries GPL FFmpeg parts (libx264, libx265, rubberband, vidstab, postproc). The macOS freeze now fails if any of them reach `dist-engine`, and names the source install that leaves FFmpeg out. `requirements_macos.txt` and `requirements_desktop_macos.txt` are pinned to the Linux and Windows versions.
 
 ## Org-navi-map
 
@@ -13,7 +19,7 @@ Last updated: 2026-10-21 · Phase 2b window bridge, keys in settings
 backend/
 ├── formtxt_engine.py        frozen-engine entry for the Tauri sidecar (Phase 11)
 ├── requirements.txt         pinned, Linux and Windows
-├── requirements_macos.txt   unpinned, macOS wheels
+├── requirements_macos.txt   pinned to the same versions, macOS wheels (opencv from source, see 0.29.5)
 ├── oc_install(.bat)         venv plus requirements
 ├── boot_backend(.bat)       uvicorn on 127.0.0.1:8199
 └── app/

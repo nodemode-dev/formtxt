@@ -31,6 +31,7 @@
   "bundle": {
     "active": true,
     "externalBin": ["binaries/formtxt-engine"],
+    "resources": { "../LICENSE": "LICENSE", "../NOTICE.md": "NOTICE.md" },
     "category": "Productivity",
     "shortDescription": "Documents",
     "copyright": "Copyright 2026 nodemode-ai.",

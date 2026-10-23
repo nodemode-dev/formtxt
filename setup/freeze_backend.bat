@@ -18,7 +18,7 @@ pyinstaller --noconfirm --clean --onefile --name formtxt-engine --distpath dist-
   --add-data "%ROOT%\frontend\node_modules\wordnet-db\dict;wordnet" ^
   --add-data "%ROOT%\backend\app\services\proofing\data;app\services\proofing\data" ^
   --collect-submodules app --collect-submodules uvicorn ^
-  --collect-all docx --collect-all reportlab --collect-all pdfplumber --collect-all pypdfium2 ^
+  --collect-all docx --collect-submodules reportlab --collect-all pdfplumber --collect-all pypdfium2 ^
   --collect-all rapidocr_onnxruntime --collect-all onnxruntime --collect-data openpyxl ^
   --collect-submodules keyring --hidden-import olefile ^
   "%ROOT%\backend\formtxt_engine.py" || exit /b 1

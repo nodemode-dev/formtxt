@@ -35,11 +35,15 @@ pyinstaller --noconfirm --clean "$mode" --name formtxt-engine \
   --add-data "$FORMTXT_ROOT/frontend/node_modules/wordnet-db/dict${sep}wordnet" \
   --add-data "$FORMTXT_ROOT/backend/app/services/proofing/data${sep}app/services/proofing/data" \
   --collect-submodules app --collect-submodules uvicorn \
-  --collect-all docx --collect-all reportlab --collect-all pdfplumber --collect-all pypdfium2 \
+  --collect-all docx --collect-submodules reportlab --collect-all pdfplumber --collect-all pypdfium2 \
   --collect-all rapidocr_onnxruntime --collect-all onnxruntime --collect-data openpyxl \
   --collect-submodules keyring --hidden-import olefile \
   "${extra[@]}" \
   "$FORMTXT_ROOT/backend/formtxt_engine.py"
+if [ "$os" = macos ]; then
+  gpl="$(find dist-engine \( -iname 'libx264*' -o -iname 'libx265*' -o -iname 'librubberband*' -o -iname 'libvidstab*' -o -iname 'libpostproc*' \) | head -1)"
+  [ -z "$gpl" ] || ft_die "GPL FFmpeg library in the engine: $gpl. Reinstall opencv from source without FFmpeg: PIP_NO_BINARY=opencv-python,opencv-python-headless CMAKE_ARGS=-DWITH_FFMPEG=OFF pip install --force-reinstall -r requirements_macos.txt"
+fi
 if [ "$mode" = --onedir ]; then
   out="$FORMTXT_ROOT/src-tauri/engine"
   rm -rf "$out"
