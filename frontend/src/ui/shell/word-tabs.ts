@@ -481,7 +481,7 @@ export function wordTabs(): TabDef[] {
         PO('pictures', 'image', 'Pictures'),
         PO('shapes', 'shapes', 'Shapes'),
         R([T('insert.icon', 'Icons', { icon: 'iconLibrary' })], [T('insert.mermaid', 'Mermaid', { icon: 'mermaid' })]),
-        R([PO('smartart', 'diagram', 'SmartArt', { text: true })], [PO('chart', 'chart', 'Chart', { text: true })], [PO('screenshot', 'screenshot', 'Screenshot', { text: true })])),
+        R([PO('smartart', 'diagram', 'IntelligentArt', { text: true })], [PO('chart', 'chart', 'Chart', { text: true })], [PO('screenshot', 'screenshot', 'Screenshot', { text: true })])),
       G('links', 'Links', L('insert.link', 'Link'), R([T('references.manageBookmarks', 'Bookmark')], [T('references.insertCrossReference', 'Cross-reference')])),
       G('comments', 'Comments', L('review.newComment', 'Comment')),
       G('headerfooter', 'Header & Footer',
@@ -490,7 +490,7 @@ export function wordTabs(): TabDef[] {
         PO('pagenumber', 'pageNumber', 'Page Number')),
       G('text', 'Text',
         PO('textbox', 'textBox', 'Text Box'),
-        R([PO('quickparts', 'quickParts', 'Quick Parts', { text: true })], [PO('wordart', 'wordArt', 'WordArt', { text: true })], [PO('dropcap', 'dropCap', 'Drop Cap', { text: true })]),
+        R([PO('quickparts', 'quickParts', 'Quick Parts', { text: true })], [PO('wordart', 'wordArt', 'Text Art', { text: true })], [PO('dropcap', 'dropCap', 'Drop Cap', { text: true })]),
         R([T('signature.dialog', 'Signature Line')], [T('insert.dateTime', 'Date & Time')], [T('insert.embeddedFile', 'Object')])),
       G('symbols', 'Symbols', SP('insert.equation', 'equation', 'equation', 'Equation'), PO('symbol', 'omega', 'Symbol')),
       { ...G('chips', 'Chips & Tabs', M('chips', 'chip', 'Smart Chips', CHIP_MENU), M('controls', 'contentControl', 'Content Controls', CONTROL_MENU), M('media', 'media', 'Media', MEDIA_MENU), R([T('insert.codeBlock', 'Code Block')], [T('insert.emoji', 'Emoji')], [T('insert.tab', 'Tab')]), L('tabs.add', 'Add Tab'), R([T('tabs.rename', 'Rename Tab')], [T('tabs.delete', 'Delete Tab')])), rank: 6 },
@@ -612,7 +612,7 @@ export function wordTabs(): TabDef[] {
     { id: 'shape-format', label: 'Shape Format', ctx: 'shape', groups: [
       GL('shp-insert', 'Insert Shapes', 'shape.properties', S('b.s.shapes'), S('b.s.edit'), S('b.s.textbox')),
       G('shp-styles', 'Shape Styles', S('b.s.styles'), R([S('b.s.fill')], [S('b.s.outline')], [S('b.s.effects')])),
-      G('shp-wordart', 'WordArt Styles', S('b.s.wordart'), R([S('b.s.textFill')], [S('b.s.textEffects')], [S('b.s.alignText')])),
+      G('shp-wordart', 'Text Art Styles', S('b.s.wordart'), R([S('b.s.textFill')], [S('b.s.textEffects')], [S('b.s.alignText')])),
       G('shp-links', 'Text', R([S('b.s.link')], [S('b.s.unlink')], [S('b.s.connect')]), R([S('b.s.arrows')], [T('shape.text', 'Edit Text', { icon: 'textBox' })])),
       G('shp-arrange', 'Arrange', S('b.s.position'), S('b.s.wrap'), S('b.s.rotate')),
       G('shp-size', 'Size', R([S('b.s.height')], [S('b.s.width')])),
@@ -629,10 +629,10 @@ export function wordTabs(): TabDef[] {
       G('cht-arrange', 'Arrange', S('b.c.wrap')),
       G('cht-export', 'Export', S('b.c.export')),
     ] },
-    { id: 'smartart-design', label: 'SmartArt Design', ctx: 'diagram', groups: [
+    { id: 'smartart-design', label: 'IntelligentArt Design', ctx: 'diagram', groups: [
       G('dgm-create', 'Create Graphic', S('b.d.text'), S('b.d.reset')),
       G('dgm-layouts', 'Layouts', S('b.d.layout')),
-      G('dgm-styles', 'SmartArt Styles', S('b.d.colors'), S('b.d.styles')),
+      G('dgm-styles', 'IntelligentArt Styles', S('b.d.colors'), S('b.d.styles')),
       G('dgm-arrange', 'Arrange', S('b.d.wrap'), R([S('b.d.height')], [S('b.d.width')])),
     ] },
     { id: 'header-footer', label: 'Header & Footer', ctx: 'headerFooter', groups: [

@@ -178,7 +178,7 @@ export async function startApp(): Promise<void> {
     id: 'file.backstage',
     label: 'File',
     group: 'File',
-    description: 'Open the File tab (Backstage): info, new, open, save a copy, print, share, export, account and options.',
+    description: 'Open the File tab (View Stager): info, new, open, save a copy, print, share, export, account and options.',
     params: [{ name: 'page', type: 'string', description: 'info, new, open, save, print, share, export or account' }],
     run: (p) => { void flush(); home.backstage(String(p.page ?? 'info') as never); return true; },
   });

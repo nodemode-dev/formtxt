@@ -72,7 +72,7 @@ const WA_THUMB: Record<string, string> = {
 };
 
 const wordArtItems = (): GItem[] => WORDART.map((w): GItem => ({
-  id: w, name: `WordArt: ${w}`, thumb: () => `<span class="ft-bwa" style="${WA_THUMB[w] ?? ''}">Abc</span>`, run: () => run('shape.wordArt', { style: w }),
+  id: w, name: `Text Art: ${w}`, thumb: () => `<span class="ft-bwa" style="${WA_THUMB[w] ?? ''}">Abc</span>`, run: () => run('shape.wordArt', { style: w }),
 }));
 
 const effectsMenu = (): MI[] => [
@@ -128,7 +128,7 @@ export function shapeSlots(): Record<string, () => HTMLElement> {
     } })),
     's.effects': () => S(button({ label: 'Shape Effects', icon: 'effects', text: true, menu: effectsMenu, needs: NEED, enabled: on })),
     's.arrows': () => S(button({ label: 'Arrows', icon: 'arrows', text: true, menu: arrowsMenu, needs: NEED, enabled: (i) => sh(i)?.kind === 'line' || sh(i)?.kind === 'connector' })),
-    's.wordart': () => S(galleryInline({ label: 'WordArt Styles', items: wordArtItems, tw: 46, th: 34, popCols: 6, popHead: 'WordArt Styles', needs: NEED, enabled: on, active: (i) => (sh(i)?.kind === 'wordArt' ? String(sh(i)?.wordart ?? '') || null : null) })),
+    's.wordart': () => S(galleryInline({ label: 'Text Art Styles', items: wordArtItems, tw: 46, th: 34, popCols: 6, popHead: 'Text Art Styles', needs: NEED, enabled: on, active: (i) => (sh(i)?.kind === 'wordArt' ? String(sh(i)?.wordart ?? '') || null : null) })),
     's.textFill': () => S(colorButton({ label: 'Text Fill', icon: 'textFill', text: true, needs: NEED, enabled: on, swatch: () => '#111111', palette: { onPick: (c) => run('shape.textFormat', { color: c || '#111111' }) } })),
     's.textEffects': () => S(button({ label: 'Text Effects', icon: 'textEffects', text: true, menu: textEffectsMenu, needs: NEED, enabled: on })),
     's.alignText': () => S(button({ label: 'Align Text', icon: 'alignText', text: true, menu: alignMenu, needs: NEED, enabled: on })),

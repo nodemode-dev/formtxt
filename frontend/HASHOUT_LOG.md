@@ -54,8 +54,17 @@ frontend/
 - [src/editor/](#editor)
 - [App icon and brand glyph](#app-icon)
 - [src/ui/palette.ts, shortcuts.ts, automation/bridge.ts](#commands-ui)
+- [Vendor feature names out of the UI](#vendor-names)
 
 ---
+
+## Vendor feature names out of the UI {#vendor-names}
+
+- refers-to: src/editor/register.ts :: insert.wordArt, shape.properties, shape.wordArt, insert.diagram; src/editor/shape.ts :: SHAPE_LABELS.wordArt; src/editor/dialogs.ts :: shape notes, shapePropertiesDialog; src/editor/editor.ts :: Insert toolbar titles; src/app.ts :: file.open description; src/ui/shell/word-menus.ts :: Insert menu; src/ui/shell/word-tabs.ts :: Insert tab, Shape Format, IntelligentArt Design; src/ui/shell/controls/panels-insert.ts :: diagram and Text Art panels; src/ui/shell/controls-b/slots-shape.ts, slots-chart.ts :: style galleries
+- kind: rationale
+- logged: v0.29.3 · 2026-10-23
+
+The owner's trademark plan (rename table approved 2026-10-23) takes Microsoft's feature names out of FormTxt's own labels: WordArt is Text Art, SmartArt is IntelligentArt, Backstage is the View Stager. Only visible labels and descriptions changed. Command ids (`insert.wordArt`, `shape.wordArt`, `insert.diagram`), slot ids (`s.wordart`, `d.styles`), ribbon ids (`wordart`, `smartart`, `smartart-design`), the `wordArt` shape kind, the `WORDART` and `SMARTART` lists and the `Backstage` class keep their names, so saved documents, shortcuts, QAT entries and agent scripts still work. Do not bring the vendor names back into labels; they may appear only where FormTxt says a .docx object is read or written.
 
 ## App icon and brand glyph {#app-icon}
 

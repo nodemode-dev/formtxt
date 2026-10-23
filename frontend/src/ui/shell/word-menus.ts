@@ -195,8 +195,8 @@ export function wordMenus(recent: () => Array<{ id: string; title: string }>): M
     ] },
     { label: 'Insert', items: [
       SM('Break', BREAKS), SM('Page Number', PAGE_NUMBERS), 'insert.headerFooter', 'insert.coverPage', '-',
-      'insert.picture', 'insert.stockImage', 'insert.icon', 'insert.screenshot', SM('Shape', SHAPES), SM('SmartArt', SMARTART), SM('Chart', CHARTS), 'insert.mermaid', '-',
-      'insert.textBox', SM('WordArt', WORDART), 'insert.codeBlock', 'signature.dialog', 'insert.embeddedFile', 'insert.video', 'insert.audio', 'insert.onlineVideo', '-',
+      'insert.picture', 'insert.stockImage', 'insert.icon', 'insert.screenshot', SM('Shape', SHAPES), SM('IntelligentArt', SMARTART), SM('Chart', CHARTS), 'insert.mermaid', '-',
+      'insert.textBox', SM('Text Art', WORDART), 'insert.codeBlock', 'signature.dialog', 'insert.embeddedFile', 'insert.video', 'insert.audio', 'insert.onlineVideo', '-',
       'insert.symbol', 'insert.emoji', 'insert.equation', 'insert.tab', '-',
       'insert.link', 'references.manageBookmarks', 'references.insertCrossReference', 'references.linkToHeading', 'review.newComment', '-',
       SM('Smart Chips', CHIPS), SM('Content Controls', CONTROLS), P('field.insert', 'Field...', {}), 'insert.variable', 'insert.placeholder', P('insert.block', 'Building Block...', {}), 'blocks.save', SM('Components', INSERT_COMPONENTS), '-',

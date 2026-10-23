@@ -148,7 +148,7 @@ export function registerInsertPanels(): void {
       { t: 'head', text: 'Cycle' }, { t: 'rows', rows: [R('Basic Cycle', 'insert.diagram', { layout: 'cycle-basic' }, { icon: 'diagram' }), R('Radial Cycle', 'insert.diagram', { layout: 'cycle-radial' }, { icon: 'diagram' })] },
       { t: 'head', text: 'Hierarchy' }, { t: 'rows', rows: [R('Organization Chart', 'insert.diagram', { layout: 'hier-org' }, { icon: 'diagram' }), R('Horizontal Hierarchy', 'insert.diagram', { layout: 'hier-horizontal' }, { icon: 'diagram' })] },
       { t: 'head', text: 'Relationship, Matrix and Pyramid' }, { t: 'rows', rows: [R('Basic Venn', 'insert.diagram', { layout: 'rel-venn' }, { icon: 'diagram' }), R('Basic Matrix', 'insert.diagram', { layout: 'matrix-basic' }, { icon: 'diagram' }), R('Basic Pyramid', 'insert.diagram', { layout: 'pyramid-basic' }, { icon: 'diagram' })] },
-      { t: 'sep' }, { t: 'rows', rows: [R('More SmartArt Graphics...', 'insert.diagram', undefined, { icon: 'diagram' })] },
+      { t: 'sep' }, { t: 'rows', rows: [R('More IntelligentArt Graphics...', 'insert.diagram', undefined, { icon: 'diagram' })] },
     ],
   });
 
@@ -267,7 +267,7 @@ export function registerInsertPanels(): void {
     id: 'wordart',
     w: 252,
     secs: [
-      { t: 'head', text: 'WordArt' },
+      { t: 'head', text: 'Text Art' },
       {
         t: 'tiles', cols: 3, tw: 72, th: 52,
         tiles: [['fill', 'Fill'], ['outline', 'Outline'], ['shadow', 'Shadow'], ['gradient', 'Gradient'], ['glow', 'Glow'], ['retro', 'Retro']].map(([s, n]) => ({ label: n, glyph: wordArtGlyph(s), cmd: 'insert.wordArt', params: { style: s } })),

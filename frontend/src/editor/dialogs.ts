@@ -726,7 +726,7 @@ export function shapeGalleryDialog(ed: DocEditor): void {
     d.close();
   });
   d.body.appendChild(gridEl);
-  d.body.appendChild(el('<p class="ft-note">Double-click a shape to type in it. Drag its handles to resize (Shift keeps proportions) and drag a selected shape to move it. Shape properties sets the fill, outline, text, WordArt style and wrapping.</p>'));
+  d.body.appendChild(el('<p class="ft-note">Double-click a shape to type in it. Drag its handles to resize (Shift keeps proportions) and drag a selected shape to move it. Shape properties sets the fill, outline, text, Text Art style and wrapping.</p>'));
   d.button('Close', 'ghost', () => d.close());
   d.open();
 }
@@ -770,7 +770,7 @@ export function shapePropertiesDialog(ed: DocEditor): void {
   stroke.addEventListener('input', () => { noStroke.checked = false; });
   d.field('Text', text);
   grid(d, [['Shape', kind], ['Fill', fill], ['No fill', noFill], ['Gradient to', gradient], ['Gradient fill', useGradient], ['Shadow', shadow], ['Outline', stroke], ['No outline', noStroke], ['Outline width (pt)', strokeWidth],
-    ['Text colour', color], ['Text size (pt)', size], ['Bold', bold], ['Font', font], ['Text alignment', align], ['Vertical alignment', valign], ['WordArt style', wordart],
+    ['Text colour', color], ['Text size (pt)', size], ['Bold', bold], ['Font', font], ['Text alignment', align], ['Vertical alignment', valign], ['Text Art style', wordart],
     ['Wrapping', wrap], ['Side', side], ['Width (pt)', width], ['Height (pt)', height], ['Rotation (degrees)', rotate], ['Offset left (pt, behind or in front)', x], ['Offset top (pt)', y], ['Position relative to', relative],
     ...(a.kind === 'line' || a.kind === 'connector' ? [['Arrow at start', arrowStart], ['Arrow at end', arrowEnd]] as Array<[string, HTMLElement]> : [])]);
   d.button('Cancel', 'ghost', () => d.close());

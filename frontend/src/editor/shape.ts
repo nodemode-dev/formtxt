@@ -173,7 +173,7 @@ export function textBoxChains(doc: PMNode): Array<{ head: string; boxes: string[
 export const SHAPES = ['rect', 'roundRect', 'ellipse', 'triangle', 'rightTriangle', 'diamond', 'pentagon', 'hexagon', 'octagon', 'star', 'arrowRight', 'arrowLeft', 'arrowUp', 'arrowDown', 'chevron', 'callout', 'cloud', 'heart', 'plus', 'line', 'textBox', 'wordArt'] as const;
 export const SHAPE_LABELS: Record<string, string> = {
   rect: 'Rectangle', roundRect: 'Rounded rectangle', ellipse: 'Oval', triangle: 'Triangle', rightTriangle: 'Right triangle', diamond: 'Diamond', pentagon: 'Pentagon', hexagon: 'Hexagon', octagon: 'Octagon', star: 'Star',
-  arrowRight: 'Right arrow', arrowLeft: 'Left arrow', arrowUp: 'Up arrow', arrowDown: 'Down arrow', chevron: 'Chevron', callout: 'Speech callout', cloud: 'Cloud', heart: 'Heart', plus: 'Plus', line: 'Line', textBox: 'Text box', wordArt: 'WordArt',
+  arrowRight: 'Right arrow', arrowLeft: 'Left arrow', arrowUp: 'Up arrow', arrowDown: 'Down arrow', chevron: 'Chevron', callout: 'Speech callout', cloud: 'Cloud', heart: 'Heart', plus: 'Plus', line: 'Line', textBox: 'Text box', wordArt: 'Text Art',
 };
 export const WORDART = ['fill', 'outline', 'shadow', 'gradient', 'glow', 'retro'] as const;
 export const SHAPE_WRAPS = ['inline', 'square', 'topBottom', 'behind', 'front'] as const;

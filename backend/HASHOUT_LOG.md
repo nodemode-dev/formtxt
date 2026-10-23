@@ -50,8 +50,17 @@ backend/
 - [app/services/templates/](#templates)
 - [app/services/thumbs.py](#thumbs)
 - [app/services/intake.py](#intake)
+- [app/services/printing/writer.py](#printing-writer)
 
 ---
+
+## app/services/printing/writer.py {#printing-writer}
+
+- refers-to: app/services/printing/writer.py :: the warning for diagrams drawn only from the open window
+- kind: rationale
+- logged: v0.29.3 · 2026-10-23
+
+The warning says "IntelligentArt diagrams" instead of "SmartArt-style diagrams", per the owner's approved rename table (2026-10-23). The behaviour is unchanged.
 
 ## app/core/config.py {#config}
 

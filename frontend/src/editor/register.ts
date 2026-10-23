@@ -422,12 +422,12 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
     return ed.run(insertShape(attrs));
   }, [{ name: 'kind', type: 'string', description: SHAPES.join(', ') }, { name: 'text', type: 'string', description: 'Text inside the shape' }, { name: 'width', type: 'number', description: 'Points' }, { name: 'height', type: 'number', description: 'Points' }]);
   add('insert.textBox', 'Text box', 'Insert', 'Insert a text box with square wrapping.', (p) => ed.run(insertShape({ ...shapeDefaults('textBox'), ...(p.text !== undefined ? { text: String(p.text) } : {}) })), [{ name: 'text', type: 'string', description: 'Text' }]);
-  add('insert.wordArt', 'WordArt', 'Insert', `Insert decorative text in a style: ${WORDART.join(', ')}.`, (p) => {
+  add('insert.wordArt', 'Text Art', 'Insert', `Insert decorative text in a style: ${WORDART.join(', ')}.`, (p) => {
     const style = String(p.style ?? 'gradient');
     if (!(WORDART as readonly string[]).includes(style)) throw new Error(`style must be one of ${WORDART.join(', ')}.`);
     return ed.run(insertShape({ ...shapeDefaults('wordArt'), wordart: style, ...(p.text !== undefined ? { text: String(p.text) } : {}) }));
   }, [{ name: 'text', type: 'string', description: 'Text' }, { name: 'style', type: 'string', description: WORDART.join(', ') }]);
-  add('shape.properties', 'Shape properties', 'Shape', 'Kind, fill, outline, text, WordArt style, wrapping, size, rotation and position of the selected shape.', () => { shapePropertiesDialog(ed); return true; });
+  add('shape.properties', 'Shape properties', 'Shape', 'Kind, fill, outline, text, Text Art style, wrapping, size, rotation and position of the selected shape.', () => { shapePropertiesDialog(ed); return true; });
   add('shape.text', 'Shape text', 'Shape', 'Set the text inside the selected shape as plain text (double-click a shape to type and format in it).', needShape((_a, p) => ({ text: String(p.text ?? '').replace(/\\n/g, '\n'), content: null })), [{ name: 'text', type: 'string', description: 'Text; \\n starts a new line' }]);
   const shapeIdAt = (pos: number): string => {
     const v = ed.view!;
@@ -541,7 +541,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
     if (!(SHAPES as readonly string[]).includes(kind)) throw new Error(`kind must be one of ${SHAPES.join(', ')}.`);
     return { kind };
   }), [{ name: 'kind', type: 'string', description: SHAPES.join(', ') }]);
-  add('shape.wordArt', 'WordArt style', 'Shape', `Set the WordArt style: ${WORDART.join(', ')}.`, needShape((_a, p) => {
+  add('shape.wordArt', 'Text Art style', 'Shape', `Set the Text Art style: ${WORDART.join(', ')}.`, needShape((_a, p) => {
     const style = String(p.style ?? '');
     if (!(WORDART as readonly string[]).includes(style)) throw new Error(`style must be one of ${WORDART.join(', ')}.`);
     return { kind: 'wordArt', wordart: style };
@@ -730,7 +730,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
     if (!g) throw new Error('Select a diagram first (click it, or run diagram.select).');
     return ed.run(setDiagram(patch(g.node.attrs as Record<string, unknown>, p)));
   };
-  add('insert.diagram', 'Diagram', 'Insert', `Insert a SmartArt-style diagram; with no layout, opens the diagram editor. Layouts: ${DIAGRAM_LAYOUTS.map((l) => l.id).join(', ')}.`, (p) => {
+  add('insert.diagram', 'Diagram', 'Insert', `Insert an IntelligentArt diagram; with no layout, opens the diagram editor. Layouts: ${DIAGRAM_LAYOUTS.map((l) => l.id).join(', ')}.`, (p) => {
     if (p.layout === undefined) { diagramDialog(ed, true); return true; }
     const layout = layoutOf(p.layout);
     const items = p.text !== undefined ? textToItems(String(p.text).replace(/\\n/g, '\n').replace(/\\t/g, '\t')) : sampleItems(layout);

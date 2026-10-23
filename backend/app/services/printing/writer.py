@@ -765,7 +765,7 @@ def blocks_flowables(ctx: Ctx, body: list, avail: float, parent: Elem, top: bool
         elif t in ("mermaid", "diagram") and block.get("id") and ctx.drawing("blocks", str(block["id"])):
             out.extend(figure_image(ctx, block, avail, parent, str(block.get("alt") or (f"Diagram ({block.get('layout')})" if t == "diagram" else "Mermaid diagram"))))
         elif t in ("mermaid", "diagram"):
-            ctx.warn("Mermaid drawings and SmartArt-style diagrams are drawn when the PDF is exported from the open window; otherwise a caption stands in.")
+            ctx.warn("Mermaid drawings and IntelligentArt diagrams are drawn when the PDF is exported from the open window; otherwise a caption stands in.")
             label = block.get("alt") or (f"Diagram: {block.get('code', '')[:60]}" if t == "mermaid" else f"Diagram ({block.get('layout')})")
             st = ParagraphStyle("cap", fontName=ctx.base_family.faces["regular"], fontSize=9, textColor=HexColor("#5a5a5a"), spaceAfter=8)
             out.append(Tagged(Paragraph(escape(str(label)), st), Elem("P", parent), None))
