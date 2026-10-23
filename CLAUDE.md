@@ -14,6 +14,14 @@ Documents in the form family: an open, local-first Word and Google Docs alternat
 - No tests unless the owner asks; testing intent goes to `TEST_PLAN.md` in the planning sidecar.
 - Commits as `nodemode-ai <mackin@nodemode.ai>`, `type(scope): subject (x.y.z)`, release commit last.
 
+## Trademarks, copyright and licences
+
+- Other vendors' product and feature names appear only to name a file format, a key set or compatibility ("Word document (.docx)", "Word and Google Docs keyboard shortcuts"). Never as a FormTxt command, menu, ribbon tab, group, gallery or agent tool name, and never as "Word's" or "as in Word" in UI text or READMEs. FormTxt's names: Text Art, IntelligentArt, View Stager, Common equations. The notice in `README.md` and `NOTICE.md` lists every vendor mark named.
+- No Word or Office brand colours and no "like Word" theme; the Form family theme and orange accent are the default look.
+- Never copy vendor help, tooltip, dialog or documentation text, vendor building-block names (Austin, Banded, Facet, Grid, Ion, Retrospect, Sideline, Whisp and the rest) or vendor built-in lists; gallery names and sets stay FormTxt's own.
+- Never import or trace Microsoft Fluent or Office icons, and never bundle Office templates, fonts, sample files or stock images. Proofing rules, AutoCorrect lists and Editor categories stay in FormTxt's own words.
+- Every new dependency, binary, model, font, dictionary or data file gets a row in `NOTICE.md` before it is used. GPL stays outside the distributed bundle, AGPL nowhere, LGPL dynamically linked and replaceable, MPL files unedited; CC BY credited, CC BY-SA only unmodified, CC NC and ND never.
+
 ## Commands
 
 `./build_app` at the root builds the desktop app start to finish (tools check, installs, window, frozen engine with its fonts, dictionaries and WordNet data, `tauri build`, bundle) and logs to `build_app.log`; it is the one command for a desktop build (`build_app.bat` on Windows). `./formtxt_oc_install`, then `./formtxt` boots both sides. With the window open, `./formtxt cli list` reads the command catalogue and `./formtxt cli run <id> key=value` runs a command in the window through the `/api/live` bridge (`POST /api/commands/<id>` and `/api/commands/batch` do the same over HTTP).
