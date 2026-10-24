@@ -59,7 +59,7 @@ FormTxt reuses Form.md's ProseMirror editor, FormDeck's home screen, command cat
 
 ## Licence
 
-Apache-2.0. See `LICENSE`. Copyright 2026 nodemode-ai.
+Apache-2.0. See `LICENSE`. Copyright 2026 NodeAgentc, Inc.
 
 ## Trademarks
 

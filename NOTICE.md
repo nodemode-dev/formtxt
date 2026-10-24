@@ -1,6 +1,6 @@
 # Notice
 
-FormTxt. Copyright 2026 nodemode-ai. Licensed under the Apache License 2.0 (`LICENSE`).
+FormTxt. Copyright 2026 NodeAgentc, Inc. Licensed under the Apache License 2.0 (`LICENSE`).
 
 ## Third-party software
 
