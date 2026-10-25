@@ -2,10 +2,16 @@
 
 Living log of comment content, rationale and removed code for the engine. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.29.9
-Last updated: 2026-10-25 · LocalGuard on every route and websocket
+Current build version: v0.29.10
+Last updated: 2026-10-25 · LocalGuard refuses cross-site requests that carry no Origin. Before: LocalGuard on every route and websocket
 
 ---
+
+## v0.29.10 · LocalGuard refuses cross-site requests that carry no Origin (2026-10-25)
+
+- The family agent-stack standard, rule G4 (`AGENT_STACK_STANDARD.md` v0.2.0, owner decision D4, ledger FB-035, formai_dev sidecar; the design of formpdf 0.56.4). The entry below let a request with no Origin through once its Host was local, so a web page could still make the engine answer a GET by pointing an `<img>` or a link at `http://127.0.0.1:<port>/...`: browsers send no Origin on those, and any GET route with a side effect would run.
+- Browsers label every request with `Sec-Fetch-Site`, and only a page on another site gets `cross-site`. So `LocalGuard._permitted` now refuses a request with no Origin when that header says `cross-site` (trimmed, case-insensitive). A request that carries an Origin is still decided by the Origin rule alone, and `same-site` is kept on purpose: a dev window on `localhost:5199` loading straight from `localhost:8199` is same-site, and no outside page can be same-site with localhost. The CLI and agents send neither header and pass as before.
+- Checked against the running engine: no Origin with `cross-site` 403; `same-site`, `same-origin`, `none`, no header at all, and `cross-site` with the allowed dev Origin 200; foreign Host and an `evil.example` Origin still 403. In Chromium, a page served from `http://127.0.0.2:9901` with an `<img>` and a clicked link pointing at `/api/health` got 403 for both, shown in the engine log. The built window served by the engine (`FORMTXT_DIST`) in Chromium at 4x CPU, 150 ms latency and about 1.6 Mbps, two shift runs and one throttle run: layout shift 0, no errors, 0 refusals from the window in 155 requests. formtxt has no MCP route in this tree, so there is no MCP check.
 
 ## v0.29.9 · LocalGuard: only this computer's own window and agents reach the engine (2026-10-25)
 
