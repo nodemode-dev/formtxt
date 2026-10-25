@@ -1,7 +1,7 @@
 {
   "name": "formtxt",
   "private": true,
-  "version": "0.30.0",
+  "version": "0.30.1",
   "description": "FormTxt: documents in the form family, an open alternative to Word and Google Docs",
   "license": "Apache-2.0",
   "type": "module",
