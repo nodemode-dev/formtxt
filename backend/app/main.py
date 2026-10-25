@@ -8,6 +8,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from app.core import config
+from app.core.local_guard import LocalGuard
 from app.routers import blocks, commands, data, documents, formula, live, stock, system, templates
 from app.routers import ai, collab, exchange, objects, printing, proofing, refs, review, versions
 
@@ -38,6 +39,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title=config.APP_TITLE, version=config.VERSION, lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=config.cors_origins(), allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(LocalGuard, origins=config.cors_origins())
 app.include_router(system.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
 app.include_router(templates.router, prefix="/api")

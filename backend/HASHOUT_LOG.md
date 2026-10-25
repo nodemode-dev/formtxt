@@ -2,10 +2,17 @@
 
 Living log of comment content, rationale and removed code for the engine. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.29.5
-Last updated: 2026-10-23 · full fonts in PDF export, reportlab modules only, macOS opencv guard
+Current build version: v0.29.9
+Last updated: 2026-10-25 · LocalGuard on every route and websocket
 
 ---
+
+## v0.29.9 · LocalGuard: only this computer's own window and agents reach the engine (2026-10-25)
+
+- Family stabilization plan Phase 3a (`FAMILY_DEV_PLAN.md` v0.4.2, formai_dev sidecar; ledger FB-032). The engine checked neither Host nor Origin, only CORS. `curl -H 'Host: evil.example:8199' http://127.0.0.1:8199/api/health` answered 200, so a DNS-rebinding page (a hostile name that resolves to 127.0.0.1) reached every route as if it were the window: document save, trash and download, the file-writing exchange and printing routes, the AI and settings routes, `/api/commands` and `/api/commands/batch` (run any window command), and the `/api/live` bridge. CORS decides whether a page may read a response, not whether the request runs.
+- `core/local_guard.py` (new) is a pure ASGI middleware added in `main.py` after the CORS middleware, so it runs first on every http and websocket request. It refuses a Host that is not 127.0.0.1, localhost or ::1. When an Origin header is present it must be one of `config.cors_origins()` (dev window on 5199, `localhost:5299` preview, `tauri://localhost`, `http://tauri.localhost`, or `FORMTXT_CORS_ORIGINS`) or exactly the engine's own origin, compared on parsed scheme, host and port, never by prefix, so `http://localhost.evil.com` and `null` fail. The desktop window loads from the engine's own `http://127.0.0.1:<port>`, so "own origin" is the request's Host and needs no list entry. Requests with no Origin (the CLI, agents) pass once the Host is local. HTTP refusals answer 403 with a JSON detail naming formtxt; websocket refusals close with 4403 before accept.
+- Left for the family standard: a per-launch token on routes that write files or run commands, and a review of GET routes with side effects, which a cross-site page can still trigger without an Origin. formtxt has no MCP entry in this tree (the vite proxy lists `/mcp`, the engine has no such route), so there is no MCP initialize to check.
+- Checked against the running engine (built window served through `FORMTXT_DIST`): 403 for `Host: evil.example:8199`, `Origin: http://evil.example`, `Origin: http://localhost.evil.com` and `Origin: null` on `/api/health`; 200 for no Origin, `Origin: http://127.0.0.1:8199`, `Origin: http://localhost:5199` and `Origin: tauri://localhost`. `/api/live`: foreign Origin and rebound Host refused with 403, own origin, dev origin and no Origin open. Built window in Chromium under 4x CPU and network throttling: two shift runs with 0 shifts and no bad nodes, throttle check cls 0 and no errors, and the engine log held 6 lines of 403, all from the probes above (none from the window).
 
 ## v0.29.5 · bundle audit fixes (2026-10-23)
 
