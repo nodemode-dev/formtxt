@@ -2,10 +2,14 @@
 
 Living log of comment content, rationale and removed code for the engine. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.29.10
-Last updated: 2026-10-25 · LocalGuard refuses cross-site requests that carry no Origin. Before: LocalGuard on every route and websocket
+Current build version: v0.30.0
+Last updated: 2026-10-25 · version renumbered from 0.29.10 to 0.30.0. Before: LocalGuard refuses cross-site requests that carry no Origin
 
 ---
+
+## v0.30.0 · Version renumbered (2026-10-25)
+
+- The owner's versioning rule: a patch number never reaches two digits, so the release after 0.29.9 is 0.30.0. The G4 release below went out as 0.29.10; this release carries the same code under the right number. Nothing in the engine changed. 0.29.10 stays in history (no rewrite) and is superseded.
 
 ## v0.29.10 · LocalGuard refuses cross-site requests that carry no Origin (2026-10-25)
 

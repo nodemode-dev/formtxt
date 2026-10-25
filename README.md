@@ -4,7 +4,7 @@
 
 Documents in the form family. An open, local-first alternative to Microsoft Word and Google Docs: paginated and pageless documents, .docx and .odt round trips, and Claude Code, Codex or Cursor drafting and editing live through the same commands a person uses.
 
-Version 0.29.10 · Apache-2.0 · macOS, Windows, Linux (browser, or the desktop app built with ./build_app)
+Version 0.30.0 · Apache-2.0 · macOS, Windows, Linux (browser, or the desktop app built with ./build_app)
 
 ## Status
 
