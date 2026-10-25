@@ -865,7 +865,7 @@ dependencies = [
 
 [[package]]
 name = "formtxt"
-version = "0.29.7"
+version = "0.29.8"
 dependencies = [
  "fontdb",
  "objc2",
