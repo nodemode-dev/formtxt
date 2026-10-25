@@ -768,3 +768,11 @@ The owner's trademark plan (rename table approved 2026-10-23) takes Microsoft's 
 - kind: rationale
 - logged: v0.29.4 · 2026-10-23
 - The family IP review's originality check (C5) compared FormTxt's galleries with the other suite's built-in building blocks. Five names were exact matches and are now FormTxt's own: the contents gallery is Linked Contents, Linked Table of Contents and Typed Contents; the text box gallery's first tile is Plain Text Box; the table looks Full Grid and No Borders. The watermark presets were the other suite's six in its order; they are now Draft, Confidential, Internal, Review, Do Not Copy and Sample. Ids (`auto1`, `auto2`, `manual`, `look:grid`, `look:plain`) are unchanged, so saved documents and agent calls that name a variant keep working; a `design.watermark` preset of ASAP or Urgent is now refused with the new list, and `text` still takes any wording. Cover pages, headers and footers, style sets, the bibliography headings (common academic terms) and the document templates were checked and are FormTxt's own.
+
+## dev dependencies {#dev-dependencies}
+
+### vite 8.3.5 · the dev server's launch-editor advisories
+- refers-to: frontend/package.json :: devDependencies.vite, frontend/package-lock.json :: node_modules/vite
+- kind: dependency
+- logged: v0.29.8 · 2026-10-25
+- Family rule from `FAMILY_DEV_PLAN.md` v0.4.x Phase 2b (formai_dev sidecar): every frontend installs with zero `npm audit` findings. Vite 8.3.0 carries a `launch-editor` with two command-injection advisories in the dev server (ledger FB-004); 8.3.5 clears them. Dev dependency only, nothing in the shipped bundle changed; the pin stays exact. Checked: `npm install` then `npm audit` reports 0 vulnerabilities; `npm run typecheck` passes; `vite build` succeeds into an outDir outside the repo; `vite` dev starts as v8.3.5 on localhost:5199 only (no Network address) and answers 200.
