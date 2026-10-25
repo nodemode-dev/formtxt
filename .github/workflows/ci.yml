@@ -43,9 +43,9 @@ jobs:
       - run: python formtxt_engine.py --selfcheck
       - name: Boot the engine and probe it
         run: |
-          python -m uvicorn app.main:app --host 127.0.0.1 --port 8199 &
-          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8199/api/health && break; sleep 1; done
-          curl -sf http://127.0.0.1:8199/api/health
+          python -m uvicorn app.main:app --host 127.0.0.1 --port 8210 &
+          for i in $(seq 1 30); do curl -sf http://127.0.0.1:8210/api/health && break; sleep 1; done
+          curl -sf http://127.0.0.1:8210/api/health
 
   scripts:
     runs-on: ubuntu-latest

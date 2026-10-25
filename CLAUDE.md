@@ -1,6 +1,6 @@
 # FormTxt
 
-Documents in the form family: an open, local-first Word and Google Docs alternative. Vanilla TypeScript and Vite frontend (`frontend/`, port 5199), Python FastAPI engine (`backend/`, port 8199), Tauri 2 shell (`src-tauri/`).
+Documents in the form family: an open, local-first Word and Google Docs alternative. Vanilla TypeScript and Vite frontend (`frontend/`, port 5210), Python FastAPI engine (`backend/`, port 8210), Tauri 2 shell (`src-tauri/`).
 
 ## Rules
 

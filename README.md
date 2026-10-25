@@ -24,7 +24,7 @@ With the window open, every command also runs from a terminal: `./formtxt cli ru
 
 ```bash
 ./formtxt_oc_install      # backend venv and frontend packages
-./formtxt                 # engine on 127.0.0.1:8199, app on http://localhost:5199
+./formtxt                 # engine on 127.0.0.1:8210, app on http://localhost:5210
 ./formtxt cli list        # the command catalogue, while the window is open
 ```
 
@@ -43,8 +43,8 @@ On macOS this makes `FormTxt.app` and a disk image (the engine ships as a one-fo
 
 | Side | Choice | Port |
 | --- | --- | --- |
-| Frontend | Vanilla TypeScript 7 and Vite 8; ProseMirror editing and its own page layout from Phase 2 | 5199 (preview 5299) |
-| Engine | Python 3.12 and FastAPI, owns the `.ftxt` model, exchange and exports | 8199 |
+| Frontend | Vanilla TypeScript 7 and Vite 8; ProseMirror editing and its own page layout from Phase 2 | 5210 (preview 5310) |
+| Engine | Python 3.12 and FastAPI, owns the `.ftxt` model, exchange and exports | 8210 |
 | Desktop | Tauri 2 (`./formtxt desktop dev`); the frozen engine sidecar lands in Phase 11 | |
 
 `FORMTXT_UI_PORT`, `FORMTXT_ENGINE_PORT` and `FORMTXT_DATA_DIR` (default `~/FormTxt`) override the defaults. Both servers listen on this computer only.

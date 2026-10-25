@@ -6,4 +6,4 @@ act=venv/bin/activate
 [ -f "$act" ] || { echo "[formtxt] backend venv missing, run ./formtxt install" >&2; exit 1; }
 # shellcheck disable=SC1090
 source "$act"
-exec uvicorn app.main:app --reload --host "${FORMTXT_HOST:-127.0.0.1}" --port "${FORMTXT_ENGINE_PORT:-8199}"
+exec uvicorn app.main:app --reload --host "${FORMTXT_HOST:-127.0.0.1}" --port "${FORMTXT_ENGINE_PORT:-8210}"

@@ -14,7 +14,7 @@ Last updated: 2026-10-23 · full fonts for the Reserved Font Name families
 ```
 frontend/
 ├── index.html               pre-paint theme, font preloads, style links
-├── vite.config.ts           5199 and 5299, host false, proxy to 8199
+├── vite.config.ts           5210 and 5310, host false, proxy to 8210
 ├── package.json             formtxt 0.1.0
 └── src/
     ├── main.ts              boots app.ts

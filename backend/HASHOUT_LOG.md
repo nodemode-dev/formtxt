@@ -2,10 +2,16 @@
 
 Living log of comment content, rationale and removed code for the engine. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.30.0
-Last updated: 2026-10-25 · version renumbered from 0.29.10 to 0.30.0. Before: LocalGuard refuses cross-site requests that carry no Origin
+Current build version: v0.30.1
+Last updated: 2026-10-25 · own dev ports 5210, 5310 and 8210. Before: version renumbered from 0.29.10 to 0.30.0
 
 ---
+
+## v0.30.1 · Own dev ports 5210, 5310 and 8210 (2026-10-25)
+
+- The family agent-stack standard, section 9 (`AGENT_STACK_STANDARD.md` v0.2.0, owner decision D3, ledger FB-018, formai_dev sidecar). FormTxt's dev defaults 5199, 5299 and 8199 collided with formcel's. They are now window 5210, preview 5310 and engine 8210. `core/local_guard.py` needed no change: `window_origins()` reads `FRONTEND_PORT` and `PREVIEW_PORT` from `app/core/config.py`, so the guard admits the new dev and preview origins and refuses the old 5199.
+- Moved: `app/core/config.py`, `frontend/vite.config.ts` (the `FORMTXT_UI_PORT` and `FORMTXT_ENGINE_PORT` overrides keep working), `boot_backend(.bat)`, `formtxt_engine.py` (the fallback when neither port variable nor an argument is given; the packaged shell still passes its own free port), `setup/boot_all(.bat)`, `setup/catalogue.py`, the `formtxt` usage text, `src-tauri/tauri.conf.json` `devUrl`, the share panel's initial state in `frontend/src/editor/ext/collab/share.ts` (replaced by the engine's answer once it loads), the CI probe, README, CLAUDE.md, AGENTS.md and the listings in both HASHOUT logs. Earlier entries keep the old numbers on purpose: they record what was true then.
+- Checked: `./formtxt` with no environment variables binds 5210 and 8210 only. `/api/health` with `Origin: http://localhost:5210`, `http://localhost:5310` and `http://127.0.0.1:5210` 200, no Origin 200, `Sec-Fetch-Site: same-site` 200, through the Vite proxy 200; `Origin: http://localhost:5199`, `http://evil.example`, `http://localhost.evil.com`, `null`, `Host: evil.example` and no Origin with `Sec-Fetch-Site: cross-site` 403. FormTxt has no MCP server or skills yet (AGENTS.md says Phase 9), so there is no stdio check. The dev window on `http://localhost:5210/` and the built window (engine on 9147 with `FORMTXT_DIST`) under 4x CPU and slow network, two shift runs and one throttle run each: layout shift 0, no errors, no failed requests, and the engine log has 6 refusals from the dev run (all probes) and none from the built window.
 
 ## v0.30.0 · Version renumbered (2026-10-25)
 
@@ -38,7 +44,7 @@ backend/
 ├── requirements.txt         pinned, Linux and Windows
 ├── requirements_macos.txt   pinned to the same versions, macOS wheels (opencv from source, see 0.29.5)
 ├── oc_install(.bat)         venv plus requirements
-├── boot_backend(.bat)       uvicorn on 127.0.0.1:8199
+├── boot_backend(.bat)       uvicorn on 127.0.0.1:8210
 └── app/
     ├── main.py              FastAPI app, discovery file, routers
     ├── core/config.py       FORMTXT_ env, ports, data folders

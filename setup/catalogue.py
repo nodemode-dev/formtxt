@@ -5,7 +5,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 
-BASE = f"http://127.0.0.1:{os.environ.get('FORMTXT_ENGINE_PORT', '8199')}/api/commands"
+BASE = f"http://127.0.0.1:{os.environ.get('FORMTXT_ENGINE_PORT', '8210')}/api/commands"
 USAGE = "usage: ./formtxt cli list [text] | describe <id> | run <id> [key=value ...]"
 
 

@@ -9,7 +9,7 @@ usage() {
 
 usage: ./formtxt [command] [options]
 
-  (none) | boot       boot the engine (8199) and the frontend (5199) together
+  (none) | boot       boot the engine (8210) and the frontend (5210) together
   install             install backend and frontend
   backend             boot the engine only
   frontend            boot the frontend only

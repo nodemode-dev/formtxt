@@ -8,5 +8,5 @@ pids+=($!)
 ( cd frontend && ./boot_frontend ) &
 pids+=($!)
 trap 'kill "${pids[@]}" 2>/dev/null' EXIT INT TERM
-ft_say "frontend http://localhost:${FORMTXT_UI_PORT:-5199} · engine http://127.0.0.1:${FORMTXT_ENGINE_PORT:-8199}"
+ft_say "frontend http://localhost:${FORMTXT_UI_PORT:-5210} · engine http://127.0.0.1:${FORMTXT_ENGINE_PORT:-8210}"
 wait

@@ -14,7 +14,7 @@ interface Published { token: string; doc: string; title: string; created: number
 
 const MODE_TEXT: Record<string, string> = { view: 'Can view', comment: 'Can comment', edit: 'Can edit' };
 let ed: DocEditor;
-let network: Network = { optIn: false, bindHost: '127.0.0.1', reachable: false, lan: '', port: 8199 };
+let network: Network = { optIn: false, bindHost: '127.0.0.1', reachable: false, lan: '', port: 8210 };
 let links: Link[] = [];
 let shareUi: { d: Dialog; people: HTMLElement; peopleNote: HTMLElement; list: HTMLElement; empty: HTMLElement; mode: HTMLSelectElement; net: HTMLElement } | null = null;
 let publishUi: { d: Dialog; status: HTMLElement; row: HTMLElement; url: HTMLInputElement; go: HTMLButtonElement; off: HTMLButtonElement; save: HTMLButtonElement; open: HTMLButtonElement; info: Published | null } | null = null;

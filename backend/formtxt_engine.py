@@ -80,7 +80,7 @@ def main() -> int:
 
     from app.main import app
 
-    raw = os.environ.get("FORMTXT_ENGINE_PORT") or os.environ.get("FORMTXT_PORT") or "8199"
+    raw = os.environ.get("FORMTXT_ENGINE_PORT") or os.environ.get("FORMTXT_PORT") or "8210"
     port = int(raw)
     if len(sys.argv) > 1 and sys.argv[1].isdigit():
         port = int(sys.argv[1])
