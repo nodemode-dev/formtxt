@@ -12,7 +12,7 @@ FORMATS = {
     "epub": ("EPUB", "application/epub+zip"),
 }
 READABLE = {".docx": "docx", ".dotx": "docx", ".docm": "docx", ".odt": "odt", ".ott": "odt", ".rtf": "rtf", ".html": "html", ".htm": "html",
-            ".xhtml": "html", ".doc": "doc", ".dot": "doc", ".md": "md", ".markdown": "md"}
+            ".xhtml": "html", ".doc": "doc", ".dot": "doc", ".md": "md", ".markdown": "md", ".ftxt": "ftxt"}
 
 
 def handles(name: str) -> bool:
@@ -59,6 +59,13 @@ def read(name: str, data: bytes) -> tuple[dict, dict[str, bytes]]:
     kind = READABLE.get(_ext(name))
     if kind is None:
         raise Unsupported(f"{name}: FormTxt opens .ftxt, .docx, .dotx, .odt, .rtf, .html, .htm, .doc, .md and .txt files.")
+    if kind == "ftxt":
+        from app.services import model, package
+        try:
+            doc, media = package.unpack(data)
+        except model.InvalidDocument as exc:
+            raise Unsupported(f"{name}: {exc}") from exc
+        return doc, media
     if kind == "docx":
         from app.services.exchange import docx_in as reader
     elif kind == "odt":

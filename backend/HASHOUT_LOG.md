@@ -7,6 +7,11 @@ Last updated: 2026-10-25 · own dev ports 5210, 5310 and 8210. Before: version r
 
 ---
 
+## v0.30.2 · Family test suite and .ftxt import (2026-10-26)
+
+- Ledger FB-160. `docs/FORMAT.md` (Exchange) says `POST /api/exchange/import` and `POST /api/documents/import` accept `.ftxt`, and the window's file chooser lists `.ftxt` (`transfer.ts` ACCEPT), but neither route did: `exchange.READABLE` had no `.ftxt`, so a package from Download or "Send a copy" answered 415 "this file type is not one of them" and could not be opened again. `exchange.read` now maps `.ftxt` to `package.unpack` and returns the document as stored (its own title and media), turning a bad package into `Unsupported` so both routes answer 415 and add nothing. The contract wins, so the code was fixed.
+- Noticed, not changed (owner): `docs/FORMAT.md` says a snapshot is taken at most every five minutes, autos are kept one per hour for a day then one per day, at most 100, and named versions up to 200; `versions.py` uses a 10 minute default (2 to 240, a setting), keeps all autos for 24 hours, hourly for 7 days, daily for 30, with 600 autos and 500 named. The tests do not pin these numbers.
+
 ## v0.30.1 · Own dev ports 5210, 5310 and 8210 (2026-10-25)
 
 - The family agent-stack standard, section 9 (`AGENT_STACK_STANDARD.md` v0.2.0, owner decision D3, ledger FB-018, formai_dev sidecar). FormTxt's dev defaults 5199, 5299 and 8199 collided with formcel's. They are now window 5210, preview 5310 and engine 8210. `core/local_guard.py` needed no change: `window_origins()` reads `FRONTEND_PORT` and `PREVIEW_PORT` from `app/core/config.py`, so the guard admits the new dev and preview origins and refuses the old 5199.
