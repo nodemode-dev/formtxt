@@ -2,8 +2,8 @@
 
 Living log of comment content, rationale and removed code for the engine. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.30.1
-Last updated: 2026-10-25 · own dev ports 5210, 5310 and 8210. Before: version renumbered from 0.29.10 to 0.30.0
+Current build version: v0.30.2
+Last updated: 2026-10-26 · family test suite and .ftxt import. Before: own dev ports 5210, 5310 and 8210
 
 ---
 
