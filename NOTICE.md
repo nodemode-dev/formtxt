@@ -18,6 +18,8 @@ FormTxt. Copyright 2026 NodeAgentc, Inc. Licensed under the Apache License 2.0 (
 | emojibase-data 17.0.0 (https://emojibase.dev), Unicode emoji names and tags from the Unicode CLDR | MIT (data under the Unicode licence) | the emoji picker |
 | Tabler Icons 3.49.0 (https://tabler.io/icons), copyright (c) 2020-2026 Paweł Kuna: 4,808 outline and 1,009 filled icons with names, categories and tags, as FormDeck re-encoded them into `frontend/src/data/tabler-icons.json` (copied byte for byte from FormDeck 0.23.0) | MIT | Insert > Icons |
 | Vite, TypeScript | MIT, Apache-2.0 | build tools, not shipped |
+| pytest 9.1.1 (with iniconfig, packaging, pluggy, pygments) | MIT (pytest, iniconfig, pluggy), Apache-2.0 OR BSD-2-Clause (packaging), BSD-2-Clause (pygments) | runs `backend/tests` in CI (`backend/requirements-test.txt`); never installed in the app |
+| httpx 0.28.1 | BSD-3-Clause | the test client behind `backend/tests`, development only (`backend/requirements-test.txt`); never installed in the app |
 | @tauri-apps/cli, Tauri | MIT or Apache-2.0 | desktop shell |
 | @tauri-apps/api 2.12.1 | MIT or Apache-2.0 | the macOS menu bar (loaded only in the desktop app) |
 | tauri-plugin-shell, tauri-plugin-dialog, regex, serde, serde_json, objc2, objc2-app-kit, objc2-foundation (Rust crates) | MIT or Apache-2.0 | desktop shell: engine process, error dialog, window and title bar on macOS |
