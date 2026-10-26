@@ -5,6 +5,7 @@ Living log of comment content, rationale and removed code for the frontend. Sour
 Current build version: v0.29.5
 Last updated: 2026-10-23 · full fonts for the Reserved Font Name families
 
+- v0.30.2 (ledger FB-161): `public/splash.html` centred its logo, line and bar as three flex items of the body, so a paint that landed after the logo but before the rest centred the logo alone and moved it when the line and bar arrived (layout shift 1.05e-4 when the page is sent in two parts 1 s apart, found by the F7 window smoke on `/splash.html`; about 1 load in 6 to 10 on a real load). The three now sit in `.stack`, fixed at 180 by 127 px, with the line at a fixed 16 px height, so the logo's place no longer depends on later siblings. Checked: the two-part server gives shift 0 after the change.
 - v0.29.5: `src/styles/doc-fonts.css` imports `./full-fonts.css` where the twelve Fontsource imports of Playfair Display, Lora and Merriweather were. That sheet declares a normal and an italic face per family over the file's weight range (Playfair 400 to 900, Lora 400 to 700, Merriweather 300 to 900), pointing at the unmodified upstream variable TTFs in `public/fonts/full` (google/fonts e7db6ca, each folder with OFL.txt). The three `@fontsource` packages are uninstalled. Reason: those families declare a Reserved Font Name, and a subset may not keep it. Checked: tsc clean, vite build copies the three folders to `dist/fonts/full` and the built CSS points at them.
 
 ---
