@@ -11,7 +11,7 @@ Documents in the form family: an open, local-first Word and Google Docs alternat
 - The engine owns the document; every user action is a command in `frontend/src/engine/registry.ts`, mirrored to `/api/commands` and `./formtxt cli`.
 - `docs/FORMAT.md` is the `.ftxt` contract and wins over the code.
 - Comments live in `frontend/HASHOUT_LOG.md` and `backend/HASHOUT_LOG.md`, not in source.
-- No tests unless the owner asks; testing intent goes to `TEST_PLAN.md` in the planning sidecar.
+- Tests live in `tests/` folders (`backend/tests`, `frontend/tests/window`) and run in CI; write only tests the family test plan (formai_dev sidecar) or its successor names, hand-written, no comments, no network; testing intent goes to `TEST_PLAN.md` in the planning sidecar.
 - Commits as `nodemode-ai <mackin@nodemode.ai>`, `type(scope): subject (x.y.z)`, release commit last.
 
 ## Trademarks, copyright and licences
