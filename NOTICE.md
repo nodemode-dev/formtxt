@@ -19,6 +19,7 @@ FormTxt. Copyright 2026 NodeAgentc, Inc. Licensed under the Apache License 2.0 (
 | Tabler Icons 3.49.0 (https://tabler.io/icons), copyright (c) 2020-2026 Paweł Kuna: 4,808 outline and 1,009 filled icons with names, categories and tags, as FormDeck re-encoded them into `frontend/src/data/tabler-icons.json` (copied byte for byte from FormDeck 0.23.0) | MIT | Insert > Icons |
 | Vite, TypeScript | MIT, Apache-2.0 | build tools, not shipped |
 | pytest 9.1.1 (with iniconfig, packaging, pluggy, pygments) | MIT (pytest, iniconfig, pluggy), Apache-2.0 OR BSD-2-Clause (packaging), BSD-2-Clause (pygments) | runs `backend/tests` in CI (`backend/requirements-test.txt`); never installed in the app |
+| Playwright for Python 1.63.0 | Apache-2.0 | runs `frontend/tests/window` in CI; never installed in the app |
 | httpx 0.28.1 | BSD-3-Clause | the test client behind `backend/tests`, development only (`backend/requirements-test.txt`); never installed in the app |
 | @tauri-apps/cli, Tauri | MIT or Apache-2.0 | desktop shell |
 | @tauri-apps/api 2.12.1 | MIT or Apache-2.0 | the macOS menu bar (loaded only in the desktop app) |
