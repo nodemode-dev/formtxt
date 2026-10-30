@@ -35,6 +35,10 @@
     "category": "Productivity",
     "shortDescription": "Documents",
     "copyright": "Copyright 2026 nodemode-ai.",
+    "macOS": {
+      "hardenedRuntime": true,
+      "entitlements": "entitlements.plist"
+    },
     "icon": ["icons/32x32.png", "icons/128x128.png", "icons/icon.png", "icons/icon.icns", "icons/icon.ico"]
   }
 }

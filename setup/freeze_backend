@@ -48,6 +48,20 @@ if [ "$mode" = --onedir ]; then
   out="$FORMTXT_ROOT/src-tauri/engine"
   rm -rf "$out"
   cp -R dist-engine/formtxt-engine "$out"
+  if [ -n "${APPLE_SIGNING_IDENTITY:-}" ]; then
+    ents="$FORMTXT_ROOT/src-tauri/entitlements.plist"
+    sign=(codesign --force --options runtime --timestamp --entitlements "$ents" -s "$APPLE_SIGNING_IDENTITY")
+    while IFS= read -r -d '' f; do
+      file -b "$f" | grep -q 'Mach-O' || continue
+      "${sign[@]}" "$f"
+    done < <(find "$out" -type f ! -path "$out/formtxt-engine" -print0)
+    while IFS= read -r -d '' d; do
+      "${sign[@]}" "$d"
+    done < <(find "$out" -depth -type d \( -name '*.framework' -o -name '*.app' \) -print0)
+    "${sign[@]}" "$out/formtxt-engine"
+    codesign --verify --strict "$out/formtxt-engine"
+    ft_say "engine signed with $APPLE_SIGNING_IDENTITY"
+  fi
   "$out/formtxt-engine" --selfcheck
   ft_say "engine folder ready: $out"
   exit 0
