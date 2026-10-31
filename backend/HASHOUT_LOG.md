@@ -2,8 +2,8 @@
 
 Living log of comment content, rationale and removed code for the engine. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.30.3
-Last updated: 2026-10-30 · macOS engine signed for notarization. Before: family test suite and .ftxt import
+Current build version: v0.30.4
+Last updated: 2026-10-31 · .js, .mjs and .css keep their types on Windows; the Linux packages pull in the media plugins. Before: macOS engine signed for notarization
 
 ---
 
