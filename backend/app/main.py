@@ -1,4 +1,5 @@
 import json
+import mimetypes
 import os
 import time
 from contextlib import asynccontextmanager
@@ -11,6 +12,10 @@ from app.core import config
 from app.core.local_guard import LocalGuard
 from app.routers import blocks, commands, data, documents, formula, live, stock, system, templates
 from app.routers import ai, collab, exchange, objects, printing, proofing, refs, review, versions
+
+mimetypes.add_type("text/javascript", ".js")
+mimetypes.add_type("text/javascript", ".mjs")
+mimetypes.add_type("text/css", ".css")
 
 
 def _write_discovery() -> None:

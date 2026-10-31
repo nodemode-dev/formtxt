@@ -7,6 +7,12 @@ Last updated: 2026-10-30 · macOS engine signed for notarization. Before: family
 
 ---
 
+## v0.30.4 · .js, .mjs and .css keep their types on Windows (2026-10-31)
+
+- refers-to: app/main.py :: the three mimetypes.add_type calls after the last import
+
+Python's `mimetypes` takes file types from the Windows registry (`HKEY_CLASSES_ROOT\.js`, value `Content Type`) over its own table, and some installers and editors set `.js` to `text/plain`. On those PCs the engine served the built window's scripts as `text/plain`, WebView2 refused every module script under strict MIME checking, and the desktop window stayed blank; macOS, Linux, dev mode (Vite serves the page) and Windows PCs with the default value never showed it. The three calls pin `.js` and `.mjs` to `text/javascript` and `.css` to `text/css`, which covers `StaticFiles`, `FileResponse` and any direct `guess_type`. They sit after the last import, not above the imports: a module that re-reads the registry while importing cannot undo them, and no import follows a statement (E402). They look redundant off Windows; keep them. Repro on a Windows PC: `reg add "HKCU\Software\Classes\.js" /v "Content Type" /d "text/plain" /f`, then launch the rebuilt app; restore with `/d "text/javascript"`. Checked here: with the table poisoned to `text/plain` for js, mjs and css through `mimetypes.init(files=...)`, the three calls return `text/javascript`, `text/javascript` and `text/css`; `py_compile` passes. Not yet run on a Windows PC.
+
 ## v0.30.3 · macOS engine signed for notarization (2026-10-30)
 
 - Family builds audit (2026-10-30, formcompiler planning sidecar v0.5.0), formtxt row: `setup/freeze_backend` passed `--osx-entitlements-file src-tauri/entitlements.plist` to PyInstaller whenever `APPLE_SIGNING_IDENTITY` was set, and that file did not exist, so a signed macOS build stopped at the freeze. `src-tauri/entitlements.plist` (new) holds only what the frozen Python runtime needs under the hardened runtime: `com.apple.security.cs.disable-library-validation` (Python's native libraries are not all signed with the app's team) and `com.apple.security.cs.allow-unsigned-executable-memory` (onnxruntime and ctypes write executable pages). The plist stays comment-free; this entry is its comment. `tauri.conf.json` `bundle.macOS` sets `hardenedRuntime` and `entitlements` so the app's own binary is signed with the same file.
