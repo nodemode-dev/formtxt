@@ -35,6 +35,17 @@
     "category": "Productivity",
     "shortDescription": "Documents",
     "copyright": "Copyright 2026 nodemode-ai.",
+    "linux": {
+      "deb": {
+        "recommends": ["gstreamer1.0-plugins-base", "gstreamer1.0-plugins-good", "gstreamer1.0-libav"]
+      },
+      "rpm": {
+        "recommends": ["gstreamer1-plugins-base", "gstreamer1-plugins-good"]
+      },
+      "appimage": {
+        "bundleMediaFramework": true
+      }
+    },
     "macOS": {
       "hardenedRuntime": true,
       "entitlements": "entitlements.plist"

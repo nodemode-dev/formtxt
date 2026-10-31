@@ -7,6 +7,12 @@ Last updated: 2026-10-30 · macOS engine signed for notarization. Before: family
 
 ---
 
+## v0.30.4 · the Linux packages pull in the media plugins (2026-10-31)
+
+- refers-to: src-tauri/tauri.conf.json :: bundle.linux (deb.recommends, rpm.recommends, appimage.bundleMediaFramework); formcompiler apps/formtxt.json :: toolchain.linux_packages
+
+Video objects in a document (`frontend/src/editor/ext/objects/media.ts`) play in WebKitGTK on Linux, which decodes with GStreamer. The config now follows formdeck: the deb recommends `gstreamer1.0-plugins-base`, `gstreamer1.0-plugins-good` and `gstreamer1.0-libav`, the rpm recommends `gstreamer1-plugins-base` and `gstreamer1-plugins-good`, and the AppImage bundles the media framework. formcompiler installs the base and good sets on the Linux runner so the AppImage step finds them. apt and dnf install recommends by default; `dpkg -i` and `--no-install-recommends` skip them. On Ubuntu 24.04 `libwebkit2gtk-4.1-0` already depends on base and good but only suggests `gstreamer1.0-libav` (the H.264 and AAC decoders), so the deb recommends it. The AppImage carries base and good only, since libav would copy the runner's own FFmpeg into the app. Checked: the config parses and formcompiler's `registry.py check` passes; no Linux build was run here.
+
 ## v0.30.4 · .js, .mjs and .css keep their types on Windows (2026-10-31)
 
 - refers-to: app/main.py :: the three mimetypes.add_type calls after the last import
