@@ -1,66 +1,218 @@
-<p align="center"><img src="assets/formtxt_icon.png" width="128" height="128" alt="FormTxt logo"></p>
+<p align="center">
+  <img src="assets/app-icon/formtxt-256.png" width="128" height="128" alt="FormTxt icon: the Form family document mark">
+</p>
 
-# FormTxt
+<h1 align="center">FormTxt</h1>
 
-Documents in the form family. An open, local-first alternative to Microsoft Word and Google Docs: paginated and pageless documents, .docx and .odt round trips, and Claude Code, Codex or Cursor drafting and editing live through the same commands a person uses.
+<p align="center">
+  <b>Word processing; the word processor of the Form family.</b><br>
+  Real pages or pageless, a full ribbon, .docx and .odt round trips,<br>
+  review, references and charts. Local-first, no account, and yours.
+</p>
 
-Version 0.30.4 · Apache-2.0 · macOS, Windows, Linux (browser, or the desktop app built with ./build_app)
+<p align="center">
+  <img alt="version 0.30.6" src="https://img.shields.io/badge/version-0.30.6-eef0f4?style=flat-square">
+  <img alt="TypeScript and Vite" src="https://img.shields.io/badge/TypeScript%20%2B%20Vite-3178c6?style=flat-square&logo=typescript&logoColor=white">
+  <img alt="Python and FastAPI" src="https://img.shields.io/badge/Python%20%2B%20FastAPI-009688?style=flat-square">
+  <img alt="macOS, Windows, Linux" src="https://img.shields.io/badge/macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-native-2f7bf5?style=flat-square">
+  <img alt="License: Apache-2.0" src="https://img.shields.io/badge/license-Apache--2.0-3a3a3a?style=flat-square">
+  <img alt="Status: in development" src="https://img.shields.io/badge/status-in%20development-d69e2e?style=flat-square">
+</p>
 
-## Status
+<p align="center">
+  <a href="https://formtxt.formai.studio/"><b>Download FormTxt on formai.studio</b></a> ·
+  <a href="#run-it-from-source">Run it from source</a> ·
+  <a href="#the-form-family">All Form apps</a>
+</p>
 
-Phase 1 of the plan: the home screen. Home has Start (open a file, a blank document, a dropzone for Markdown and text files, Paste text), Recent documents (pin, duplicate, save as template, delete with Undo), 39 original templates in 11 categories with search and a preview, and a Trash with restore and permanent delete. Phase 2 adds the editor: styles (Normal, Title, Subtitle, Quote, Heading 1 to 9), fonts and sizes, bold, italic, underline, strikethrough, superscript, subscript, colour and highlight, alignment, indents, line spacing, bulleted, numbered and checklist lists with nine levels, links, code blocks, page breaks, clear formatting, undo and redo, find and replace with match case and regular expressions, an outline of headings, Markdown-style shortcuts (`# `, `- `, `1. `, `[ ] `, `> `, three backticks), Word and Google Docs keyboard shortcuts, a live word count and autosave. It also has document tabs, collapsible headings, a style editor (modify a style, create one from it, or update it to match the selection), paragraph settings (indents and hanging indents, spacing, borders, shading, tab stops, keep with next, keep lines together, widow and orphan control), Format Painter, change case, underline styles, character spacing, a word count dialog, Find a Command (Ctrl+Shift+P) and keyboard shortcuts you can change (Ctrl+/). Phase 3 adds pages: documents lay out on real pages (paper size, orientation and margins from Page setup), paragraphs split across pages line by line with widow and orphan control, keep with next and keep lines together, page breaks, headers and footers with page numbers in five formats, a different first page and odd and even pages, page colour, page borders, a watermark, a pageless mode, and zoom from 25 to 300 percent. A ruler shows the margins, indents and tab stops of the current paragraph and its indent markers drag; line numbers run continuously or restart each page; Insert > Cover page adds a title page; Print layout, Draft, Read mode and Focus mode views; and double-clicking a header or footer lets you type in it on the page (Enter saves, Esc cancels). The Tab key inserts a tab that lines up with the paragraph's tab stops (left, centre, right or decimal, with dot, dash or underline leaders) or with the default stop every half inch. Section breaks start a new section on the next page with its own headers, footers and different first page, and page numbering in a section can restart or continue. Phase 4 starts with tables: insert one at the page width, Tab moves between cells and adds a row at the end, drag across cells to select them, drag a column edge to resize it, and right-click a cell to insert or delete rows and columns, merge and split cells or turn the header row on and off. Table properties set the look (grid, plain, rows only, banded, accent header), centring, repeating header rows on every page, cell shading and vertical alignment, and can distribute columns evenly or sort rows by a column. Text separated by tabs, commas, semicolons or pipes converts to a table and back, Markdown files with pipe tables open as tables, and long tables split between rows across pages. Pictures (PNG, JPEG, GIF, WebP, BMP, SVG) come in from Insert > Picture, paste or drop, fitted to the page; drag the handles to resize (corners keep proportions), double-click for alt text, wrapping (in line, square, tight, top and bottom, behind or in front of text), size, rotation, crop, brightness, contrast, saturation and transparency, and drag a picture behind or in front of text to move it. Pictures copied from one document and pasted into another bring their file with them. Charts come from Form.md's renderer in 13 types (column, bar, line, area, doughnut, radial bars, big number, gauge, histogram, dot plot, compare with running total, heat map and calendar heat map): Insert > Chart opens an editor with a live preview where data is pasted from a spreadsheet or imported from a .csv or .xlsx file, with a title, size, alignment, data labels, legend, smooth lines, stacking, a target and the number shown; double-click a chart to edit it, and export it as SVG or PNG. Insert > Shapes offers 20 shapes, a text box and Text Art in six styles: type in a shape after double-clicking it, drag its handles to resize, drag it to move it, and set fill, outline, text format, wrapping and rotation in Shape properties. Insert > Equation (Alt+=) writes equations in LaTeX with a live preview and ready-made fractions, roots, sums, integrals, matrices and cases, inline or on their own line. Charts take series colours. Insert > Icons searches 4,808 Tabler icons by name and tag, in outline or filled style, any colour and size. Draw turns the page into a canvas: each pen stroke becomes an ink drawing in front of the text (Esc stops). Pictures and shapes have a rotation handle (Shift snaps to 15 degrees); pictures take a border, rounded corners and a shadow, and shapes a shadow and a gradient fill. Downloads and copies leave out picture files the document no longer uses. Insert > Diagram brings FormDeck's 12 IntelligentArt layouts (block and bullet lists, process and chevron process, cycle and radial cycle, organization chart and horizontal hierarchy, Venn, matrix, pyramid, timeline): type one item per line and indent sub-items with Tab, pick a flat, outline or shadow style and colourful or single-colour shades, with a live preview; double-click a diagram to edit it. Crop on the picture (in the picture dialog, or `picture.cropTool`) shows the whole picture with crop handles; Enter or clicking elsewhere applies and Esc cancels. Pictures and shapes behind or in front of text can be fixed to the page so they stay put while text moves, and lines take arrowheads. Text boxes and shapes hold formatted text: double-click to type, and Ctrl+B, Ctrl+I, Ctrl+U and the toolbar (fonts, sizes, colours, alignment, lists, styles) format inside the box until you click away or press Ctrl+Enter (Esc discards). Connect shapes draws a connector from the selected shape to the next one you click, and it follows both shapes when they move. Insert > Symbol picks from common symbols, currency, maths, arrows, Greek, shapes and accented letters, or takes a Unicode code. Table formulas: put the cursor in a cell and choose Formula (on the table toolbar or the cell's right-click menu) to insert `=SUM(ABOVE)`, `=AVERAGE(B2:B5)`, `=B2*C2` or other formulas using SUM, AVERAGE, MIN, MAX, COUNT, PRODUCT, ROUND, IF and more, with a number format such as `$#,##0.00` or `0%`; results update as the table changes, F9 recalculates them all, and double-clicking a result edits its formula. Cell borders (from the cell's right-click menu or Table properties) put a solid, dashed, dotted or double line of any width and colour on all, outside, inside, top, bottom, left or right edges of the selected cells, or remove them. List format sets numbered lists to 1, 01, a, A, i or I with text before and after the number (such as "Step 1)") and restarts numbering at any value, and gives bulleted lists another bullet character. Style sets restyle the whole document at once in nine looks (Standard, Classic serif, Editorial, Report, Academic, Modern, Warm, Technical, Elegant). Smart chips: type @ (or use the toolbar's chip button) and pick a date (today, tomorrow, a typed date such as 2026-12-25 or Dec 3, or the date picker), a person (by email, or anyone already mentioned), another document in your library, or a dropdown (Status, Priority, Review or your own options). Click a chip to change it: a dropdown shows its options, a date offers today and the picker, a person offers email, and a document chip opens the document (Ctrl+click opens it directly). Placeholders (type @ and a name, such as @Client name) mark what to fill in later, and Fill in placeholders replaces every one with the same name at once. Document variables hold named values such as a rate or a client name; insert one anywhere and changing its value updates every place it is used. Building blocks insert ready-made content: Meeting notes, Email draft, Project tracker and Decision record are built in (also offered in the @ menu), and any selection can be saved as your own building block for every document. Table rows taller than the space left on a page continue on the next page line by line (Allow rows to break across pages in Table properties turns it off per table), and in pageless view a repeating header row stays pinned while you scroll. Table styles save a table's look, alignment, header row and the shading, borders and alignment of its header, first column, body and banded rows under a name; apply them to other tables from Table properties, and saving under the same name again updates every table that uses the style. Sections can have their own paper size, orientation and margins (Page setup applies to this section or the whole document), so a landscape table can sit between portrait pages, and a section break can start on a new page, on the same page (continuous), or on the next odd or even page. Linked text boxes let a story flow from one text box into the next (Link text boxes on the toolbar, then click an empty box; chains can be any length and Break link stops the flow), as in newsletters; double-click any box in a chain to edit the whole text. Insert > Mermaid diagram draws flowcharts, sequence, Gantt, class, state, entity relationship, pie, mind map and timeline diagrams from text with a live preview (nine samples to start from); the drawing is saved with the document, so opening it needs no redraw. Insert > Emoji searches 1,914 emoji by name and tag, by category, with skin tones and recently used. Insert > Stock images searches openly licensed pictures on Openverse, and free photos on Pexels once a free Pexels API key is added in Preferences (or in the picker); a credit line goes under the picture and the licence is stored with it. Searches and downloads go through the engine, which only fetches from public web addresses; Preferences can turn stock search off. The engine keeps saved building blocks in `blocks.json` in the library folder (`GET`, `POST /api/blocks`, `DELETE /api/blocks/{id}`). Split window (on the toolbar, or Ctrl+Alt+S) opens a second pane under the page with the same text in draft view, so two parts of a long document can be read and edited at once; undo in either pane undoes the last change in both. Typing that does not change a paragraph's height no longer runs page layout again, so long documents stay quick to type in. Columns (Page setup, or `layout.columns count=2`) set one to four text columns per section with the space between them: text runs down a column and continues at the top of the next, and paragraphs break between columns. A continuous section break starts columns part way down a page (a one-column title above two columns, as in a newsletter), and columns before a continuous break come out balanced. Ctrl+Shift+Enter inserts a column break.
+<br>
 
-Phases 5 to 11 arrive in 0.27.0. References: a table of contents, footnotes at the foot of their page and endnotes, citations in eight source types (several sources in one citation) with a bibliography, captions, cross-references, an index, bookmarks and link previews. Review: comments with reactions, suggesting mode that also tracks formatting, paragraph splits and joins, accept and reject, compare and combine (tables cell by cell) and who edited a passage. Versions: named versions and recovery, protection and passwords, approvals, properties, fields and content controls, mail merge, envelopes and labels, a signature line, and autosave to WebDAV cloud storage. Files: open and save .docx, .dotx, .odt, .rtf, .html and Markdown, export text and EPUB, read Word 97 .doc. Print: preview, ranges and copies, tagged PDF export with shapes, diagrams and charts drawn, and opening a PDF, with OCR for scanned pages. Proofing: its own spelling and grammar, an Editor panel with clarity, formality, inclusiveness and vocabulary, writing styles, AutoCorrect, a thesaurus and dictionary, hyphenation, right-to-left text, read aloud and dictation, and an accessibility checker. AI (with your own provider key): drafting, rewrite, summaries that stay current, document edits as tracked suggestions, translation, image options and an audio overview. Sharing: live co-editing with presence, share links on this computer or network, publish, components, macros, add-ins and voice commands. View adds multiple pages side by side and gridlines, and Draw adds a highlighter, an eraser and a toolbar.
+<p align="center">
+  <img src="docs/images/formtxt-hero.png" alt="FormTxt editing a field guide: a ribbon, an outline of headings, a wildflower photo and the first paragraphs on a real page" width="100%">
+  <br>
+  <sub>A field guide on a real page, with the ribbon, the outline and a picture.</sub>
+</p>
 
-0.28.0 gives FormTxt its ribbon layout. The title bar carries the menu bar (File, Edit, View, Insert, Format, Tools, Table, Window, Help; on macOS in the system menu bar), the Quick Access Toolbar, the document name, a command search (Alt+Q), Preferences, Comments, the Editing, Suggesting and Viewing switch and Share. Below it is a ribbon with tabs (Home, Insert, Draw, Design, Layout, References, Mailings, Review, View, AI, Help) and contextual tabs for tables, pictures, shapes, charts, IntelligentArt diagrams, equations and headers and footers, a Styles gallery, Alt key tips, Customize Ribbon and Quick Access Toolbar, and simplified, tabs-only and icons-only displays. The status bar shows the page, words, proofing, language, accessibility and tracking, with view buttons and a zoom slider. File opens the View Stager (Info, New, Open, Save a Copy, Print, Share, Export, Close, Account, Options), and Preferences (Ctrl+,) covers startup, 29 themes, display, proofing, saving, language, accessibility, the ribbon, keyboard, add-ins, sharing, AI and privacy. Word files now keep comments with replies, tracked changes, bookmarks, real fields, content controls, drop caps and the table of contents; suggesting mode tracks every edit including paragraph formatting; version history takes automatic versions; printing adds odd or even pages, manual two-sided, pages per sheet and paper size; grammar checks agreement, pronoun case and verb forms. The desktop app opens with the family's splash card and no white frame, and keys and passwords live in the system password store.
+<p align="center">
+  <a href="#features">Features</a> ·
+  <a href="#everything-in-the-box">In the box</a> ·
+  <a href="#built-for-agents">Agents</a> ·
+  <a href="#under-the-hood">Under the hood</a> ·
+  <a href="#download">Download</a> ·
+  <a href="#run-it-from-source">Run from source</a> ·
+  <a href="#the-form-family">Form family</a>
+</p>
 
-0.29.0 fills the ribbon with pickers: colour palettes, bullet, numbering and multilevel libraries, the table grid, cover page, header, footer, page number, shape, equation and symbol galleries, margins, size, columns and breaks galleries with previews, paragraph spinners, and the References, Review, View, Draw and contextual tab galleries. The font box lists every font installed on the computer. `./build_app` builds the desktop app in one step.
+<br>
 
-0.29.1 uses the real FormTxt logo everywhere: the app icon on macOS, Windows and Linux, the favicon, the splash card, Home, the title bar and About. View > Dark Page shows the page dark with light text, separate from the app theme; it inverts black and white, keeps coloured text and pictures recognisable, and never changes printing or exports. The ruler follows the app theme.
+<table>
+  <tr>
+    <td width="25%" valign="top"><h3>Real pages</h3>Paper size, margins, headers, footers, columns and sections lay out line by line, or switch to a pageless view.</td>
+    <td width="25%" valign="top"><h3>Word compatible</h3>Open and save .docx, .dotx, .odt, .rtf, .html and Markdown, keeping comments and tracked changes.</td>
+    <td width="25%" valign="top"><h3>Local-first</h3>Documents live in a folder on your computer. The engine listens on this machine only, and no account is needed.</td>
+    <td width="25%" valign="top"><h3>Agent-ready</h3>Every editor command also runs from a terminal with <code>./formtxt cli</code>, the same commands a person uses.</td>
+  </tr>
+</table>
 
-With the window open, every command also runs from a terminal: `./formtxt cli run tools.stats`, `./formtxt cli run edit.replaceAll find=draft replace=final`, `./formtxt cli run tabs.add title=Appendix`. The roadmap is `DEV_PLAN.md` in the planning sidecar, and the research baseline (199 Word and Google Docs capabilities, each with its vendor source) is the FormTxt page of the FormAI Parity Tracker.
+## Features
 
-## Quick start
+<table>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/images/formtxt-tables.png" alt="A table of five meadow plants with an accent header row and the table design and layout tabs open" width="100%">
+      <br><sub>A table with an accent header, banded rows and table tabs.</sub>
+      <h3>Tables that behave</h3>
+      Merge and split cells, repeat header rows across pages, sort, and use formulas such as <code>=SUM(ABOVE)</code>.
+    </td>
+    <td width="50%" valign="top">
+      <img src="docs/images/formtxt-charts.png" alt="A bar chart of flowering stems per square metre below a bulleted packing list and a tracked insertion" width="100%">
+      <br><sub>A chart, a list and a suggested edit on page two.</sub>
+      <h3>Charts, diagrams and equations</h3>
+      Insert charts with live data, IntelligentArt diagrams, Mermaid diagrams and LaTeX equations.
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" valign="top">
+      <img src="docs/images/formtxt-review.png" alt="The Review pane beside the page showing a comment thread on the sentence about closing the gate" width="100%">
+      <br><sub>The Review pane with a comment thread on the page.</sub>
+      <h3>Review with others</h3>
+      Comments with replies and reactions, suggesting mode that tracks every edit, and compare and combine.
+    </td>
+    <td width="50%" valign="top">
+      <h3>Ribbon and keyboard</h3>
+      The ribbon has tabs, contextual tabs, Alt key tips and a command search (Alt+Q). Shortcuts follow Word and Google Docs and can be changed.
+      <h3>References</h3>
+      Tables of contents, footnotes, citations with a bibliography, captions, cross-references and an index.
+    </td>
+  </tr>
+</table>
 
-```bash
+## Everything in the box
+
+<table>
+  <tr>
+    <td width="33%" valign="top"><h4>39 templates in 11 categories</h4>Recent documents · Pin and duplicate · Trash with restore · Building blocks</td>
+    <td width="33%" valign="top"><h4>13 chart types, 12 diagram layouts</h4>Column · Line · Doughnut · Gauge · Heat map · Process · Cycle · Venn</td>
+    <td width="33%" valign="top"><h4>Formats</h4>Opens: .docx, .dotx, .odt, .rtf, .html, Markdown, .doc, PDF · Saves: .docx, .odt, .rtf, .html, Markdown, EPUB, PDF · Native: <code>.ftxt</code></td>
+  </tr>
+</table>
+
+## Built for agents
+
+The editor's commands live in one catalogue, and the window and the terminal call the same ones.
+
+```sh
+./formtxt cli list                                                  # the command catalogue
+./formtxt cli describe tools.stats                                  # one command and its arguments
+./formtxt cli run edit.replaceAll find=draft replace=final          # run a command in the open window
+```
+
+The commands need the window open. See [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md).
+
+## Under the hood
+
+- **Frontend:** vanilla TypeScript and Vite, with ProseMirror editing and its own page layout.
+- **Engine:** Python and FastAPI own the `.ftxt` model, file exchange, proofing and exports.
+- **Desktop:** a Tauri 2 shell around the same UI, with the engine frozen as a sidecar.
+- **Format:** `.ftxt` is a zip of `document.json` and `media/`; the contract is [`docs/FORMAT.md`](docs/FORMAT.md).
+- **Tested:** backend tests in `backend/tests` (library, exchange, versions, format, boot) and a window test in `frontend/tests/window`.
+
+## Download
+
+**Get the app:** download FormTxt from [formtxt.formai.studio](https://formtxt.formai.studio/). That is the easiest way to install it.
+
+**Keep it updated:** [FormPortal](https://github.com/nodemode-dev/formportal) installs, updates and rolls back every Form app from the same signed catalogue.
+
+| Platform | Builds |
+|---|---|
+| macOS Apple silicon | `macos-arm64` |
+| Linux | `linux-x64` |
+| Windows | `windows-x64` |
+
+All FormTxt builds are compiled and released from [`nodemode-dev/formcompiler`](https://github.com/nodemode-dev/formcompiler/releases), not from this repo. This repo holds the source.
+
+## Run it from source
+
+Prefer it in your browser, or want to contribute? Run the web UI straight from this repo.
+
+**Requires:** Python 3.12 or newer and Node 20.19 or newer.
+
+```sh
+git clone git@github.com:nodemode-dev/formtxt.git
+cd formtxt
 ./formtxt_oc_install      # backend venv and frontend packages
-./formtxt                 # engine on 127.0.0.1:8210, app on http://localhost:5210
-./formtxt cli list        # the command catalogue, while the window is open
+./formtxt                 # engine on 127.0.0.1:8210, web UI at http://localhost:5210
 ```
 
-Windows: `formtxt_oc_install.bat`, then `formtxt.bat`. Requires Python 3.12 or newer and Node 20.19 or newer.
+`./formtxt desktop dev` opens the desktop window instead, and `./build_app` builds the installable desktop app.
 
-### Desktop app
+On Windows use `formtxt_oc_install.bat` then `formtxt.bat`. The engine listens on 127.0.0.1:8210 only; `FORMTXT_UI_PORT`, `FORMTXT_ENGINE_PORT` and `FORMTXT_DATA_DIR` (default `~/FormTxt`) override the ports and the library folder.
 
-```bash
-./build_app               # tools check, installs, window, frozen engine, tauri build; log in build_app.log
-./build_app --open        # and open it when done (macOS copies FormTxt.app to Applications)
-```
+> [!IMPORTANT]
+> **Status:** in development. Releases are not published yet, so run it from source or watch formai.studio. The planning roadmap lives outside this repo.
 
-On macOS this makes `FormTxt.app` and a disk image (the engine ships as a one-folder build inside the app); on Linux a `.deb` (`./build_app --install` installs it). Windows: `build_app.bat` makes the MSI and NSIS installers. The Rust build goes to a cache folder outside the repo (`FORMTXT_CARGO_TARGET` overrides it). Needs the Xcode command line tools on macOS, WebKitGTK 4.1 on Linux, and Rust (installed with rustup if missing).
+**Contributing:** branch from `main`, keep changes to source here, and leave packaging and releases to FormCompiler. See [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md).
 
-## Stack and ports
+## Repository
 
-| Side | Choice | Port |
-| --- | --- | --- |
-| Frontend | Vanilla TypeScript 7 and Vite 8; ProseMirror editing and its own page layout from Phase 2 | 5210 (preview 5310) |
-| Engine | Python 3.12 and FastAPI, owns the `.ftxt` model, exchange and exports | 8210 |
-| Desktop | Tauri 2 (`./formtxt desktop dev`); the frozen engine sidecar lands in Phase 11 | |
+`frontend/` is the web UI, `backend/` the FastAPI engine and its tests, `src-tauri/` the desktop shell, `setup/` the install, boot and build scripts, and `docs/` the format contract and images. Agents: [`CLAUDE.md`](CLAUDE.md), [`AGENTS.md`](AGENTS.md).
 
-`FORMTXT_UI_PORT`, `FORMTXT_ENGINE_PORT` and `FORMTXT_DATA_DIR` (default `~/FormTxt`) override the defaults. Both servers listen on this computer only.
+## The Form family
 
-## Files
+FormTxt is one of the **Form apps**: native creative tools that install, update and roll back through FormPortal and can all be driven by agents.
 
-`.ftxt` is a zip of `document.json` and `media/`; the contract is `docs/FORMAT.md`.
+| | App | What it's for | Download | Code |
+|:-:|---|---|---|---|
+| <img src=".github/assets/family/form.md.png" alt="" width="32" height="32"> | **form.md** | Documents, databases and realtime editing together | [formai.studio](https://formmd.formai.studio/) | [GitHub](https://github.com/nodemode-dev/form.md) |
+| <img src=".github/assets/family/format.png" alt="" width="32" height="32"> | **FormAT** | Chat and agent workspace on your key | [formai.studio](https://format.formai.studio/) | [GitHub](https://github.com/nodemode-dev/format) |
+| <img src=".github/assets/family/formCAD.png" alt="" width="32" height="32"> | **FormCAD** | Drafting, parametric parts and NURBS surfaces | | [GitHub](https://github.com/nodemode-dev/formCAD) |
+| <img src=".github/assets/family/formcel.png" alt="" width="32" height="32"> | **FormCel** | Spreadsheets agents can read and edit | [formai.studio](https://formcel.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formcel) |
+| <img src=".github/assets/family/formcraft.png" alt="" width="32" height="32"> | **FormCraft** | Generate images, video, audio, 3D and worlds | | [GitHub](https://github.com/nodemode-dev/formcraft) |
+| <img src=".github/assets/family/formcut.png" alt="" width="32" height="32"> | **FormCut** | Multi-track video editing with no upload | [formai.studio](https://formcut.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formcut) |
+| <img src=".github/assets/family/formDAM.png" alt="" width="32" height="32"> | **FormDAM** | Photo library and asset manager | [formai.studio](https://formdam.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formDAM) |
+| <img src=".github/assets/family/formdeck.png" alt="" width="32" height="32"> | **FormDeck** | Presentations and pitch decks | [formai.studio](https://formdeck.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formdeck) |
+| <img src=".github/assets/family/formdesign.png" alt="" width="32" height="32"> | **FormDesign** | Page layout for print and the web | [formai.studio](https://formdesign.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formdesign) |
+| <img src=".github/assets/family/formencoder.png" alt="" width="32" height="32"> | **FormEncoder** | Media encoding queue with presets | [formai.studio](https://formencoder.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formencoder) |
+| <img src=".github/assets/family/formfabric.png" alt="" width="32" height="32"> | **FormFabric** | Sewing patterns draped with cloth simulation | | [GitHub](https://github.com/nodemode-dev/formfabric) |
+| <img src=".github/assets/family/formlit.png" alt="" width="32" height="32"> | **FormLit** | Photo library and raw development | [formai.studio](https://formlit.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formlit) |
+| <img src=".github/assets/family/formmorpheus.png" alt="" width="32" height="32"> | **FormMorpheus** | Frame-by-frame and performed animation | | [GitHub](https://github.com/nodemode-dev/formmorpheus) |
+| <img src=".github/assets/family/formNET.png" alt="" width="32" height="32"> | **FormNET** | See what your computer sends online | | [GitHub](https://github.com/nodemode-dev/formNET) |
+| <img src=".github/assets/family/formpath.png" alt="" width="32" height="32"> | **FormPath** | Vector illustration with artboards and type | [formai.studio](https://formpath.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formpath) |
+| <img src=".github/assets/family/formpdf.png" alt="" width="32" height="32"> | **FormPDF** | Edit, redact, sign and fill PDFs | [formai.studio](https://formpdf.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formpdf) |
+| <img src=".github/assets/family/formpromo.png" alt="" width="32" height="32"> | **FormPromo** | Promo films from your own media | [formai.studio](https://formpromo.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formpromo) |
+| <img src=".github/assets/family/formref.png" alt="" width="32" height="32"> | **FormRef** | Reference boards for creative work | [formai.studio](https://formref.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formref) |
+| <img src=".github/assets/family/formrig.png" alt="" width="32" height="32"> | **FormRig** | Rig, skin and retarget any mesh | | [GitHub](https://github.com/nodemode-dev/formrig) |
+| <img src=".github/assets/family/formsculpt.png" alt="" width="32" height="32"> | **FormSculpt** | 3D sculpting, remeshing and painting | [formai.studio](https://formsculpt.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formsculpt) |
+| <img src=".github/assets/family/formsurface.png" alt="" width="32" height="32"> | **FormSurface** | Texture painting with PBR export | [formai.studio](https://formsurface.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formsurface) |
+| <img src=".github/assets/family/formtools.png" alt="" width="32" height="32"> | **FormTools** | Viewers, batch tools and file utilities | | [GitHub](https://github.com/nodemode-dev/formtools) |
+| <img src=".github/assets/family/formtxt.png" alt="" width="32" height="32"> | **FormTxt** | Word processing with .docx round trips | [formai.studio](https://formtxt.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formtxt) |
+| <img src=".github/assets/family/formvfx.png" alt="" width="32" height="32"> | **FormVFX** | Motion graphics and VFX compositing | [formai.studio](https://formvfx.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formvfx) |
+| <img src=".github/assets/family/formvis.png" alt="" width="32" height="32"> | **FormVis** | Layered image editing with local AI | [formai.studio](https://formvis.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formvis) |
+| <img src=".github/assets/family/formwav.png" alt="" width="32" height="32"> | **FormWav** | Multitrack audio editing and mixing | [formai.studio](https://formwav.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formwav) |
+| <img src=".github/assets/family/formweb.png" alt="" width="32" height="32"> | **FormWeb** | Visual website building with a CMS | [formai.studio](https://formweb.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formweb) |
+| <img src=".github/assets/family/formportal.png" alt="" width="32" height="32"> | **FormPortal** | Install, update and roll back Form apps | [formai.studio](https://formportal.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formportal) |
+| <img src=".github/assets/family/formtray.png" alt="" width="32" height="32"> | **FormTray** | One dock icon for every app | [formai.studio](https://formtray.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formtray) |
+| <img src=".github/assets/family/formMCP.png" alt="" width="32" height="32"> | **FormMCP** | One MCP connection to the family | [formai.studio](https://formmcp.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formMCP) |
+| <img src=".github/assets/family/formskills.png" alt="" width="32" height="32"> | **FormSkills** | Every app's agent skills in one place | [formai.studio](https://formskill.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formskills) |
+| <img src=".github/assets/family/formbench.png" alt="" width="32" height="32"> | **FormBench** | Parity, testing and rankings for the family | [formai.studio](https://formranker.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formbench) |
+| <img src=".github/assets/family/formslot.png" alt="" width="32" height="32"> | **FormSlot** | Codebase memory for coding agents | | [GitHub](https://github.com/nodemode-dev/formslot) |
+| <img src=".github/assets/family/subform.png" alt="" width="32" height="32"> | **SubForm** | Workbench for parallel Claude Code agents | | [GitHub](https://github.com/nodemode-dev/subform) |
+| <img src=".github/assets/family/formcompiler.png" alt="" width="32" height="32"> | **FormCompiler** | Builds, signs and releases every app | [formai.studio](https://formcompiler.formai.studio/) | [GitHub](https://github.com/nodemode-dev/formcompiler) |
+| <img src=".github/assets/family/formpipe.png" alt="" width="32" height="32"> | **FormPipe** | Release pipeline and update feeds | | [GitHub](https://github.com/nodemode-dev/formpipe) |
 
-## Family
+## Maintainers
 
-FormTxt reuses Form.md's ProseMirror editor, FormDeck's home screen, command catalogue, agents and OOXML plumbing, and FormDesign's long-document features.
+| Maintainer | Role |
+|---|---|
+| [@nodemode-ai](https://github.com/nodemode-ai) | Owner |
+| [@gbarnai](https://github.com/gbarnai) | Co-owner |
 
-## Licence
+Code owners are set in [`.github/CODEOWNERS`](.github/CODEOWNERS).
 
-Apache-2.0. See `LICENSE`. Copyright 2026 NodeAgentc, Inc.
+## License
 
-## Trademarks
+FormTxt is licensed under the Apache License 2.0 ([`LICENSE`](LICENSE), SPDX `Apache-2.0`). Copyright 2026 NodeAgentc, Inc. Third-party notices: [`NOTICE.md`](NOTICE.md).
 
-Microsoft, Word and Office are trademarks of the Microsoft group of companies. Google Docs is a trademark of Google LLC. FormTxt is not affiliated with or endorsed by Microsoft or Google; the names describe file formats, key sets and compatibility only.
+<sub>Screenshot content: a CC0 photo from Poly Haven and an original sample document.</sub>
+
+<sub>Microsoft, Word and Office are trademarks of the Microsoft group of companies. Google Docs is a trademark of Google LLC. FormTxt is not affiliated with or endorsed by Microsoft or Google; the names describe file formats, key sets and compatibility only.</sub>
