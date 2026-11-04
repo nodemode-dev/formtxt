@@ -28,9 +28,9 @@
 <br>
 
 <p align="center">
-  <img src="docs/images/formtxt-hero.png" alt="FormTxt editing a field guide: a ribbon, an outline of headings, a wildflower photo and the first paragraphs on a real page" width="100%">
+  <img src="docs/images/formtxt-hero.png" alt="FormTxt showing the built-in Annual Report template on a dark page: the ribbon, an outline of headings, a harbour photo and a bar chart of revenue by quarter" width="100%">
   <br>
-  <sub>A field guide on a real page, with the ribbon, the outline and a picture.</sub>
+  <sub>The Annual Report template with a photo and a chart added, shown with the Dark Page view option.</sub>
 </p>
 
 <p align="center">
