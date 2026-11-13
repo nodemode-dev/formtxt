@@ -282,7 +282,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
         handlePaste: (_view, e) => {
           const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/'));
           if (!files.length) return false;
-          void this.insertPictures(files);
+          this.insertPictures(files).catch((err: Error) => toast(`Could not paste the picture: ${err.message}`, 'error'));
           return true;
         },
         handleDrop: (view, e) => {
@@ -290,7 +290,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
           if (!files.length) return false;
           e.preventDefault();
           const at = view.posAtCoords({ left: (e as DragEvent).clientX, top: (e as DragEvent).clientY })?.pos;
-          void this.insertPictures(files, at);
+          this.insertPictures(files, at).catch((err: Error) => toast(`Could not drop the picture: ${err.message}`, 'error'));
           return true;
         },
         dispatchTransaction: (tr) => {
