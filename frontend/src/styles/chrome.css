@@ -46,6 +46,7 @@ header.ft-titlebar > .ft-menubar {
   line-height: 18px;
   height: 18px;
 }
+.ft-tb-title .ft-mark { display: block; flex: none; user-select: none; pointer-events: none; }
 .ft-tb-doc { min-width: 0; overflow: hidden; text-overflow: ellipsis; color: var(--text-primary); font-weight: 500; }
 .ft-tb-doc:not(:empty) + .ft-tb-app::before { content: "\00b7"; margin-right: var(--space-2); }
 .ft-tb-app { flex: none; color: var(--text-muted); font-weight: 600; }
