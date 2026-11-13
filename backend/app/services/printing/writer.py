@@ -107,8 +107,12 @@ class TabLine(Flowable):
         return aw, self.leading
 
     def draw(self):
-        c = self.canv
-        c.setFillColor(self.color)
+        self.place(True)
+
+    def place(self, paint: bool) -> float:
+        c = self.canv if paint else None
+        if c is not None:
+            c.setFillColor(self.color)
         x = 0.0
         y = self.leading * 0.28
         for i, (text, face) in enumerate(self.segments):
@@ -133,15 +137,17 @@ class TabLine(Flowable):
                     start = pos
                 start = max(start, x)
                 leader = {"dot": ".", "dash": "-", "underline": "_"}.get(stop.get("leader", "none"), "")
-            if leader and start > x + 2:
+            if c is not None and leader and start > x + 2:
                 lw = pdfmetrics.stringWidth(leader, face, self.size)
                 count = int((start - x - 2) // max(lw, 0.1))
                 if count > 0:
                     c.setFont(face, self.size)
                     c.drawString(start - lw * count - 1, y, leader * count)
-            c.setFont(face, self.size)
-            c.drawString(start, y, text)
+            if c is not None:
+                c.setFont(face, self.size)
+                c.drawString(start, y, text)
             x = start + w
+        return x
 
 
 class Ctx:
@@ -525,7 +531,10 @@ def paragraph_flowables(ctx: Ctx, block: dict, avail: float, parent: Elem, top: 
         stops = [{"pos": float(s.get("pos", 0)), "align": s.get("align", "left"), "leader": s.get("leader", "none")} for s in tabs if isinstance(s, dict)]
         flow = TabLine(segments, stops, ctx.default_tab, st.leftIndent, st.fontSize, st.leading, face, st.textColor)
         flow.spaceBefore, flow.spaceAfter = st.spaceBefore, st.spaceAfter
-        return [Tagged(flow, elem, (text, level) if level and top and text else None)]
+        plain_runs = all(r.get("type") in ("text", "tab") for r in content)
+        covered = all(ord(ch) < 128 or fam.covers(ch) == fam.faces["regular"] for seg, _ in segments for ch in seg)
+        if plain_runs and covered and flow.place(False) <= avail - st.rightIndent:
+            return [Tagged(flow, elem, (text, level) if level and top and text else None)]
     try:
         flow = Paragraph(xml, st, bulletText=label or None)
     except (ValueError, AttributeError, KeyError, IndexError):
