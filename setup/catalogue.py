@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 import json
 import os
 import sys
@@ -23,10 +25,15 @@ def get(url: str, body: dict | None = None) -> dict:
         with urllib.request.urlopen(req, timeout=90) as r:
             return json.loads(r.read().decode("utf-8"))
     except urllib.error.HTTPError as exc:
-        detail = json.loads(exc.read().decode("utf-8") or "{}").get("detail", str(exc))
+        try:
+            detail = json.loads(exc.read().decode("utf-8") or "{}").get("detail", str(exc))
+        except ValueError:
+            detail = str(exc)
         raise SystemExit(f"[formtxt] {detail}")
     except urllib.error.URLError:
         raise SystemExit("[formtxt] the engine is not running. Start it with ./formtxt, then retry.")
+    except ValueError:
+        raise SystemExit(f"[formtxt] the reply from {url} is not JSON; check that FORMTXT_ENGINE_PORT names the FormTxt engine.")
 
 
 def main(argv: list[str]) -> None:
