@@ -665,7 +665,7 @@ export function chartDialog(ed: DocEditor, insert: boolean): void {
   setText(note, 'First row: a label column, then one column per series. Paste straight from a spreadsheet, or import a .csv or .xlsx file.');
   const attrs = (): Record<string, unknown> => ({
     kind: kind.value, title: title.value.trim(), width: Math.max(120, Number(width.value) || 468), height: Math.max(90, Number(height.value) || 252), align: align.value,
-    options: { labels: labels.checked, legend: legend.checked, smooth: smooth.checked, stacked: stacked.checked, fn: fn.value, ...(Number(target.value) ? { target: Number(target.value) } : {}) },
+    options: { labels: labels.checked, legend: legend.checked, smooth: smooth.checked, stacked: stacked.checked, fn: fn.value, target: Number(target.value) || undefined },
     data: withColors(parseGrid(grid.value), colors.value),
   });
   let frame = 0;
