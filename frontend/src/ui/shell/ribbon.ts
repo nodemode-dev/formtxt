@@ -376,7 +376,7 @@ export class Ribbon {
     if (b.dataset.cmd) this.commands.run(b.dataset.cmd, parseParams(b));
     else if (b.dataset.act === 'ribbon-full') { this.setSimplified(false); return; }
     else if (b.dataset.act) this.opts.act(b.dataset.act, b);
-    else if (b.dataset.menu) { this.openMenu(b); return; }
+    else if (b.dataset.menu) { this.openMenu(b, e.detail === 0); return; }
     if (this.popGroup && b.dataset.cmd && this.gpop.contains(b)) this.closePop(false);
     if (this.float) this.setFloat(false);
     this.opts.after?.();
@@ -521,20 +521,27 @@ export class Ribbon {
     };
   }
 
-  private openMenu(b: HTMLButtonElement): void {
+  private openMenu(b: HTMLButtonElement, byKey = false): void {
     const key = b.dataset.menu as string;
     let m = this.menus.get(key);
     if (!m) {
       m = new PopupMenu(this.commands, null, true);
       this.menus.set(key, m);
     }
-    m.onClose = () => { this.closedAt.set(key, performance.now()); b.setAttribute('aria-expanded', 'false'); };
+    const menu = m;
+    m.onClose = () => {
+      this.closedAt.set(key, performance.now());
+      b.setAttribute('aria-expanded', 'false');
+      const a = document.activeElement;
+      if (b.isConnected && (!a || a === document.body || menu.contains(a))) b.focus();
+    };
     if (m.isOpen) { m.close(); return; }
     if (performance.now() - (this.closedAt.get(key) ?? 0) < 250) return;
     m.setItems(this.menuItems.get(key) ?? []);
     const r = b.getBoundingClientRect();
     m.openAt(r.left, r.bottom + 2, true);
     b.setAttribute('aria-expanded', 'true');
+    if (byKey) m.focusFirst();
   }
 
   private displayMenu(anchor: HTMLElement): void {
