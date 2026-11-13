@@ -24,6 +24,8 @@
   <a href="#run-it-from-source">Run it from source</a>
 </p>
 
+Version 0.30.6 · Apache-2.0 · macOS, Windows, Linux (browser, or the desktop app built with ./build_app)
+
 <br>
 
 <p align="center">
