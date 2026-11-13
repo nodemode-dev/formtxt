@@ -4,11 +4,7 @@ set "FORMTXT_CALLER_DIR=%cd%"
 cd /d "%~dp0"
 set "CMD=%~1"
 set "REST="
-:collect
-shift
-if "%~1"=="" goto :dispatch
-set REST=%REST% %1
-goto :collect
+for /f "tokens=1,*" %%a in ("%*") do set "REST=%%b"
 :dispatch
 if "%CMD%"=="" set "CMD=boot"
 if /i "%CMD%"=="boot" ( call setup\boot_all.bat %REST% & goto :eof )
