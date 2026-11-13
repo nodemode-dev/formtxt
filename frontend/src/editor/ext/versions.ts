@@ -12,7 +12,7 @@ import { activityDialog, bindHistory, historyElement, nameDialog, refreshHistory
 import { envelopeDialog, labelsDialog, makeEnvelope, makeLabels } from './versions/mail';
 import { bindMerge, finishMerge, insertMergeField, mergeData, mergePanel, mergePlugin, paint as paintMerge, previewRecord, setCsv, setPreview } from './versions/merge';
 import { type Mode, MODES, applyProtection, approvalDialog, approvalOf, approvalStatus, bannerText, cancelApproval, mountBanner, passwordPrompt, protectDialog, protectPlugin, protectionOf, refreshProtection, removeProtection, requestApproval, respondApproval } from './versions/protect';
-import { bindRecovery, offerRecovery, propertiesDialog, propertiesOf, recoveryPlugin, setProperties } from './versions/props';
+import { bindRecovery, offerRecovery, propertiesDialog, propertiesOf, recoveryPlugin, setProperties, setSealed } from './versions/props';
 import { insertSignatureLine, requestSignature, signatureDialog } from './versions/sign';
 
 type P = Record<string, unknown>;
@@ -99,12 +99,14 @@ export function register(reg: CommandRegistry, ed: DocEditor): void {
     requireView(ed);
     if (p.password === undefined) { passwordPrompt(ed, 'set'); return true; }
     await vx.setPassword(ed.docId(), String(p.password), String(p.current ?? ''));
+    setSealed(ed.docId(), true);
     return true;
   }, [{ name: 'password', type: 'string', description: 'New password' }, { name: 'current', type: 'string', description: 'Current password, when changing one' }]);
   add('password.remove', 'Remove password', 'File', 'Decrypt the document and remove its password.', async (p) => {
     requireView(ed);
     if (p.password === undefined) { passwordPrompt(ed, 'remove'); return true; }
     await vx.removePassword(ed.docId(), String(p.password));
+    setSealed(ed.docId(), false);
     return true;
   }, [{ name: 'password', type: 'string', description: 'Current password' }]);
   add('password.status', 'Password status', 'File', 'Whether the open document is password protected.', async () => { requireView(ed); return vx.status(ed.docId()); });

@@ -3,6 +3,7 @@ import { Dialog } from '../../../ui/dialog';
 import { el, setText } from '../../../ui/dom';
 import { toast } from '../../../ui/toast';
 import type { DocEditor } from '../../editor';
+import { vx } from './api';
 import { type Loose, area, grid, input, requireView, setMeta, touch, when } from './core';
 
 export function propertiesOf(ed: DocEditor): Loose {
@@ -103,11 +104,28 @@ async function dropCopy(id: string): Promise<void> {
   try { localStorage.removeItem(`formtxt.recovery.${id}`); } catch { void 0; }
 }
 
+const sealed = new Map<string, boolean>();
+
+export function setSealed(id: string, on: boolean): void {
+  sealed.set(id, on);
+  if (on) void dropCopy(id);
+}
+
+async function isSealed(id: string): Promise<boolean> {
+  const known = sealed.get(id);
+  if (known !== undefined) return known;
+  try {
+    const s = (await vx.status(id)).protected;
+    sealed.set(id, s);
+    return s;
+  } catch { return true; }
+}
+
 function capture(): void {
   const ed = editor;
   const doc = ed?.current();
   if (!ed || !doc) return;
-  void putCopy({ id: doc.id, savedAt: Date.now(), hash: hashOf(doc.tabs), doc });
+  void isSealed(doc.id).then((s) => { if (!s) void putCopy({ id: doc.id, savedAt: Date.now(), hash: hashOf(doc.tabs), doc }); });
 }
 
 export const recoveryPlugin = new Plugin({
@@ -128,6 +146,7 @@ export async function offerRecovery(ed: DocEditor, quiet = true): Promise<boolea
   const doc = ed.current();
   if (!doc) return false;
   const id = doc.id;
+  if (await isSealed(id)) { if (sealed.get(id)) void dropCopy(id); if (!quiet) toast('No unsaved changes were found for this document.'); return false; }
   const now = hashOf(doc.tabs);
   const rec = await getCopy(id);
   if (!rec || rec.hash === now) { if (!quiet) toast('No unsaved changes were found for this document.'); return false; }
