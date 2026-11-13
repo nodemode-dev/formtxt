@@ -42,6 +42,7 @@ export const FONTS = ['Inter', 'Source Serif 4', 'Libre Baskerville', 'Lora', 'M
 const SERIF = new Set(['Source Serif 4', 'Libre Baskerville', 'Lora', 'Merriweather', 'Playfair Display', 'IBM Plex Serif']);
 const SIZES = [8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 60, 72];
 const SPACINGS: Array<[string, string]> = [['', 'Style spacing'], ['1', 'Single'], ['1.15', '1.15'], ['1.5', '1.5'], ['2', 'Double']];
+export const toolbarSynced = new Set<() => void>();
 export const fontStack = (f: string): string => `'${f.replace(/'/g, '')}', ${SERIF.has(f) ? 'Georgia, serif' : "'Inter', system-ui, sans-serif"}`;
 
 export interface EditorHooks {
@@ -900,6 +901,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
       indent: Number(a.indent || resolved.para.indentLeft || 0), indentFirst: Number(a.indentFirst || 0), indentRight: Number(a.indentRight || resolved.para.indentRight || 0),
       tabs: Array.isArray(a.tabs) ? (a.tabs as Array<{ pos: number; align: string }>) : [],
     });
+    for (const f of toolbarSynced) f();
   }
 
   private scheduleOutline(): void {
