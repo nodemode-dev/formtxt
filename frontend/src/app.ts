@@ -66,17 +66,24 @@ export async function startApp(): Promise<void> {
   let saveTimer = 0;
   let saving: Promise<void> = Promise.resolve();
   let pending: FtxtDocument | null = null;
-  const flush = (): Promise<void> => {
+  let inFlight = 0;
+  const flush = (keep = false): Promise<void> => {
     window.clearTimeout(saveTimer);
     const doc = pending;
     pending = null;
     if (!doc) return saving;
     const by = takeEditor();
-    saving = saving.then(() => api.put<DocSummary>(`/documents/${encodeURIComponent(doc.id)}${by ? `?by=${by}` : ''}`, doc)).then((s) => {
+    const path = `/documents/${encodeURIComponent(doc.id)}${by ? `?by=${by}` : ''}`;
+    const body = keep ? JSON.stringify(doc) : '';
+    const put = (): Promise<DocSummary> => (body && new Blob([body]).size < 60000
+      ? fetch(`/api${path}`, { method: 'PUT', keepalive: true, headers: { 'content-type': 'application/json' }, body }).then(async (r) => { if (!r.ok) throw new Error(r.statusText); return (await r.json()) as DocSummary; })
+      : api.put<DocSummary>(path, doc));
+    inFlight++;
+    saving = saving.then(put).then((s) => {
       doc.meta.modified = s.modified;
       if (!pending) { shell?.status.setSaved('saved'); shell?.titlebar.setDocument(s.title, false); }
       home.upsert({ id: s.id, title: s.title, modified: s.modified, created: s.created, words: s.words, bytes: s.bytes });
-    }).catch((e: Error) => { shell?.status.setSaved('unsaved'); toast(`Could not save: ${e.message}`, 'error'); });
+    }).catch((e: Error) => { shell?.status.setSaved('unsaved'); toast(`Could not save: ${e.message}`, 'error'); }).finally(() => { inFlight--; });
     return saving;
   };
   const editor = new DocEditor(main, {
@@ -106,7 +113,13 @@ export async function startApp(): Promise<void> {
   shortcuts.bindGlobal('Alt+Mod+-', 'view.zoomOut');
   void shortcuts.load();
   connectBridge(commands);
-  window.addEventListener('beforeunload', () => { void flush(); });
+  window.addEventListener('beforeunload', (e) => {
+    if (!pending && !inFlight) return;
+    void flush(true);
+    if ('__TAURI_INTERNALS__' in window) return;
+    e.preventDefault();
+    e.returnValue = '';
+  });
 
   const openDocument = async (id: string): Promise<FtxtDocument> => {
     await flush();
