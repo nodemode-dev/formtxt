@@ -4,6 +4,7 @@ import { Fragment, type Node as PMNode } from 'prosemirror-model';
 import { TextSelection, type Transaction } from 'prosemirror-state';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import { CellSelection, TableMap, isInTable, selectedRect } from 'prosemirror-tables';
+import { brandMark } from '../ui/brand';
 import { Dialog } from '../ui/dialog';
 import { el, escapeHtml, patchList, setClass, setHidden, setText } from '../ui/dom';
 import { icon } from '../ui/icons';
@@ -950,7 +951,7 @@ export function registerWordCommands(reg: CommandRegistry, ed: DocEditor): void 
   const aboutDialog = lazy(() => {
     const d = new Dialog('About FormTxt', 440);
     const text = el('<div></div>');
-    d.body.append(el('<img class="ft-logo ft-wc-about-logo" src="/formtxt-logo.png" width="64" height="64" alt="FormTxt" draggable="false">'), text);
+    d.body.append(el(`<div class="ft-wc-about-logo">${brandMark(64, 'FormTxt')}</div>`), text);
     d.button('Close', 'primary', () => d.close());
     return { d, text };
   });
