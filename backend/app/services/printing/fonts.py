@@ -31,6 +31,7 @@ STANDARD = {
     "serif": ("Times-Roman", "Times-Bold", "Times-Italic", "Times-BoldItalic"),
     "mono": ("Courier", "Courier-Bold", "Courier-Oblique", "Courier-BoldOblique"),
 }
+SUBSETS = ("latin-ext", "cyrillic", "cyrillic-ext", "greek", "greek-ext", "vietnamese")
 FACES = (("regular", 400, "normal"), ("bold", 700, "normal"), ("italic", 400, "italic"), ("boldItalic", 700, "italic"))
 
 
@@ -135,6 +136,13 @@ def _standard(kind: str) -> Family:
     return _registered[key]
 
 
+def _inter_chains(clean: str) -> list[dict[str, str]]:
+    if clean.lower() == "inter":
+        return []
+    inter = family("Inter")
+    return [inter.faces, *inter.fallbacks] if inter.bundled else []
+
+
 @lru_cache(maxsize=64)
 def family(name: str) -> Family:
     clean = clean_name(name)
@@ -144,7 +152,7 @@ def family(name: str) -> Family:
         if key in _registered:
             return _registered[key]
         faces: dict[str, str] = {}
-        extras: dict[str, str] = {}
+        extras: dict[str, dict[str, str]] = {}
         full = full_fonts.faces(folder)
         if full:
             for face, data in full.items():
@@ -156,7 +164,7 @@ def family(name: str) -> Family:
                 faces[face] = name
             pdfmetrics.registerFontFamily(key, normal=faces["regular"], bold=faces["bold"], italic=faces["italic"], boldItalic=faces["boldItalic"])
             pdfmetrics.registerFontFamily(faces["regular"], normal=faces["regular"], bold=faces["bold"], italic=faces["italic"], boldItalic=faces["boldItalic"])
-            fam = Family(faces["regular"], faces, True, [])
+            fam = Family(faces["regular"], faces, True, _inter_chains(clean))
             _registered[key] = fam
             return fam
         try:
@@ -166,15 +174,18 @@ def family(name: str) -> Family:
                     raise FileNotFoundError(folder)
                 _register_ttf(f"{key}-{face}", path)
                 faces[face] = f"{key}-{face}"
-                ext = _face_file(folder, weight, style, "latin-ext")
-                if ext:
-                    _register_ttf(f"{key}-ext-{face}", ext)
-                    extras[face] = f"{key}-ext-{face}"
+                for subset in SUBSETS:
+                    ext = _face_file(folder, weight, style, subset)
+                    if ext:
+                        fname = f"{key}-ext-{face}" if subset == "latin-ext" else f"{key}-{subset}-{face}"
+                        _register_ttf(fname, ext)
+                        extras.setdefault(subset, {})[face] = fname
             pdfmetrics.registerFontFamily(key, normal=faces["regular"], bold=faces["bold"], italic=faces["italic"], boldItalic=faces["boldItalic"])
             pdfmetrics.registerFontFamily(faces["regular"], normal=faces["regular"], bold=faces["bold"], italic=faces["italic"], boldItalic=faces["boldItalic"])
-            if extras and len(extras) == 4:
-                pdfmetrics.registerFontFamily(extras["regular"], normal=extras["regular"], bold=extras["bold"], italic=extras["italic"], boldItalic=extras["boldItalic"])
-            fam = Family(faces["regular"], faces, True, [extras] if len(extras) == 4 else [])
+            chains = [e for e in extras.values() if len(e) == 4]
+            for e in chains:
+                pdfmetrics.registerFontFamily(e["regular"], normal=e["regular"], bold=e["bold"], italic=e["italic"], boldItalic=e["boldItalic"])
+            fam = Family(faces["regular"], faces, True, chains + _inter_chains(clean))
             _registered[key] = fam
             return fam
         except (OSError, ValueError, KeyError, struct.error, zlib.error):

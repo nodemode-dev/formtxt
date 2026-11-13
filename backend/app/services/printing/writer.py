@@ -295,6 +295,8 @@ def text_markup(ctx: Ctx, text: str, fam: fonts.Family) -> str:
         if ord(ch) >= 128:
             found = fam.covers(ch)
             if found is None:
+                if not fonts.encodable(ch):
+                    ctx.warn("Some characters have no glyph in the bundled fonts and are shown as ? in the PDF.")
                 ch, found = ("?", "Helvetica") if not fonts.encodable(ch) else (ch, "Helvetica")
             name = None if found == fam.faces["regular"] else found
         if name != cur:
@@ -908,13 +910,10 @@ class Builder:
                 align = str(spec.get("align") or ("left" if top else "center"))
                 for i, line in enumerate(lines):
                     y = geo["h"] - float(m.get("header", 36)) - 9 - i * 12 if top else float(m.get("footer", 36)) + 3 + (len(lines) - 1 - i) * 12
-                    text = line if self.ctx.base_family.bundled else line.encode("cp1252", "replace").decode("cp1252")
-                    if align == "right":
-                        canv.drawRightString(geo["w"] - geo["right"], y, text)
-                    elif align == "center":
-                        canv.drawCentredString(geo["left"] + (geo["w"] - geo["left"] - geo["right"]) / 2, y, text)
-                    else:
-                        canv.drawString(geo["left"], y, text)
+                    st = ParagraphStyle("hf", fontName=face, fontSize=9, leading=12, textColor=color("#5f5c55"), alignment=ALIGN.get(align, TA_LEFT))
+                    para = Paragraph(text_markup(self.ctx, line, self.ctx.base_family) or "&nbsp;", st)
+                    _, ph = para.wrap(geo["w"] - geo["left"] - geo["right"], geo["h"])
+                    para.drawOn(canv, geo["left"], y - (ph - 12) - 3)
             artifact_end(canv)
 
         return draw
