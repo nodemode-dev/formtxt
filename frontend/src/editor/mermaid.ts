@@ -37,13 +37,15 @@ export function sanitizeSvg(svg: string): SVGSVGElement | null {
   const root = doc.documentElement;
   if (!root || root.nodeName.toLowerCase() !== 'svg' || doc.querySelector('parsererror')) return null;
   for (const bad of Array.from(root.querySelectorAll('script, iframe, object, embed, foreignObject, animate, set, handler, listener'))) bad.remove();
+  const risky = /@import|url\s*\((?!\s*['"]?\s*#)|image-set\s*\(|expression\s*\(|javascript:/;
+  for (const st of Array.from(root.querySelectorAll('style'))) { const t = (st.textContent ?? '').toLowerCase(); if (risky.test(t) || t.includes('\\')) st.remove(); }
   for (const n of [root, ...Array.from(root.querySelectorAll('*'))]) {
     for (const at of Array.from(n.attributes)) {
       const name = at.name.toLowerCase();
       const v = at.value.trim().toLowerCase();
       if (name.startsWith('on')) n.removeAttribute(at.name);
       else if ((name === 'href' || name === 'xlink:href' || name === 'src') && !v.startsWith('#') && !v.startsWith('data:image/')) n.removeAttribute(at.name);
-      else if (name === 'style' && /url\s*\(\s*['"]?(?!#)|expression\s*\(|javascript:/.test(v)) n.removeAttribute(at.name);
+      else if (risky.test(v) || (name === 'style' && v.includes('\\'))) n.removeAttribute(at.name);
     }
   }
   return document.importNode(root, true) as unknown as SVGSVGElement;
