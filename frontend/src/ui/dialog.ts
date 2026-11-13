@@ -45,12 +45,14 @@ export class Dialog {
 
   open(focus?: HTMLElement): void {
     this.returnFocus = document.activeElement as HTMLElement | null;
+    if (!this.root.isConnected) document.getElementById('overlay-root')?.appendChild(this.root);
     setHidden(this.root, false);
     (focus ?? (this.foot.lastElementChild as HTMLElement | null))?.focus();
   }
 
   close(): void {
     setHidden(this.root, true);
+    this.root.remove();
     this.returnFocus?.focus?.();
   }
 }
