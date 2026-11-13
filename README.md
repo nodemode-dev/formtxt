@@ -105,9 +105,11 @@ The editor's commands live in one catalogue, and the window and the terminal cal
 ./formtxt cli list                                                  # the command catalogue
 ./formtxt cli describe tools.stats                                  # one command and its arguments
 ./formtxt cli run edit.replaceAll find=draft replace=final          # run a command in the open window
+./formtxt mcp                                                       # MCP server on stdio for Claude Code, Codex and Cursor
+./formtxt agents install                                            # register that server and the formtxt-driving skill for this user
 ```
 
-The commands need the window open. See [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md).
+The commands need the window open, and the first one an outside agent runs asks you once in the window. `.mcp.json`, `.codex/config.toml` and `.cursor/mcp.json` are already wired in this repo. See [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md).
 
 ## Under the hood
 
@@ -168,4 +170,4 @@ FormTxt is licensed under the Apache License 2.0 ([`LICENSE`](LICENSE), SPDX `Ap
 
 <sub>Screenshot content: a CC0 photo from Poly Haven and an original sample document.</sub>
 
-<sub>Microsoft, Word and Office are trademarks of the Microsoft group of companies. Google Docs is a trademark of Google LLC. FormTxt is not affiliated with or endorsed by Microsoft or Google; the names describe file formats, key sets and compatibility only.</sub>
+<sub>Microsoft, Word and Office are trademarks of the Microsoft group of companies. Google Docs is a trademark of Google LLC. FormTxt is not affiliated with or endorsed by Microsoft or Google; the names describe file formats, key sets and compatibility only. Claude Code, Codex and Cursor are trademarks of Anthropic, OpenAI and Anysphere respectively, named only as MCP clients FormTxt works with.</sub>

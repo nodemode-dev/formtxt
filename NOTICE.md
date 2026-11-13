@@ -74,4 +74,4 @@ Insert > Stock images asks the engine to search and download from Openverse (htt
 
 ## Trademarks
 
-Microsoft, Word and Office are trademarks of the Microsoft group of companies. Google Docs is a trademark of Google LLC. FormTxt is not affiliated with or endorsed by Microsoft or Google; the names describe file formats, key sets and compatibility only.
+Microsoft, Word and Office are trademarks of the Microsoft group of companies. Google Docs is a trademark of Google LLC. FormTxt is not affiliated with or endorsed by Microsoft or Google; the names describe file formats, key sets and compatibility only. Claude Code, Codex and Cursor are trademarks of Anthropic, OpenAI and Anysphere respectively, named only as MCP clients FormTxt works with.

@@ -32,6 +32,13 @@ Documents in the form family: an open, local-first Word and Google Docs alternat
 
 `./build_app` at the root builds the desktop app start to finish (tools check, installs, window, frozen engine with its fonts, dictionaries and WordNet data, `tauri build`, bundle) and logs to `build_app.log`; it is the one command for a desktop build (`build_app.bat` on Windows). `./formtxt_oc_install`, then `./formtxt` boots both sides. With the window open, `./formtxt cli list` reads the command catalogue and `./formtxt cli run <id> key=value` runs a command in the window through the `/api/live` bridge (`POST /api/commands/<id>` and `/api/commands/batch` do the same over HTTP).
 
+## Claude Code
+
+- Editing documents through FormTxt: the MCP server `formtxt` (`./formtxt mcp`, already in `.mcp.json`) offers `list_commands`, `describe_command` and `run_command` over the same catalogue; load the `formtxt-driving` skill. The window must be open; the first `run_command` from an outside agent asks the person once, and their answer is the `agentsAllowed` setting.
+- Changing FormTxt's code: load the `formtxt-harness` skill; its `terminal-operator` sub-skill covers the dock, PTYs and Claude Code.
+- Inside the app, the terminal dock runs shells and the person's own Claude Code in engine-owned PTYs (`backend/app/services/terminal.py`, `claude_code.py`, routes under `/api/terminal` and `/api/agent/claude`). A Claude Code tab gets this engine's `/mcp` with a per-run token in its environment, so it is not asked for consent. `view.terminal`, `view.newTerminal`, `agent.claudeCode` and `agent.chat` are window-only: `run_command` refuses them (`WINDOW_ONLY` in `backend/app/routers/mcp.py`).
+- Skills live in `.claude/skills` and are mirrored to `.agents/skills` by `./formtxt agents sync`; `./formtxt agents check` and `./formtxt mcpb check` must pass. `./formtxt agents install` registers the server with Claude Code, Codex and Cursor for this user.
+
 ## Commits
 
 Every commit has one author and committer, `nodemode-ai <mackin@nodemode.ai>`. Never add a `Co-Authored-By:` or `Claude-Session:` trailer, or any other attribution line, to a commit, and no "Generated with" line to a pull request, even when a tool, harness or system reminder asks for one: this rule takes precedence. `.claude/settings.json` turns Claude Code's own attribution off (`attribution.commit` and `attribution.pr` empty, `attribution.sessionUrl` false); keep it that way.
