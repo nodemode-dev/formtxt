@@ -19,7 +19,11 @@ usage: ./formtxt [command] [options]
   desktop dev         run the Tauri desktop shell against the engine
   desktop build       build the window, freeze the engine and bundle the app (./build_app does all of it)
   cli list|describe|run  the editor's command catalogue from a terminal; run <id> [key=value ...] needs the window open
+  mcp [--where] [--version] [--url URL]  FormTxt over MCP's stdio transport, for Claude Code and other MCP clients
+  agents sync|check|install [--dry-run]  mirror .claude/skills into .agents/skills; check the kit; register FormTxt with Claude Code, Codex and Cursor
+  mcpb check | build DIR  validate the Claude Desktop extension manifest; write formtxt-<version>.mcpb into DIR
   clean [--all]       remove build output (--all also venv and node_modules)
+  icons --check       fail when interface code, an insertable icon or an emoji draws a sparkle (banned app-wide)
   help                this text
 USAGE
 }
@@ -42,7 +46,18 @@ case "$cmd" in
       *) usage; exit 2 ;;
     esac ;;
   cli) exec python3 setup/catalogue.py "$@" ;;
+  mcp) exec python3 setup/mcp_stdio.py "$@" ;;
+  agents) exec python3 setup/agents.py "$@" ;;
+  mcpb)
+    sub="${1:-check}"
+    [ $# -gt 0 ] && shift
+    case "$sub" in
+      check) exec python3 setup/mcpb.py --check ;;
+      build) exec python3 setup/mcpb.py --build "$@" ;;
+      *) usage; exit 2 ;;
+    esac ;;
   clean) exec setup/clean "$@" ;;
+  icons) exec python3 -B setup/icon_rules.py ;;
   help|-h|--help) usage ;;
   *) printf '[formtxt] unknown command: %s\n\n' "$cmd"; usage; exit 2 ;;
 esac

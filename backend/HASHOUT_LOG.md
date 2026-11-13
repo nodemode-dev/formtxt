@@ -2,10 +2,19 @@
 
 Living log of comment content, rationale and removed code for the engine. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.30.8
-Last updated: 2026-11-13 · the v0.30.8 fixes to the engine entry and scripts (section below). Before: 2026-11-12 · the v0.30.7 review fixes. Before: 2026-10-31 · .js, .mjs and .css keep their types on Windows; the Linux packages pull in the media plugins. Before: macOS engine signed for notarization
+Current build version: v0.32.0
+Last updated: 2026-11-13 · v0.32.0 has no change in the engine; `setup/icon_rules.py` also checks the insertable icon and emoji data (frontend log). Before: 2026-11-13 · v0.31.0: MCP, terminals and Claude Code in the engine, the agent kit (section below). Before: 2026-11-13 · the v0.30.8 fixes to the engine entry and scripts (section below). Before: 2026-11-12 · the v0.30.7 review fixes. Before: 2026-10-31 · .js, .mjs and .css keep their types on Windows; the Linux packages pull in the media plugins. Before: macOS engine signed for notarization
 
 ---
+
+## v0.31.0 · MCP, terminals and Claude Code in the engine, the agent kit (2026-11-13)
+
+- routers/mcp.py :: `TOOLS`, `call_tool`, `consent`, `WINDOW_ONLY`, `status` · `/mcp` with `list_commands`, `describe_command`, `run_command` over the mirrored catalogue and the existing `bridge.call` (shell ported from formtools). Protocol versions 2025-11-25 down to 2024-11-05. Window-only ids (`view.terminal`, `view.newTerminal`, `agent.claudeCode`, `agent.chat`, and the `terminal.`, `claudecode.`, `chat.` prefixes) are refused to agents and marked in the list. `GET /api/mcp/status`.
+- services/agents.py :: `INAPP_TOKEN`, `is_inapp`, `allowed`, `set_allowed`; routers/system.py :: `set_settings` accepts `agentsAllowed` · the first `run_command` from an outside agent sends `__consent__` to the window and waits up to 180 s for `{allowed}`; a refusal holds for 10 minutes; the in-app token (`x-formtxt-inapp`, `FORMTXT_INAPP_TOKEN`) skips consent and names the client "Claude Code in FormTxt".
+- services/terminal.py, routers/terminal.py, services/claude_code.py, routers/claude_code.py · formvis's PTY and Claude Code services with the same routes and message formats (`/api/terminal`, `/api/agent/claude`, `/api/claude-code/status`). `document_folder()` is the Documents folder, because the engine does not track the open file. A missing ptyprocess leaves the engine running and the terminal answers with the install line. main.py :: `lifespan` binds the loop and stops processes at shutdown. LocalGuard already covers WebSockets.
+- requirements.txt, requirements_macos.txt · ptyprocess 0.7.0 (ISC), pywinpty 3.0.5 (MIT), NOTICE rows, and a row saying Claude Code is the person's own install. The freeze scripts are unchanged: `--collect-submodules app` already picks both up.
+- Kit: setup/mcp_stdio.py (finds the engine through `engine.json`, starts `./formtxt backend` if nothing answers), setup/agents.py (sync, check, install), setup/mcpb.py with manifest (version stamped at build from `version.ts`, so it is not a version site), `.mcp.json`, `.cursor/mcp.json`, `.codex/config.toml`, `.claude-plugin/plugin.json`, skills `formtxt-driving` and `formtxt-harness` mirrored to `.agents/skills`, launcher lines `mcp`, `agents`, `mcpb`, `icons`, CI steps. AGENTS.md lost its placeholder sentence: "MCP tools for editing documents arrive in Phase 9 of the plan."
+- Open: the stdio bridge has no `--attach` mode; the packaged app has no `mcp` hand-over mode as formvis has.
 
 ## v0.30.8 · review fixes, scripts and engine entry (2026-11-13)
 

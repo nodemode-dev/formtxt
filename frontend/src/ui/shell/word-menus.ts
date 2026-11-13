@@ -191,7 +191,8 @@ export function wordMenus(recent: () => Array<{ id: string; title: string }>): M
       'view.ruler', 'view.gridlines', 'view.collapseHeading', '-',
       'view.zoomIn', 'view.zoomOut', SM('Zoom', ZOOM_PERCENT), 'view.onePage', SM('Multiple Pages', MULTI), '-',
       'view.draw', 'view.toggleTheme', 'view.darkPage', '-',
-      'review.panel', 'versions.panel', 'access.panel', 'speech.panel', 'ai.togglePanel',
+      'review.panel', 'versions.panel', 'access.panel', 'speech.panel', 'ai.togglePanel', '-',
+      'view.terminal', 'view.newTerminal', 'agent.claudeCode', 'agent.chat',
     ] },
     { label: 'Insert', items: [
       SM('Break', BREAKS), SM('Page Number', PAGE_NUMBERS), 'insert.headerFooter', 'insert.coverPage', '-',
@@ -235,6 +236,6 @@ export function wordMenus(recent: () => Array<{ id: string; title: string }>): M
       'view.split', SM('Zoom', ZOOM_PERCENT), 'view.onePage', SM('Multiple Pages', MULTI), '-',
       'tabs.add', '-', 'home.open',
     ] },
-    { label: 'Help', items: ['edit.commandPalette', 'help.shortcuts', '-', 'help.whatsNew', 'help.feedback', 'help.about', '-', 'app.preferences'] },
+    { label: 'Help', items: ['edit.commandPalette', 'help.shortcuts', '-', 'help.whatsNew', SM('Demos', ['demo.review', 'demo.paper', 'demo.newsletter']), 'help.feedback', 'help.about', '-', 'app.preferences'] },
   ];
 }

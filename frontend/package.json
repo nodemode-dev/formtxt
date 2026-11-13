@@ -1,7 +1,7 @@
 {
   "name": "formtxt",
   "private": true,
-  "version": "0.30.8",
+  "version": "0.32.0",
   "description": "FormTxt: documents in the form family, an open alternative to Word and Google Docs",
   "license": "Apache-2.0",
   "type": "module",
@@ -13,6 +13,7 @@
     "build": "tsc --noEmit && vite build",
     "preview": "vite preview",
     "typecheck": "tsc --noEmit",
+    "demo": "vite build --config vite.demo.config.ts --mode review && vite build --config vite.demo.config.ts --mode paper && vite build --config vite.demo.config.ts --mode newsletter",
     "tauri": "tauri"
   },
   "dependencies": {
@@ -24,6 +25,8 @@
     "@fontsource/space-grotesk": "5.3.0",
     "@fontsource/work-sans": "5.3.0",
     "@tauri-apps/api": "2.12.1",
+    "@xterm/addon-fit": "0.11.0",
+    "@xterm/xterm": "6.0.0",
     "emojibase-data": "17.0.0",
     "katex": "0.19.0",
     "mermaid": "12.1.0",

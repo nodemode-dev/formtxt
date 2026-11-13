@@ -424,8 +424,8 @@ figure.ft-diagram.is-selected { outline: 2px solid var(--accent-color); outline-
 .ft-editor[data-view="read"], .ft-editor[data-view="focus"] { grid-template-rows: 0 minmax(0, 1fr); }
 .ft-editor[data-view="focus"] .ft-outline { display: none; }
 .ft-editor[data-view="focus"] .ft-editor-body { grid-template-columns: minmax(0, 1fr); }
-body.ft-focus #app { grid-template-rows: 0 1fr 0; }
-body.ft-focus .ft-titlebar, body.ft-focus .ft-status { visibility: hidden; overflow: hidden; }
+body.ft-focus #app { grid-template-rows: 0 0 minmax(0, 1fr) 0 0; }
+body.ft-focus .ft-titlebar, body.ft-focus .ft-ribbon-host, body.ft-focus .ft-status { visibility: hidden; overflow: hidden; }
 .ft-pm span.ft-tab { display: inline-block; height: 1em; vertical-align: baseline; color: transparent; overflow: hidden; white-space: pre; user-select: none; }
 .ft-pm span.ft-tab.leader-dot { border-bottom: 2px dotted currentColor; color: transparent; border-color: #6b6b6b; }
 .ft-pm span.ft-tab.leader-dash { border-bottom: 1px dashed #6b6b6b; }

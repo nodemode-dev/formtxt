@@ -1,0 +1,8 @@
+const MARK = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64"><defs><linearGradient id="{p}bg" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#2B2833"/><stop offset="1" stop-color="#131116"/></linearGradient><linearGradient id="{p}page" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#34323A"/><stop offset="1" stop-color="#232127"/></linearGradient><linearGradient id="{p}ink" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#FFA35C"/><stop offset=".45" stop-color="#FF5C8A"/><stop offset="1" stop-color="#8A5CFF"/></linearGradient><clipPath id="{p}clip"><rect width="64" height="64" rx="14.4"/></clipPath></defs><g clip-path="url(#{p}clip)"><rect width="64" height="64" fill="url(#{p}bg)"/><rect x="17" y="12" width="30" height="40" rx="2.4" fill="#000" fill-opacity=".35" transform="translate(.4 1)"/><rect x="17" y="12" width="30" height="40" rx="2.4" fill="url(#{p}page)" stroke="#fff" stroke-opacity=".08" stroke-width=".4"/><path d="M27.5 17H39a.9.9 0 0 1 .9.9V36a1.8 1.8 0 0 1-3.6 0V20.6h-1.9V36a1.8 1.8 0 0 1-3.6 0V30.2h-3.3a6.6 6.6 0 0 1 0-13.2z" fill="url(#{p}ink)"/><rect x="22" y="42" width="20" height=".9" rx=".45" fill="#fff" fill-opacity=".38"/><rect x="22" y="45.6" width="13" height=".9" rx=".45" fill="#fff" fill-opacity=".38"/><rect x="37.4" y="43.6" width="1.3" height="4.6" rx=".65" fill="#fff"/></g><rect x=".4" y=".4" width="63.2" height="63.2" rx="14" fill="none" stroke="#fff" stroke-opacity=".1" stroke-width=".8"/></svg>`;
+
+let copies = 0;
+
+export function brandMark(size: number, label = 'formtxt'): string {
+  const p = `ft-mark${++copies}-`;
+  return MARK.replace(/\{p\}/g, p).replace('<svg ', `<svg class="ft-mark" width="${size}" height="${size}" role="img" aria-label="${label}" `);
+}

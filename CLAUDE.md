@@ -8,6 +8,7 @@ Documents in the form family: an open, local-first Word and Google Docs alternat
 - Zero DOM flash: patch nodes with the helpers in `frontend/src/ui/dom.ts`, never rebuild a live container; verify under 4x CPU and network throttling.
 - Every `z-index` comes from the `--z-*` scale in `frontend/src/styles/tokens.css`.
 - Icons are inline `currentColor` SVG in `frontend/src/ui/icons.ts`; no icon libraries, no emojis, no React.
+- The sparkle icon (a cluster of four-point stars, or a wand trailing them) is banned app-wide, under any name and in any form (SVG, glyph, CSS content), for AI, Claude Code or anything else; use the `agent`, `agentChat` and `terminal` icons for Claude Code and agents. `./formtxt icons --check` fails if it returns. The ban covers what a document can insert too: the Tabler icons and emoji that draw a sparkle are listed in `frontend/src/data/retired-icons.json`, left out of Insert > Icons, `insert.icon` and the emoji panel, and drawn as nothing in documents that already hold one; the check fails if a sparkle in either set is not listed.
 - The engine owns the document; every user action is a command in `frontend/src/engine/registry.ts`, mirrored to `/api/commands` and `./formtxt cli`.
 - `docs/FORMAT.md` is the `.ftxt` contract and wins over the code.
 - Comments live in `frontend/HASHOUT_LOG.md` and `backend/HASHOUT_LOG.md`, not in source.
@@ -30,6 +31,13 @@ Documents in the form family: an open, local-first Word and Google Docs alternat
 ## Commands
 
 `./build_app` at the root builds the desktop app start to finish (tools check, installs, window, frozen engine with its fonts, dictionaries and WordNet data, `tauri build`, bundle) and logs to `build_app.log`; it is the one command for a desktop build (`build_app.bat` on Windows). `./formtxt_oc_install`, then `./formtxt` boots both sides. With the window open, `./formtxt cli list` reads the command catalogue and `./formtxt cli run <id> key=value` runs a command in the window through the `/api/live` bridge (`POST /api/commands/<id>` and `/api/commands/batch` do the same over HTTP).
+
+## Claude Code
+
+- Editing documents through FormTxt: the MCP server `formtxt` (`./formtxt mcp`, already in `.mcp.json`) offers `list_commands`, `describe_command` and `run_command` over the same catalogue; load the `formtxt-driving` skill. The window must be open; the first `run_command` from an outside agent asks the person once, and their answer is the `agentsAllowed` setting.
+- Changing FormTxt's code: load the `formtxt-harness` skill; its `terminal-operator` sub-skill covers the dock, PTYs and Claude Code.
+- Inside the app, the terminal dock runs shells and the person's own Claude Code in engine-owned PTYs (`backend/app/services/terminal.py`, `claude_code.py`, routes under `/api/terminal` and `/api/agent/claude`). A Claude Code tab gets this engine's `/mcp` with a per-run token in its environment, so it is not asked for consent. `view.terminal`, `view.newTerminal`, `agent.claudeCode` and `agent.chat` are window-only: `run_command` refuses them (`WINDOW_ONLY` in `backend/app/routers/mcp.py`).
+- Skills live in `.claude/skills` and are mirrored to `.agents/skills` by `./formtxt agents sync`; `./formtxt agents check` and `./formtxt mcpb check` must pass. `./formtxt agents install` registers the server with Claude Code, Codex and Cursor for this user.
 
 ## Commits
 

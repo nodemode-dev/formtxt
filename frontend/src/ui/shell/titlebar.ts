@@ -1,6 +1,8 @@
 import { commands as registry } from '../../engine/registry';
-import { el, patchList, setClass, setHidden, setHtml, setText, setTitle } from '../dom';
+import { brandMark } from '../brand';
+import { el, isMac, patchList, setClass, setHidden, setHtml, setText, setTitle } from '../dom';
 import { chromeIcon } from '../icons-chrome';
+import { icon } from '../icons';
 import type { Commands } from './cmd';
 
 export type EditMode = 'editing' | 'suggesting' | 'viewing';
@@ -54,6 +56,7 @@ export class TitleBar {
   private picked = 0;
   private hits: Hit[] = [];
   private mode: EditMode = 'editing';
+  dock: (kind: 'chat' | 'claude' | 'shell') => void = () => undefined;
 
   constructor(host: HTMLElement, private readonly d: TitleBarDeps) {
     this.ids = { ...TITLEBAR_IDS, ...d.ids };
@@ -62,9 +65,12 @@ export class TitleBar {
       '<header class="ft-titlebar">' +
       '<nav class="ft-menubar" aria-label="Main menu"></nav>' +
       '<div class="ft-qat-host"></div>' +
-      `<div class="ft-tb-title"><img class="ft-logo ft-tb-logo" src="/formtxt-logo.png" width="16" height="16" alt="" draggable="false"><span class="ft-tb-doc"></span><span class="ft-tb-app">${this.appName}</span></div>` +
+      `<div class="ft-tb-title">${brandMark(16)}<span class="ft-tb-doc"></span><span class="ft-tb-app">${this.appName}</span></div>` +
       '<div class="ft-tb-tools">' +
       `<div class="ft-search"><span class="ft-search-icon">${chromeIcon('tbSearch', 14)}</span><input class="ft-search-input" type="text" placeholder="Search" spellcheck="false" autocomplete="off" role="combobox" aria-expanded="false" aria-label="Search commands" title="Search commands (Alt+Q)"><div class="ft-search-pop" role="listbox" hidden></div></div>` +
+      `<button class="ft-tt-btn" type="button" data-tt="chat" title="Chat with Claude" aria-label="Chat with Claude" aria-pressed="false">${icon('agentChat', 16)}</button>` +
+      `<button class="ft-tt-btn" type="button" data-tt="claude" title="Claude Code" aria-label="Claude Code" aria-pressed="false">${icon('agent', 16)}</button>` +
+      `<button class="ft-tt-btn" type="button" data-tt="shell" title="Show Terminal (${isMac ? 'Cmd' : 'Ctrl'}+J)" aria-label="Show Terminal" aria-pressed="false">${icon('terminal', 16)}</button>` +
       '<button class="ft-tt-btn" type="button" data-tt="theme"></button>' +
       `<button class="ft-tt-btn" type="button" data-tt="prefs" title="Preferences" aria-label="Preferences">${chromeIcon('tbGear', 16)}</button>` +
       `<button class="ft-tt-btn" type="button" data-tt="comments" title="Comments and changes" aria-label="Comments and changes">${chromeIcon('tbComment', 16)}<span class="ft-tt-badge" hidden></span></button>` +
@@ -98,6 +104,7 @@ export class TitleBar {
       else if (which === 'prefs') this.run(this.ids.preferences);
       else if (which === 'comments') this.run(this.ids.comments);
       else if (which === 'share') this.run(this.ids.share);
+      else if (which === 'chat' || which === 'claude' || which === 'shell') this.dock(which);
     });
 
     this.modeBtn.addEventListener('click', () => this.toggleModePop());
@@ -157,6 +164,14 @@ export class TitleBar {
     if (this.mode === mode) return;
     this.mode = mode;
     this.paintMode();
+  }
+
+  syncDock(open: boolean, kind: string | null): void {
+    for (const b of Array.from(this.root.querySelectorAll<HTMLElement>('[data-tt="chat"], [data-tt="claude"], [data-tt="shell"]'))) {
+      const on = open && kind === b.dataset.tt;
+      setClass(b, 'is-on', on);
+      if (b.getAttribute('aria-pressed') !== String(on)) b.setAttribute('aria-pressed', String(on));
+    }
   }
 
   setCommentCount(n: number): void {

@@ -1,0 +1,8 @@
+{
+  "mcpServers": {
+    "formtxt": {
+      "command": "${workspaceFolder}/formtxt",
+      "args": ["mcp"]
+    }
+  }
+}

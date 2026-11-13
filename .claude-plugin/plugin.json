@@ -1,0 +1,14 @@
+{
+  "name": "formtxt",
+  "description": "Edit documents in FormTxt, the local-first document editor: the formtxt MCP server and the skill that drives it.",
+  "author": { "name": "nodemode-ai", "email": "mackin@nodemode.ai" },
+  "license": "Apache-2.0",
+  "keywords": ["documents", "writing", "editor", "mcp"],
+  "skills": ["./.claude/skills/formtxt-driving"],
+  "mcpServers": {
+    "formtxt": {
+      "command": "${CLAUDE_PLUGIN_ROOT}/formtxt",
+      "args": ["mcp"]
+    }
+  }
+}

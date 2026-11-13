@@ -3,6 +3,7 @@ import { Dialog } from '../ui/dialog';
 import { el, escapeHtml, patchList, setText } from '../ui/dom';
 import { toast } from '../ui/toast';
 import type { DocEditor } from './editor';
+import { retiredPath } from './retired-icons';
 import { insertShape } from './shape';
 
 interface Entry { name: string; cat: number; tags: string; o: string; f: string; label: string }
@@ -16,7 +17,7 @@ function load(): Promise<Library> {
     if (!r.ok) throw new Error(`HTTP ${r.status}`);
     return r.json();
   }).then((raw: { source: string; cats: string[]; icons: Array<[string, number, string, string, string]> }) => ({
-    source: raw.source, cats: raw.cats, icons: raw.icons.map(([name, cat, tags, o, f]) => ({ name, cat, tags, o, f, label: name.replace(/-/g, ' ') })),
+    source: raw.source, cats: raw.cats, icons: raw.icons.filter((e) => !retiredPath(e[3])).map(([name, cat, tags, o, f]) => ({ name, cat, tags, o, f, label: name.replace(/-/g, ' ') })),
   }));
   library.catch(() => { library = null; });
   return library;

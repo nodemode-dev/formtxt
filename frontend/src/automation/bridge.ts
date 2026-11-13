@@ -1,6 +1,7 @@
 import type { CommandRegistry } from '../engine/registry';
 import { asAgent } from './actor';
 import { mirrorCatalogue } from './catalogue';
+import { askAgents } from '../ui/agent-confirm';
 
 function safe(value: unknown): unknown {
   if (value === undefined) return null;
@@ -21,6 +22,11 @@ export function connectBridge(reg: CommandRegistry): void {
       let msg: { t?: string; id?: string; command?: string; params?: Record<string, unknown> };
       try { msg = JSON.parse(String(ev.data)); } catch { return; }
       if (msg.t !== 'run' || !msg.id || !msg.command) return;
+      if (msg.command === '__consent__') {
+        const allowed = await askAgents();
+        ws.send(JSON.stringify({ t: 'result', id: msg.id, ok: true, result: { allowed } }));
+        return;
+      }
       try {
         const result = await asAgent(async () => reg.run(msg.command!, msg.params ?? {}));
         ws.send(JSON.stringify({ t: 'result', id: msg.id, ok: true, result: safe(result) }));

@@ -1,6 +1,7 @@
 import { Dialog } from '../ui/dialog';
 import { el, escapeHtml, patchList, setClass, setText } from '../ui/dom';
 import { toast } from '../ui/toast';
+import { retiredEmoji } from './retired-icons';
 
 export interface Emoji { char: string; label: string; group: number; tags: string[]; skins: string[] }
 
@@ -13,7 +14,7 @@ export function loadEmoji(): Promise<Emoji[]> {
   if (!data) {
     data = import('emojibase-data/en/compact.json').then((m) => {
       const raw = (m.default ?? m) as unknown as Array<{ unicode: string; label: string; group?: number; order?: number; tags?: string[]; skins?: Array<{ unicode: string }> }>;
-      return raw.filter((e) => e.group !== undefined && e.group !== 2).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
+      return raw.filter((e) => e.group !== undefined && e.group !== 2 && !retiredEmoji(e.unicode)).sort((a, b) => (a.order ?? 0) - (b.order ?? 0))
         .map((e) => ({ char: e.unicode, label: e.label, group: e.group!, tags: e.tags ?? [], skins: (e.skins ?? []).map((s) => s.unicode) }));
     });
   }
@@ -24,7 +25,7 @@ const RECENT_KEY = 'formtxt.emoji.recent';
 const TONE_KEY = 'formtxt.emoji.tone';
 
 function readRecent(): string[] {
-  try { const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string').slice(0, 32) : []; } catch { return []; }
+  try { const v = JSON.parse(localStorage.getItem(RECENT_KEY) ?? '[]'); return Array.isArray(v) ? v.filter((x) => typeof x === 'string' && !retiredEmoji(x)).slice(0, 32) : []; } catch { return []; }
 }
 
 function pushRecent(char: string): void {

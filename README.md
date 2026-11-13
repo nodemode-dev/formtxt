@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img alt="version 0.30.8" src="https://img.shields.io/badge/version-0.30.8-eef0f4?style=flat-square">
+  <img alt="version 0.32.0" src="https://img.shields.io/badge/version-0.32.0-eef0f4?style=flat-square">
   <img alt="TypeScript and Vite" src="https://img.shields.io/badge/TypeScript%20%2B%20Vite-3178c6?style=flat-square&logo=typescript&logoColor=white">
   <img alt="Python and FastAPI" src="https://img.shields.io/badge/Python%20%2B%20FastAPI-009688?style=flat-square">
   <img alt="macOS, Windows, Linux" src="https://img.shields.io/badge/macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-native-2f7bf5?style=flat-square">
@@ -24,7 +24,7 @@
   <a href="#run-it-from-source">Run it from source</a>
 </p>
 
-Version 0.30.8 · Apache-2.0 · macOS, Windows, Linux (browser, or the desktop app built with ./build_app)
+Version 0.32.0 · Apache-2.0 · macOS, Windows, Linux (browser, or the desktop app built with ./build_app)
 
 <br>
 
@@ -105,9 +105,11 @@ The editor's commands live in one catalogue, and the window and the terminal cal
 ./formtxt cli list                                                  # the command catalogue
 ./formtxt cli describe tools.stats                                  # one command and its arguments
 ./formtxt cli run edit.replaceAll find=draft replace=final          # run a command in the open window
+./formtxt mcp                                                       # MCP server on stdio for Claude Code, Codex and Cursor
+./formtxt agents install                                            # register that server and the formtxt-driving skill for this user
 ```
 
-The commands need the window open. See [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md).
+The commands need the window open, and the first one an outside agent runs asks you once in the window. `.mcp.json`, `.codex/config.toml` and `.cursor/mcp.json` are already wired in this repo. See [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md).
 
 ## Under the hood
 
@@ -126,6 +128,15 @@ The commands need the window open. See [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`
 | Linux | [Download FormTxt for Linux](https://formai.studio/get/formtxt/linux) | [FormTxt releases on FormCompiler](https://github.com/nodemode-dev/formcompiler/releases?q=formtxt-v&expanded=true) |
 
 All FormTxt builds are compiled and released from [FormCompiler](https://github.com/nodemode-dev/formcompiler); this repo holds the source.
+
+## Demo
+
+[`demo/index.html`](demo/index.html) is an offline demo that opens from `file://` or any static server and runs the real FormTxt window: A report under review, an annual report with suggested edits by two people, comments, a chart and a table. The document lives in the page for that tab; what needs the engine (new documents, templates, other formats, export, proofing, versions, sharing, the assistant and the terminal) says so. See [`demo/README.md`](demo/README.md).
+
+- [`demos/paper/index.html`](demos/paper/index.html): A paper with references, with contents, equations, figures, footnotes, citations and a bibliography. See [`demos/paper/README.md`](demos/paper/README.md).
+- [`demos/newsletter/index.html`](demos/newsletter/index.html): A two-column newsletter, with Text Art, an IntelligentArt diagram, pictures and events. See [`demos/newsletter/README.md`](demos/newsletter/README.md).
+
+The same three demos open inside the app from Home, from Help > Demos, or with the `demo.review`, `demo.paper` and `demo.newsletter` commands, each as a new document in your library.
 
 ## Run it from source
 
@@ -168,4 +179,4 @@ FormTxt is licensed under the Apache License 2.0 ([`LICENSE`](LICENSE), SPDX `Ap
 
 <sub>Screenshot content: a CC0 photo from Poly Haven and an original sample document.</sub>
 
-<sub>Microsoft, Word and Office are trademarks of the Microsoft group of companies. Google Docs is a trademark of Google LLC. FormTxt is not affiliated with or endorsed by Microsoft or Google; the names describe file formats, key sets and compatibility only.</sub>
+<sub>Microsoft, Word and Office are trademarks of the Microsoft group of companies. Google Docs is a trademark of Google LLC. FormTxt is not affiliated with or endorsed by Microsoft or Google; the names describe file formats, key sets and compatibility only. Claude Code, Codex and Cursor are trademarks of Anthropic, OpenAI and Anysphere respectively, named only as MCP clients FormTxt works with.</sub>

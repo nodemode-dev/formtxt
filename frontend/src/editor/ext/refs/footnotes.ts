@@ -17,7 +17,7 @@ export function pageFootnotes(ed: DocEditor): void {
   let measure: HTMLElement | null = null;
   pag.reserve = (p) => reserve.get(p) ?? 0;
 
-  const active = (): boolean => !!ed.view && ed.viewMode === 'print' && pages.dataset.mode === 'paged';
+  const active = (): boolean => !!ed.view && ed.viewMode !== 'draft' && pages.dataset.mode === 'paged';
 
   const notesOf = (): Note[] => {
     const out: Note[] = [];

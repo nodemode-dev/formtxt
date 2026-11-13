@@ -1,0 +1,47 @@
+{
+  "manifest_version": "0.2",
+  "name": "formtxt",
+  "display_name": "FormTxt",
+  "version": "0.0.0",
+  "description": "Edit documents in FormTxt, the local-first document editor: find, describe and run the editor's commands on the document open in its window.",
+  "long_description": "Connects Claude Desktop to FormTxt running on this computer through a stdio bridge to the engine's MCP endpoint on 127.0.0.1. Start FormTxt first (the desktop app, or ./formtxt in the formtxt folder). Every command runs in the open window as one undoable step, and the first one asks you, in the FormTxt window, to allow outside agents. The version is filled in from the app when the bundle is built.",
+  "author": {
+    "name": "nodemode-ai",
+    "email": "mackin@nodemode.ai"
+  },
+  "license": "Apache-2.0",
+  "keywords": ["documents", "writing", "editor", "docx", "mcp"],
+  "server": {
+    "type": "python",
+    "entry_point": "server/mcp_stdio.py",
+    "mcp_config": {
+      "command": "python3",
+      "args": ["${__dirname}/server/mcp_stdio.py", "--url", "${user_config.engine_url}"],
+      "platform_overrides": {
+        "win32": {
+          "command": "python"
+        }
+      }
+    }
+  },
+  "tools": [
+    { "name": "list_commands", "description": "List the commands the FormTxt window can run." },
+    { "name": "describe_command", "description": "Describe one command and its parameters." },
+    { "name": "run_command", "description": "Run one command in the open FormTxt window." }
+  ],
+  "user_config": {
+    "engine_url": {
+      "type": "string",
+      "title": "Engine address",
+      "description": "The FormTxt engine's MCP address on this computer.",
+      "default": "http://127.0.0.1:8210/mcp",
+      "required": false
+    }
+  },
+  "compatibility": {
+    "platforms": ["darwin", "win32", "linux"],
+    "runtimes": {
+      "python": ">=3.9"
+    }
+  }
+}

@@ -117,9 +117,16 @@ jobs:
       - name: Shell syntax
         run: |
           for f in formtxt formtxt_oc_install build_app backend/oc_install backend/boot_backend frontend/oc_install frontend/boot_frontend setup/*; do
+            [ -f "$f" ] || continue
             case "$f" in *.bat|*.py) continue ;; esac
             bash -n "$f"
           done
+      - name: Agents kit
+        run: ./formtxt agents check
+      - name: Claude Desktop extension manifest
+        run: ./formtxt mcpb check
+      - name: No sparkle icon
+        run: python3 -B setup/icon_rules.py
       - name: No em dash or emoji in tracked markdown
         run: |
           python3 - <<'PY'
