@@ -159,6 +159,7 @@ class Ctx:
         self.headings = 0
         self.base_family = self.fam(str(self.resolve("Normal")[0].get("font") or "Inter"))
         self.default_tab = float(doc.get("settings", {}).get("defaultTab") or 36)
+        self.max_h = 648.0 * 0.9
 
     def warn(self, text: str) -> None:
         if text and text not in self.warnings:
@@ -435,7 +436,7 @@ def paragraph_flowables(ctx: Ctx, block: dict, avail: float, parent: Elem, top: 
             if str(r.get("wrap") or "inline") not in ("inline", "topBottom"):
                 ctx.warn("Pictures that float around text are placed in line in the PDF.")
             w, h = pic[1], pic[2]
-            scale = min(1.0, (avail - st.leftIndent - st.rightIndent) / max(w, 1))
+            scale = min(1.0, (avail - st.leftIndent - st.rightIndent) / max(w, 1), ctx.max_h / max(h, 1))
             img = Image(pic[0], w * scale, h * scale)
             img.hAlign = "CENTER" if st.alignment == TA_CENTER else "RIGHT" if st.alignment == TA_RIGHT else "LEFT"
             img.spaceBefore, img.spaceAfter = st.spaceBefore, st.spaceAfter
@@ -461,7 +462,7 @@ def paragraph_flowables(ctx: Ctx, block: dict, avail: float, parent: Elem, top: 
         elif t == "image":
             pic = ctx.picture(r)
             if pic:
-                scale = min(1.0, (avail - st.leftIndent) / max(pic[1], 1))
+                scale = min(1.0, (avail - st.leftIndent) / max(pic[1], 1), ctx.max_h / max(pic[2], 1))
                 parts.append(f'<img src="{pic[0]}" width="{pic[1] * scale:.1f}" height="{pic[2] * scale:.1f}" valign="bottom"/>')
                 if r.get("alt"):
                     alt_texts.append(str(r["alt"]))
@@ -474,7 +475,7 @@ def paragraph_flowables(ctx: Ctx, block: dict, avail: float, parent: Elem, top: 
             if drawn:
                 w = float(r.get("width") or drawn[1] * 0.375)
                 h = float(r.get("height") or drawn[2] * 0.375)
-                sc = min(1.0, (avail - st.leftIndent) / max(w, 1))
+                sc = min(1.0, (avail - st.leftIndent) / max(w, 1), ctx.max_h / max(h, 1))
                 parts.append(f'<img src="{drawn[0]}" width="{w * sc:.1f}" height="{h * sc:.1f}" valign="bottom"/>')
                 if str(r.get("wrap") or "front") not in ("inline", "topBottom"):
                     ctx.warn("Shapes and pictures that float around text are placed in line in the PDF.")
@@ -539,9 +540,9 @@ def paragraph_flowables(ctx: Ctx, block: dict, avail: float, parent: Elem, top: 
         flow.style = copy(st)
         flow.style.leftIndent = 0
         flow.style.spaceBefore = flow.style.spaceAfter = 0
-        wrapper = Table([[out[0]]], colWidths=[max(10, avail - st.leftIndent - st.rightIndent)], style=cmds, hAlign="RIGHT" if st.leftIndent else "LEFT")
+        wrapper = Table([[out[0]]], colWidths=[max(10, avail - st.leftIndent - st.rightIndent)], style=cmds, hAlign="RIGHT" if st.leftIndent else "LEFT", splitInRow=1)
         if st.leftIndent:
-            wrapper = Table([[wrapper]], colWidths=[avail - st.rightIndent], style=[("LEFTPADDING", (0, 0), (-1, -1), st.leftIndent), ("RIGHTPADDING", (0, 0), (-1, -1), 0), ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0)])
+            wrapper = Table([[wrapper]], colWidths=[avail - st.rightIndent], style=[("LEFTPADDING", (0, 0), (-1, -1), st.leftIndent), ("RIGHTPADDING", (0, 0), (-1, -1), 0), ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0)], splitInRow=1)
         wrapper.spaceBefore, wrapper.spaceAfter = st.spaceBefore, st.spaceAfter
         return [wrapper]
     return out
@@ -700,7 +701,7 @@ def table_flowable(ctx: Ctx, block: dict, avail: float, parent: Elem) -> list[Fl
         weight = w * 3 if style == "double" else w
         dash = (3, 2) if style == "dashed" else (1, 2) if style == "dotted" else None
         cmds.append((name, pos, pos, weight, color(col), 0, dash))
-    table = Table(data, colWidths=widths, style=cmds, repeatRows=header_rows if block.get("repeatHeader") else 0, splitByRow=1,
+    table = Table(data, colWidths=widths, style=cmds, repeatRows=header_rows if block.get("repeatHeader") else 0, splitByRow=1, splitInRow=1,
                   hAlign="CENTER" if block.get("align") == "center" else "LEFT")
     table.spaceBefore, table.spaceAfter = 2, 8
     return [table]
@@ -813,6 +814,7 @@ class Builder:
             if group:
                 geo = geometry(current)
                 avail = (geo["w"] - geo["left"] - geo["right"] - geo["gap"] * (geo["cols"] - 1)) / geo["cols"]
+                self.ctx.max_h = max(36.0, (geo["h"] - geo["top"] - geo["bottom"]) * 0.9)
                 story.extend(blocks_flowables(self.ctx, list(group), avail, root))
                 group.clear()
 
