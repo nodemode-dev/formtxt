@@ -11,7 +11,7 @@ import type { FtxtDocument, ParaProps, RunProps } from '../engine/model';
 import { Dialog } from '../ui/dialog';
 import { el, escapeHtml, patchList, setClass, setHidden, setText, setValue } from '../ui/dom';
 import { icon } from '../ui/icons';
-import { type CaseMode, changeCase, clearFormatting, insertColumnBreak, insertPageBreak, mark, setAlign, setLineSpacing, setLink, setMarkValue, setParaProps, setStyle, shiftIndent, splitWithNextStyle, toggleChecked, toggleCodeBlock, toggleCollapsed, toggleList } from './commands';
+import { type CaseMode, KEEP_MARKS, changeCase, clearFormatting, insertColumnBreak, insertPageBreak, mark, setAlign, setLineSpacing, setLink, setMarkValue, setParaProps, setStyle, shiftIndent, splitWithNextStyle, toggleChecked, toggleCodeBlock, toggleCollapsed, toggleList } from './commands';
 import { fromPM, toPM } from './convert';
 import { collapsePlugin, findKey, findPlugin, rules, uniqueIds } from './plugins';
 import type { DocTab, Section, Style } from '../engine/model';
@@ -738,8 +738,8 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     setClass(this.mount, 'is-painting', false);
     const tr = this.view.state.tr;
     if (!empty) {
-      for (const t of Object.values(schema.marks)) if (t.name !== 'link') tr.removeMark(from, to, t);
-      for (const m of paint.marks) if (m.type.name !== 'link') tr.addMark(from, to, m);
+      for (const t of Object.values(schema.marks)) if (!KEEP_MARKS.has(t.name)) tr.removeMark(from, to, t);
+      for (const m of paint.marks) if (!KEEP_MARKS.has(m.type.name)) tr.addMark(from, to, m);
     }
     if (paint.para) {
       this.view.state.doc.nodesBetween(from, to, (node, pos) => {

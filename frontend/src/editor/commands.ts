@@ -95,11 +95,13 @@ export function shiftIndent(delta: 1 | -1): Command {
 
 export const toggleChecked: Command = paraCommand((n) => (n.attrs.list === 'check' ? { checked: !n.attrs.checked } : null));
 
+export const KEEP_MARKS = new Set(['link', 'ins', 'del', 'comment', 'fmt', 'lang']);
+
 export const clearFormatting: Command = (state, dispatch) => {
   const { from, to } = state.selection;
   if (dispatch) {
     const tr = state.tr;
-    for (const t of Object.values(schema.marks)) if (t.name !== 'link') tr.removeMark(from, to, t);
+    for (const t of Object.values(schema.marks)) if (!KEEP_MARKS.has(t.name)) tr.removeMark(from, to, t);
     state.doc.nodesBetween(from, to, (node, pos) => {
       if (node.type === schema.nodes.paragraph) tr.setNodeMarkup(pos, undefined, { ...node.attrs, style: 'Normal', align: '', indent: 0, indentRight: 0, indentFirst: 0, spaceBefore: null, spaceAfter: null, lineSpacing: null, keepNext: false, keepLines: false, widowControl: true, border: '', shading: '', tabs: null, collapsed: false });
       return node.type !== schema.nodes.paragraph;
