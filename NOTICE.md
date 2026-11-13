@@ -16,6 +16,7 @@ FormTxt. Copyright 2026 NodeAgentc, Inc. Licensed under the Apache License 2.0 (
 | Mermaid 12.1.0 (https://mermaid.js.org) and its dependencies (d3, dagre-d3-es, cytoscape, DOMPurify, khroma, dayjs and others; all MIT, ISC, BSD or Apache-2.0), with its KaTeX pinned to the 0.19.0 above | MIT | Mermaid diagrams |
 | elkjs 0.9.3 (https://github.com/kieler/elkjs), Eclipse Layout Kernel compiled to JavaScript, a dependency of Mermaid for its optional ELK layout; shipped unmodified, source at that address | EPL-2.0 (weak copyleft, applies to elkjs files only) | Mermaid's `layout: elk` diagrams |
 | emojibase-data 17.0.0 (https://emojibase.dev), Unicode emoji names and tags from the Unicode CLDR | MIT (data under the Unicode licence) | the emoji picker |
+| xterm.js (@xterm/xterm 6.0.0) and its fit addon (@xterm/addon-fit 0.11.0) | MIT | the terminal dock (View > Terminal); Claude Code itself is the person's own install and is not bundled |
 | Tabler Icons 3.49.0 (https://tabler.io/icons), copyright (c) 2020-2026 Paweł Kuna: 4,808 outline and 1,009 filled icons with names, categories and tags, as FormDeck re-encoded them into `frontend/src/data/tabler-icons.json` (copied byte for byte from FormDeck 0.23.0) | MIT | Insert > Icons |
 | Vite, TypeScript | MIT, Apache-2.0 | build tools, not shipped |
 | pytest 9.1.1 (with iniconfig, packaging, pluggy, pygments) | MIT (pytest, iniconfig, pluggy), Apache-2.0 OR BSD-2-Clause (packaging), BSD-2-Clause (pygments) | runs `backend/tests` in CI (`backend/requirements-test.txt`); never installed in the app |
