@@ -15,6 +15,8 @@ export function comboOf(e: KeyboardEvent): string {
   return parts.join('+');
 }
 
+const bindable = (combo: string): boolean => /^(Mod|Alt)\+/.test(combo) || /^(Shift\+)?F\d{1,2}$/.test(combo);
+
 const NATIVE_KEYS = new Set(['edit.cut', 'edit.copy', 'edit.paste', 'edit.selectAll']);
 const DECLARED = /^((Ctrl|Mod|Alt|Shift|Meta)\+)*([A-Za-z0-9]|F\d{1,2}|Enter|Escape|[.,/=\\-])$/;
 
@@ -71,7 +73,9 @@ export class Shortcuts {
     document.addEventListener('keydown', (e) => {
       const combo = comboOf(e);
       if (!combo || document.querySelector('.ft-scrim:not([hidden]) .is-recording')) return;
-      const id = Object.keys(this.custom).find((cid) => this.custom[cid].includes(combo)) ?? this.globals[combo];
+      const field = !!(e.target as HTMLElement | null)?.closest?.('input, textarea, select') && !/^(Shift\+)?F\d/.test(combo.replace(/^(Mod\+|Alt\+)+/, ''));
+      const quiet = field || !bindable(combo) || !!document.querySelector('.ft-scrim:not([hidden]), .ft-dialog-scrim:not([hidden])');
+      const id = (quiet ? undefined : Object.keys(this.custom).find((cid) => this.custom[cid].includes(combo))) ?? this.globals[combo];
       if (!id || !this.reg.has(id)) return;
       e.preventDefault();
       e.stopPropagation();
@@ -110,13 +114,21 @@ export class Shortcuts {
         if (k === 'reset') { delete this.custom[c.id]; this.save(); paint(); }
         if (k === 'change') {
           const btn = row.querySelector('[data-k="change"]') as HTMLElement;
+          if (btn.classList.contains('is-recording')) return;
           btn.classList.add('is-recording');
           setText(btn, 'Press keys');
           const once = (ev: KeyboardEvent): void => {
+            if (d.root.hidden) {
+              document.removeEventListener('keydown', once, true);
+              btn.classList.remove('is-recording');
+              setText(btn, 'Change');
+              return;
+            }
             const kc = comboOf(ev);
             if (!kc) return;
             ev.preventDefault();
             ev.stopPropagation();
+            if (kc !== 'Escape' && !bindable(kc)) { toast('Use Ctrl, Alt or Cmd with the key, or a function key', 'error'); return; }
             document.removeEventListener('keydown', once, true);
             btn.classList.remove('is-recording');
             setText(btn, 'Change');
