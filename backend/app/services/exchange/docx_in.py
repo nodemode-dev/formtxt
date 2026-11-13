@@ -1068,7 +1068,7 @@ class Reader:
                         state["rev"].pop(kind, None)
                     else:
                         state["rev"][kind] = saved
-                elif t in (qn("w:smartTag"), qn("w:customXml")):
+                elif t in (qn("w:smartTag"), qn("w:customXml"), qn("w:dir"), qn("w:bdo")):
                     walk(c, link)
                 elif t == qn("w:commentRangeStart"):
                     self.cm_start(c.get(qn("w:id")))
@@ -1217,7 +1217,7 @@ class Reader:
     def table(self, tbl, part) -> dict:
         grid_el = child(tbl, "w:tblGrid")
         grid = [num(g.get(qn("w:w")), 20) or 0 for g in (grid_el if grid_el is not None else [])]
-        rows_el = tbl.findall(qn("w:tr"))
+        rows_el = [tr for tr in tbl.iter(qn("w:tr")) if next(tr.iterancestors(qn("w:tbl")), None) is tbl]
         parsed = []
         for tr in rows_el:
             col = 0
@@ -1226,7 +1226,7 @@ class Reader:
             gb = child(trpr, "w:gridBefore")
             if gb is not None:
                 col += int(num(val(gb)) or 0)
-            for tc in tr.findall(qn("w:tc")):
+            for tc in [c for c in tr.iter(qn("w:tc")) if next(c.iterancestors(qn("w:tr")), None) is tr]:
                 tcpr = child(tc, "w:tcPr")
                 span = int(num(val(child(tcpr, "w:gridSpan"))) or 1)
                 vm = child(tcpr, "w:vMerge")
