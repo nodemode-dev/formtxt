@@ -61,7 +61,7 @@ def _sfnt_tables(data: bytes) -> dict[str, bytes]:
             raw = data[offset:offset + comp]
             if comp < orig:
                 try:
-                    raw = zlib.decompress(raw)
+                    raw = zlib.decompressobj().decompress(raw, min(orig, MAX_FONT_BYTES))
                 except zlib.error:
                     continue
             tables[tag.decode("latin-1")] = raw

@@ -253,11 +253,11 @@ class Odt:
     def list_style(self, items: list[dict]) -> str:
         levels: dict[int, dict] = {}
         for it in items:
-            levels.setdefault(min(int(it["list"].get("level", 0) or 0), 8), it["list"])
+            levels.setdefault(max(0, min(int(it["list"].get("level", 0) or 0), 8)), it["list"])
         name = self.new("L")
         lv_xml = []
         for lv in range(9):
-            lst = levels.get(lv) or levels.get(0)
+            lst = levels.get(lv) or levels.get(0) or levels[min(levels)]
             left = 36 + 18 * lv
             props = f'<style:list-level-properties text:list-level-position-and-space-mode="label-alignment"><style:list-level-label-alignment text:label-followed-by="listtab" text:list-tab-stop-position="{pt(left)}" fo:text-indent="-18pt" fo:margin-left="{pt(left)}"/></style:list-level-properties>'
             if lst["kind"] == "number":
@@ -277,7 +277,7 @@ class Odt:
         depth = 1
         open_item = [False] * 11
         for it in items:
-            level = min(int(it["list"].get("level", 0) or 0), 8)
+            level = max(0, min(int(it["list"].get("level", 0) or 0), 8))
             while depth > level + 1:
                 out.append("</text:list-item></text:list>" if open_item[depth] else "</text:list>")
                 open_item[depth] = False

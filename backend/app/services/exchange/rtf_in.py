@@ -1,3 +1,4 @@
+import codecs
 import re
 from collections import Counter
 
@@ -13,7 +14,9 @@ SKIP_DEST = {"rsidtbl", "generator", "themedata", "colorschememapping", "latents
              "category", "comment", "doccomm", "hlinkbase", "creatim", "revtim", "printim", "buptim", "pgdsc", "template", "filetbl", "mmath", "background",
              "defchp", "defpap", "formfield", "objdata"}
 KEEP_IGNORABLE = {"shppict", "header", "footer", "headerf", "footerf", "headerl", "footerl", "headerr", "footerr", "pict", "listtable", "listoverridetable", "footnote"}
-NFC_FORMAT = {0: "decimal", 1: "upper-roman", 2: "lower-roman", 3: "upper-alpha", 4: "lower-alpha", 22: "decimal-leading-zero"}
+CHARSET_CP = {77: "mac_roman", 128: "cp932", 129: "cp949", 134: "cp936", 136: "cp950", 161: "cp1253", 162: "cp1254", 163: "cp1258", 177: "cp1255",
+              178: "cp1256", 186: "cp1257", 204: "cp1251", 222: "cp874", 238: "cp1250"}
+NFC_FORMAT = {0:"decimal", 1: "upper-roman", 2: "lower-roman", 3: "upper-alpha", 4: "lower-alpha", 22: "decimal-leading-zero"}
 CHARS = {"emdash": "\u2014", "endash": "\u2013", "lquote": "\u2018", "rquote": "\u2019", "ldblquote": "\u201c", "rdblquote": "\u201d", "bullet": "\u2022",
          "emspace": "\u2003", "enspace": "\u2002", "qmspace": "\u2005", "zwj": "\u200d", "zwnj": "\u200c"}
 HF_KEYS = {"header": ("headers", "default"), "footer": ("footers", "default"), "headerf": ("headers", "first"), "footerf": ("footers", "first"),
@@ -41,6 +44,9 @@ class Reader:
         self.b = Builder(common.title_of(name))
         self.doc = self.b.doc
         self.codepage = "cp1252"
+        self.font_cp: dict[int, str] = {}
+        self.hexbuf = bytearray()
+        self.hexframe: Frame | None = None
         self.fonts: dict[int, str] = {}
         self.deff = 0
         self.colors: list[str] = []
@@ -143,6 +149,11 @@ class Reader:
             return
         if dest == "fonttbl":
             self.font_name += text
+            if ";" in self.font_name and frame.char.get("fontdef") is not None:
+                name = self.font_name.split(";")[0].strip()
+                if name:
+                    self.fonts[frame.char["fontdef"]] = name
+                self.font_name = ""
         elif dest == "stylesheet":
             self.style_text += text
         elif dest == "info":
@@ -172,6 +183,8 @@ class Reader:
                 continue
             pos = m.end()
             word, param, hexv, sym, brace, text = m.groups()
+            if self.hexbuf and hexv is None and (word or sym or brace or text) is not None:
+                self.flush_hex()
             if brace == b"{":
                 stack.append(frame)
                 frame = Frame(frame.dest, frame.char, frame.uc)
@@ -182,7 +195,7 @@ class Reader:
                     frame = stack.pop()
                 continue
             if frame.dest == "skip":
-                if word == b"bin" and param:
+                if word == b"bin" and param and int(param) > 0:
                     pos += int(param)
                 continue
             if text is not None:
@@ -200,13 +213,16 @@ class Reader:
                         self.colors.append("#%02x%02x%02x" % (self.rgb["red"], self.rgb["green"], self.rgb["blue"]) if self.rgb.get("set") else "")
                         self.rgb = {"red": 0, "green": 0, "blue": 0}
                 else:
-                    self.add_text(frame, text.decode(self.codepage, "replace"))
+                    self.add_text(frame, text.decode(self.cp(frame), "replace"))
                 continue
             if hexv is not None:
                 if frame.skip:
                     frame.skip -= 1
                 else:
-                    self.add_text(frame, bytes([int(hexv, 16)]).decode(self.codepage, "replace"))
+                    if self.hexbuf and self.hexframe is not frame:
+                        self.flush_hex()
+                    self.hexbuf.append(int(hexv, 16))
+                    self.hexframe = frame
                 continue
             if sym is not None:
                 self.symbol(frame, sym.decode("ascii"), data, pos)
@@ -223,8 +239,19 @@ class Reader:
             if word is not None:
                 w = word.decode("ascii")
                 self.control(frame, w, int(param) if param is not None else None)
-                if w == "bin" and param:
+                if w == "bin" and param and int(param) > 0:
                     pos += int(param)
+        if self.hexbuf:
+            self.flush_hex()
+
+    def cp(self, frame: Frame) -> str:
+        return self.font_cp.get(frame.char.get("f", self.deff)) or self.codepage
+
+    def flush_hex(self) -> None:
+        raw, self.hexbuf = bytes(self.hexbuf), bytearray()
+        frame, self.hexframe = self.hexframe, None
+        if frame is not None:
+            self.add_text(frame, raw.decode(self.cp(frame), "replace"))
 
     def symbol(self, frame: Frame, s: str, data: bytes, pos: int) -> None:
         if s == "~":
@@ -257,7 +284,7 @@ class Reader:
             self.note_counts[kind] = self.note_counts.get(kind, 0) + 1
             n = self.note_counts[kind]
             self.runs.append({"type": "noteRef", "id": new_id("n_"), "kind": kind, "n": n, "note": self.note_text.strip(), "text": str(n)})
-        elif frame.opened == "info":
+        elif frame.opened in ("info", "infokey"):
             self.info_key = ""
         elif frame.opened == "fldrslt":
             self.field_link = None
@@ -265,7 +292,12 @@ class Reader:
     def control(self, frame: Frame, w: str, p: int | None) -> None:
         dest = frame.dest
         if w == "ansicpg" and p:
-            self.codepage = f"cp{p}"
+            name = "mac_roman" if p == 10000 else f"cp{p}"
+            try:
+                codecs.lookup(name)
+                self.codepage = name
+            except LookupError:
+                self.codepage = "cp1252"
             return
         if w == "deff":
             self.deff = p or 0
@@ -280,17 +312,25 @@ class Reader:
             else:
                 if 0xDC00 <= cp <= 0xDFFF and frame.char.get("_hi"):
                     cp = 0x10000 + ((frame.char.pop("_hi") - 0xD800) << 10) + (cp - 0xDC00)
-                self.add_text(frame, chr(cp))
+                self.add_text(frame, "�" if 0xD800 <= cp <= 0xDFFF else chr(cp))
             frame.skip = frame.uc
             return
         if dest == "fonttbl":
             if w == "f" and p is not None:
                 frame.char["fontdef"] = p
+            elif w == "fcharset" and p in CHARSET_CP and frame.char.get("fontdef") is not None:
+                self.font_cp[frame.char["fontdef"]] = CHARSET_CP[p]
             return
         if dest == "colortbl":
             if w in ("red", "green", "blue"):
                 self.rgb[w] = p or 0
                 self.rgb["set"] = 1
+            return
+        if dest == "footnote":
+            if w == "ftnalt":
+                self.note_end = True
+            elif w in ("pict", "fldinst") or w in SKIP_DEST:
+                frame.dest = "skip"
             return
         if w == "fonttbl":
             frame.dest = "fonttbl"
@@ -325,9 +365,6 @@ class Reader:
             frame.dest = frame.opened = "footnote"
             self.note_text = ""
             self.note_end = False
-        elif dest == "footnote":
-            if w == "ftnalt":
-                self.note_end = True
         elif w in HF_KEYS and dest in ("body", "hf"):
             self.start_hf(frame, w)
         elif w in SKIP_DEST and dest == "body":
@@ -337,6 +374,7 @@ class Reader:
         elif dest == "info":
             if w in ("title", "author", "subject", "keywords"):
                 self.info_key = w
+                frame.opened = "infokey"
         elif dest == "listtable":
             self.list_control(w, p)
         elif dest == "listoverridetable":
@@ -470,6 +508,13 @@ class Reader:
     def body_control(self, frame: Frame, w: str, p: int | None) -> None:
         c = frame.char
         on = p is None or p != 0
+        if self.hf_target is not None and w in ("trowd", "cellx", "cell", "row", "intbl"):
+            if w == "cell":
+                self.hf_lines[-1] += "\t"
+            elif w == "row":
+                self.hf_lines[-1] = self.hf_lines[-1].rstrip("\t")
+                self.hf_lines.append("")
+            return
         if w == "plain":
             for k in ("b", "i", "ul", "strike", "sup", "scaps", "caps", "fs", "cf", "hl", "exp", "f"):
                 c.pop(k, None)
@@ -760,9 +805,9 @@ class Reader:
     def begin_row(self) -> None:
         self.cell_defs = []
         self.cur_cell_def = {}
-        self.row_cells = []
         self.row_flags = {}
-        self.cell_blocks = []
+        if not self.row_cells:
+            self.cell_blocks = []
         self.in_table = True
 
     def end_cell(self) -> None:

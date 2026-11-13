@@ -5,6 +5,7 @@ from fastapi import WebSocket
 
 _windows: dict[int, WebSocket] = {}
 _pending: dict[str, asyncio.Future] = {}
+_owner: dict[str, int] = {}
 _ids = itertools.count(1)
 
 
@@ -16,6 +17,10 @@ def attach(ws: WebSocket) -> int:
 
 def detach(key: int) -> None:
     _windows.pop(key, None)
+    for rid, owner in list(_owner.items()):
+        fut = _pending.get(rid)
+        if owner == key and fut and not fut.done():
+            fut.set_result({"ok": False, "error": "The FormTxt window closed before it answered."})
 
 
 def connected() -> bool:
@@ -35,6 +40,7 @@ async def call(command: str, params: dict, timeout: float = 60) -> dict:
         rid = f"r{next(_ids)}"
         fut = asyncio.get_running_loop().create_future()
         _pending[rid] = fut
+        _owner[rid] = key
         try:
             try:
                 await ws.send_json({"t": "run", "id": rid, "command": command, "params": params})
@@ -48,5 +54,6 @@ async def call(command: str, params: dict, timeout: float = 60) -> dict:
             return {"ok": bool(out.get("ok")), **({"result": out.get("result")} if out.get("ok") else {"error": str(out.get("error") or "The command failed.")})}
         finally:
             _pending.pop(rid, None)
+            _owner.pop(rid, None)
             versions.agent_mark()
     return {"ok": False, "error": "No FormTxt window is open. Start it with ./formtxt and open the app, then retry."}

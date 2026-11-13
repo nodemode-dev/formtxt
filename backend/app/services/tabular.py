@@ -11,6 +11,7 @@ NS = {"m": "http://schemas.openxmlformats.org/spreadsheetml/2006/main",
 REL = "{http://schemas.openxmlformats.org/package/2006/relationships}"
 MAX_ROWS = 5000
 MAX_COLS = 60
+MAX_UNPACKED = 256 * 1024 * 1024
 
 
 class Unreadable(ValueError):
@@ -33,6 +34,8 @@ def _xlsx(data: bytes, sheet: str = "") -> tuple[list[list[str]], list[str]]:
         names = set(z.namelist())
         if "xl/workbook.xml" not in names:
             raise Unreadable("not an .xlsx workbook")
+        if sum(i.file_size for i in z.infolist()) > MAX_UNPACKED:
+            raise Unreadable("the workbook is larger than FormTxt reads")
         shared: list[str] = []
         if "xl/sharedStrings.xml" in names:
             root = ElementTree.fromstring(z.read("xl/sharedStrings.xml"))

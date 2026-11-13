@@ -114,7 +114,9 @@ function gallery(probe: Probe): HTMLElement {
 
   const tile = (id: string): HTMLButtonElement => {
     const look = STYLE_LOOK[id] ?? STYLE_LOOK.Normal;
-    const t = el<HTMLButtonElement>(`<button class="ft-wtile" type="button" role="option" data-style="${id}" title="${styleName(id)}"><span class="ft-wtile-sample">AaBbCcDd</span><span class="ft-wtile-name"></span></button>`);
+    const t = el<HTMLButtonElement>(`<button class="ft-wtile" type="button" role="option"><span class="ft-wtile-sample">AaBbCcDd</span><span class="ft-wtile-name"></span></button>`);
+    t.dataset.style = id;
+    t.title = styleName(id);
     const sample = t.querySelector('.ft-wtile-sample') as HTMLElement;
     sample.style.fontSize = `${look.size}px`;
     sample.style.fontWeight = String(look.weight);

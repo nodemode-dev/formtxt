@@ -1,4 +1,5 @@
 import json
+from urllib.parse import quote
 
 from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, Response
@@ -284,7 +285,7 @@ def export_html(doc_id: str) -> Response:
         raise _missing(doc_id)
     page, title = publish.export_html(doc_id)
     name = "".join(c for c in title if c.isalnum() or c in " -_").strip() or "document"
-    return Response(page, media_type="text/html; charset=utf-8", headers={"content-disposition": f'attachment; filename="{name}.html"'})
+    return Response(page, media_type="text/html; charset=utf-8", headers={"content-disposition": f'attachment; filename*=UTF-8\'\'{quote(name + ".html")}; filename="{name.encode("ascii", "ignore").decode().strip() or "document"}.html"'})
 
 
 @router.get("/published/{token}")

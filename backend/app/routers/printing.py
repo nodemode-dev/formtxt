@@ -1,10 +1,13 @@
+import asyncio
 import json
 import threading
 from pathlib import Path
+from urllib.parse import quote
 
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
+from reportlab.platypus.doctemplate import LayoutError
 
 from app.core import config
 from app.services import model, store
@@ -25,11 +28,13 @@ def _pdf(doc: dict, media: dict[str, bytes], tagged: bool, download: bool) -> Re
             data, info = render_pdf(doc, media, tagged)
     except model.InvalidDocument as exc:
         raise HTTPException(422, str(exc))
+    except LayoutError:
+        raise HTTPException(422, "part of this document is too large to place on a page")
     headers = {
         "x-formtxt-pages": str(info["pages"]),
         "x-formtxt-notes": json.dumps(info["warnings"])[:3000],
         "x-formtxt-tagged": json.dumps(info["tagged"]),
-        "content-disposition": f'{"attachment" if download else "inline"}; filename="{_name(doc.get("title", ""))}.pdf"',
+        "content-disposition": f'{"attachment" if download else "inline"}; filename*=UTF-8\'\'{quote(_name(doc.get("title", "")) + ".pdf")}; filename="{_name(doc.get("title", "")).encode("ascii", "ignore").decode().strip() or "document"}.pdf"',
         "cache-control": "no-store",
     }
     return Response(data, media_type="application/pdf", headers=headers)
@@ -72,7 +77,7 @@ def _open(data: bytes, name: str) -> dict:
 
 @router.post("/print/open-pdf")
 async def open_pdf(file: UploadFile = File(...)) -> dict:
-    return _open(await file.read(config.MAX_UPLOAD_BYTES + 1), file.filename or "document.pdf")
+    return await asyncio.to_thread(_open, await file.read(config.MAX_UPLOAD_BYTES + 1), file.filename or "document.pdf")
 
 
 class PdfPath(BaseModel):

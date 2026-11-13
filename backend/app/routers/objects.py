@@ -1,4 +1,5 @@
 import asyncio
+from urllib.parse import quote
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
@@ -23,7 +24,7 @@ async def add_fonts(files: list[UploadFile] = File(...), family: str = Form(""))
     for f in files:
         data = await f.read(objects_fonts.MAX_FONT_BYTES + 1)
         try:
-            added.append(objects_fonts.add(data, f.filename or "font", family if len(files) == 1 else ""))
+            added.append(await asyncio.to_thread(objects_fonts.add, data, f.filename or "font", family if len(files) == 1 else ""))
         except objects_fonts.FontError as exc:
             errors.append(str(exc))
     if not added and errors:
@@ -90,7 +91,7 @@ def get_file(doc_id: str, name: str, request: Request, download: str = "") -> Re
     headers = {**SAFE_HEADERS, "cache-control": "private, max-age=31536000, immutable", "accept-ranges": "bytes"}
     if not inline or download:
         label = (download or name).replace('"', "").replace("\\", "")[:150]
-        headers["content-disposition"] = f'attachment; filename="{label}"'
+        headers["content-disposition"] = f'attachment; filename*=UTF-8\'\'{quote(label)}; filename="{label.encode("ascii", "ignore").decode().strip() or "file"}"'
         mime = "application/octet-stream" if not inline else mime
     span = objects_files.byte_range(request.headers.get("range", ""), len(data)) if inline else None
     if span:
@@ -139,7 +140,7 @@ async def library_add(files: list[UploadFile] = File(...)) -> dict:
     for f in files:
         data = await f.read(config.MAX_MEDIA_BYTES + 1)
         try:
-            added.append(objects_source.library_add(f.filename or "data.csv", data))
+            added.append(await asyncio.to_thread(objects_source.library_add, f.filename or "data.csv", data))
         except objects_source.SourceError as exc:
             errors.append(str(exc))
     if not added and errors:

@@ -2,10 +2,49 @@
 
 Living log of comment content, rationale and removed code for the engine. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.30.4
-Last updated: 2026-10-31 · .js, .mjs and .css keep their types on Windows; the Linux packages pull in the media plugins. Before: macOS engine signed for notarization
+Current build version: v0.30.7
+Last updated: 2026-11-12 · the v0.30.7 review fixes (section below). Before: 2026-10-31 · .js, .mjs and .css keep their types on Windows; the Linux packages pull in the media plugins. Before: macOS engine signed for notarization
 
 ---
+
+## v0.30.7 · review fixes (2026-11-12)
+
+Each line names the file and symbol, then what changed and why. The commit of the same subject carries the full reasoning and what was run.
+
+Engine, routers and stores:
+
+- services/package.py :: `unpack`, services/collab/addins.py, services/tabular.py, services/objects_fonts.py · the declared uncompressed size is checked before any entry is inflated (WOFF inflate is capped); a one megabyte `.ftxt` inflated to a gigabyte.
+- routers/documents.py, exchange.py, printing.py, data.py, objects.py · imports, PDF opening, media uploads and table parsing run in a thread (`asyncio.to_thread`); they blocked every route, the live bridge and collab sockets while they ran.
+- routers/documents.py, exchange.py :: `import_files` · one unreadable file is reported per file instead of failing the batch after earlier files were stored.
+- routers/documents.py, printing.py, collab.py, objects.py · Content-Disposition carries an ASCII `filename` and an RFC 5987 `filename*`; a title with any non-Latin-1 letter answered 500. A follow-up commit keeps the plain name last, as the older header had it.
+- routers/printing.py :: `_pdf` · `LayoutError` answers 422.
+- services/collab/hub.py :: `_join` · only an edit peer's document can seed a session; a view or comment link could set the base the owner's window then adopted.
+- services/objects_files.py :: `member` · reads through `store.media_file`, so media in a password-protected document is served when unlocked and answers 423 when locked.
+- services/store.py :: `save`, `restore`, routers/documents.py · a save to a trashed id is refused and restore answers 409 when a newer copy exists.
+- services/bridge.py :: `detach`, `call` · futures sent to a window are failed when it disconnects; callers waited the full 60 s.
+- routers/versions.py :: `set_password`, `remove_password` · the document is read after the slow key work, so an autosave during it is kept.
+- services/formula.py :: `Evaluator.ev` · range loops are clamped to the grid.
+- core/ids.py, services/review.py, services/versions_docs.py · generated blocks get `t_`, `c_`, `g_` or `p_` by type, as docs/FORMAT.md names them.
+- services/ai/translate.py · break and tab runs are kept and the target language is recorded.
+- services/review.py :: `diff_paragraph`, routers/review.py · removed and added non-text runs carry `del` and `ins` marks, and media brought in by suggest and combine is added to the base document.
+
+Exchange and printing:
+
+- exchange/rtf_in.py · a negative `\bin` no longer loops; Word's repeated `\trowd` keeps the cells already read; consecutive `\'xx` bytes decode together, `\ansicpg` is validated and `\fcharset` sets a code page per font; footnote fields stay in the note and header tables stay in the header; info keys and ungrouped font tables are read correctly; an unpaired `\u` surrogate becomes U+FFFD. Removed line in `begin_row`: `self.row_cells = []`.
+- exchange/common.py :: `check_zip`, `xml_safe` (new), exchange/docx_in.py, odt_in.py, exchange/__init__.py · archives over the size limits are refused, ODF repeats are capped, and characters XML forbids are stripped once before any writer.
+- exchange/odt_out.py, rtf_out.py, html_out.py, docx_in.py · a list with no level 0, or a level below zero, exports; skipped HTML levels get their own `li`.
+- exchange/odt_in.py :: `table` · only the table's own columns are counted, so a nested table no longer adds columns on each round trip.
+- exchange/docx_in.py :: `table`, `segments.walk`, `styles` · rows and cells inside content controls and `w:dir`/`w:bdo` runs import; styles without an id are skipped; an id with characters outside `[A-Za-z0-9 _.-]` is mapped to a clean key everywhere it is referenced (a crafted id reached the window's markup).
+- exchange/docx_out.py :: `emit_table` · a table inside a cell no longer gains an empty paragraph on every export.
+- exchange/odt_in.py, docx_in.py :: `read` · damaged or encrypted files raise `Unsupported` with a message.
+- printing/writer.py · tables split inside a row, pictures scale to the frame height, tab-stop paragraphs that do not fit wrap, and headers and footers draw through the same per-character font fallback. Removed: the cp1252 re-encode and the `drawString` calls in `on_page`.
+- printing/fonts.py :: `family` · the Cyrillic, Greek and Vietnamese Fontsource subsets are registered as fallbacks, and uncovered characters are reported.
+
+Open, recorded and not changed in 0.30.7:
+
+- core/local_guard.py refuses every non-loopback Host, so network share links cannot work as offered; the owner decides whether to drop the option or admit the LAN address for share routes.
+- services/versions.py keeps fewer versions than docs/FORMAT.md states (noted before in v0.30.2).
+- setup and shell: `formtxt.bat cli run` drops `key=value`; `./formtxt desktop dev` needs placeholder sidecars on a fresh checkout; the desktop engine writes port 0 to `engine.json`; the Windows onefile engine leaves its temp folder on quit.
 
 ## v0.30.4 · the Linux packages pull in the media plugins (2026-10-31)
 

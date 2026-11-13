@@ -195,9 +195,9 @@ def set_password(doc_id: str, body: Secret) -> dict:
         raise HTTPException(422, "Type a password.")
     if vault.is_sealed(data) and not vault.try_password(data, body.current):
         raise HTTPException(403, "The current password is not right.")
-    doc, media = vault.unpack(data)
     key = vault.make_key(body.password)
     versions.reseal_versions(doc_id, key)
+    doc, media = vault.unpack(_data(doc_id))
     vault.adopt_key(doc_id, *key)
     store.save(doc, media)
     versions.log(doc_id, "password", doc=doc, detail="Password set")
@@ -211,8 +211,8 @@ def remove_password(doc_id: str, body: Secret) -> dict:
         return {"ok": True, "protected": False}
     if not vault.try_password(data, body.password):
         raise HTTPException(403, "That password is not right.")
-    doc, media = vault.unpack(data)
     versions.reseal_versions(doc_id, None)
+    doc, media = vault.unpack(_data(doc_id))
     vault.forget(doc_id)
     store.save(doc, media)
     versions.log(doc_id, "password", doc=doc, detail="Password removed")

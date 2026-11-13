@@ -1,5 +1,6 @@
 import hashlib
 import io
+import re
 from collections.abc import Iterator
 
 from app.core.ids import new_id
@@ -14,6 +15,29 @@ DEFAULT_CYCLE = ("decimal", "lower-alpha", "lower-roman")
 
 class Unsupported(ValueError):
     pass
+
+
+MAX_ZIP_TOTAL = 1 << 30
+MAX_ZIP_ENTRY = 256 << 20
+
+
+XML_BAD = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f￾￿\ud800-\udfff]")
+
+
+def xml_safe(value):
+    if isinstance(value, str):
+        return XML_BAD.sub("", value) if XML_BAD.search(value) else value
+    if isinstance(value, dict):
+        return {k: xml_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [xml_safe(v) for v in value]
+    return value
+
+
+def check_zip(z, name: str = "This file") -> None:
+    sizes = [i.file_size for i in z.infolist()]
+    if sum(sizes) > MAX_ZIP_TOTAL or any(s > MAX_ZIP_ENTRY for s in sizes):
+        raise Unsupported(f"{name}: unpacks to more data than FormTxt opens.")
 
 
 def sniff(data: bytes) -> tuple[str, str] | None:
@@ -230,7 +254,7 @@ class ListCounter:
         self.counts = []
 
     def label(self, lst: dict) -> str:
-        level = int(lst.get("level", 0) or 0)
+        level = max(0, int(lst.get("level", 0) or 0))
         kind = lst.get("kind")
         if kind == "check":
             return chr(0x2611) if lst.get("checked") else chr(0x2610)

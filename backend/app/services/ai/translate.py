@@ -1,14 +1,19 @@
 import copy
+import re
 
 from app.services import store
-from app.services.ai import providers, settings, tasks, text
+from app.services.ai import providers, settings, tasks
 from app.services.ai.settings import AIError
+
+
+def _source(content: list) -> str:
+    return "".join(str(r.get("text") or "") if r.get("type") == "text" else "\n" if r.get("type") == "break" else "\t" for r in content or [] if r.get("type") in ("text", "break", "tab"))
 
 
 def _paragraphs(body: list, out: list[dict]) -> None:
     for b in body or []:
         if b.get("type") == "paragraph":
-            if text.runs_text(b.get("content")).strip():
+            if _source(b.get("content")).strip():
                 out.append(b)
         elif b.get("type") == "table":
             for r in b.get("rows") or []:
@@ -20,19 +25,22 @@ def _apply(par: dict, new: str) -> None:
     runs = par.get("content") or []
     first = next((r for r in runs if r.get("type") == "text"), None)
     marks = dict(first.get("marks") or {}) if first else {}
-    run = {"type": "text", "text": new}
-    if marks:
-        run["marks"] = marks
+    pieces: list[dict] = []
+    for part in re.split(r"(\n|\t)", new):
+        if part in ("\n", "\t"):
+            pieces.append({"type": "break" if part == "\n" else "tab"})
+        elif part:
+            pieces.append({"type": "text", "text": part, **({"marks": dict(marks)} if marks else {})})
     out, placed = [], False
     for r in runs:
         if r.get("type") in ("text", "break", "tab"):
             if not placed:
-                out.append(run)
+                out.extend(pieces)
                 placed = True
             continue
         out.append(r)
     if not placed:
-        out.insert(0, run)
+        out[0:0] = pieces
     par["content"] = out
 
 
@@ -58,7 +66,7 @@ def document(req: dict) -> dict:
         _paragraphs(tab.get("body"), pars)
     if not pars:
         raise AIError(400, "The document has no text to translate.")
-    texts = [text.runs_text(p.get("content")).strip() for p in pars]
+    texts = [_source(p.get("content")).strip() for p in pars]
     model = (req.get("model") or s["model"]).strip()
     effort = req.get("effort") or s["effort"]
     system = (
@@ -77,6 +85,6 @@ def document(req: dict) -> dict:
     if not done:
         raise AIError(502, "The model did not return a usable translation.")
     title = f"{doc.get('title') or 'Untitled'} ({lang})"[:200]
-    doc.setdefault("meta", {})["language"] = str(req.get("languageCode") or doc.get("meta", {}).get("language") or "")[:20]
+    doc.setdefault("meta", {})["language"] = str(req.get("languageCode") or (lang if re.fullmatch(r"[A-Za-z]{2,3}(-[A-Za-z0-9]{2,8})*", lang) else "") or doc.get("meta", {}).get("language") or "")[:20]
     fresh = store.adopt(doc, media, title)
     return {"id": fresh["id"], "title": fresh["title"], "translated": done, "paragraphs": len(pars)}

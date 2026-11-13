@@ -16,6 +16,10 @@ class NotFound(LookupError):
     pass
 
 
+class Conflict(Exception):
+    pass
+
+
 def _path(doc_id: str, folder: Path | None = None) -> Path:
     if not is_id(doc_id, "d_"):
         raise NotFound(doc_id)
@@ -46,6 +50,8 @@ def save(doc: dict, media: dict[str, bytes] | None = None) -> dict:
     model.validate(doc)
     path = _path(doc["id"])
     with _lock:
+        if not path.is_file() and _path(doc["id"], config.trash_dir()).is_file():
+            raise Conflict(doc["id"])
         kept = media
         if kept is None and path.is_file():
             kept = package.unpack(path.read_bytes())[1]
@@ -85,6 +91,8 @@ def restore(doc_id: str) -> None:
     if not path.is_file():
         raise NotFound(doc_id)
     with _lock:
+        if _path(doc_id).is_file():
+            raise Conflict(doc_id)
         path.replace(_path(doc_id))
 
 

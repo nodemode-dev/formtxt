@@ -107,8 +107,12 @@ class TabLine(Flowable):
         return aw, self.leading
 
     def draw(self):
-        c = self.canv
-        c.setFillColor(self.color)
+        self.place(True)
+
+    def place(self, paint: bool) -> float:
+        c = self.canv if paint else None
+        if c is not None:
+            c.setFillColor(self.color)
         x = 0.0
         y = self.leading * 0.28
         for i, (text, face) in enumerate(self.segments):
@@ -133,15 +137,17 @@ class TabLine(Flowable):
                     start = pos
                 start = max(start, x)
                 leader = {"dot": ".", "dash": "-", "underline": "_"}.get(stop.get("leader", "none"), "")
-            if leader and start > x + 2:
+            if c is not None and leader and start > x + 2:
                 lw = pdfmetrics.stringWidth(leader, face, self.size)
                 count = int((start - x - 2) // max(lw, 0.1))
                 if count > 0:
                     c.setFont(face, self.size)
                     c.drawString(start - lw * count - 1, y, leader * count)
-            c.setFont(face, self.size)
-            c.drawString(start, y, text)
+            if c is not None:
+                c.setFont(face, self.size)
+                c.drawString(start, y, text)
             x = start + w
+        return x
 
 
 class Ctx:
@@ -159,6 +165,7 @@ class Ctx:
         self.headings = 0
         self.base_family = self.fam(str(self.resolve("Normal")[0].get("font") or "Inter"))
         self.default_tab = float(doc.get("settings", {}).get("defaultTab") or 36)
+        self.max_h = 648.0 * 0.9
 
     def warn(self, text: str) -> None:
         if text and text not in self.warnings:
@@ -294,6 +301,8 @@ def text_markup(ctx: Ctx, text: str, fam: fonts.Family) -> str:
         if ord(ch) >= 128:
             found = fam.covers(ch)
             if found is None:
+                if not fonts.encodable(ch):
+                    ctx.warn("Some characters have no glyph in the bundled fonts and are shown as ? in the PDF.")
                 ch, found = ("?", "Helvetica") if not fonts.encodable(ch) else (ch, "Helvetica")
             name = None if found == fam.faces["regular"] else found
         if name != cur:
@@ -435,7 +444,7 @@ def paragraph_flowables(ctx: Ctx, block: dict, avail: float, parent: Elem, top: 
             if str(r.get("wrap") or "inline") not in ("inline", "topBottom"):
                 ctx.warn("Pictures that float around text are placed in line in the PDF.")
             w, h = pic[1], pic[2]
-            scale = min(1.0, (avail - st.leftIndent - st.rightIndent) / max(w, 1))
+            scale = min(1.0, (avail - st.leftIndent - st.rightIndent) / max(w, 1), ctx.max_h / max(h, 1))
             img = Image(pic[0], w * scale, h * scale)
             img.hAlign = "CENTER" if st.alignment == TA_CENTER else "RIGHT" if st.alignment == TA_RIGHT else "LEFT"
             img.spaceBefore, img.spaceAfter = st.spaceBefore, st.spaceAfter
@@ -461,7 +470,7 @@ def paragraph_flowables(ctx: Ctx, block: dict, avail: float, parent: Elem, top: 
         elif t == "image":
             pic = ctx.picture(r)
             if pic:
-                scale = min(1.0, (avail - st.leftIndent) / max(pic[1], 1))
+                scale = min(1.0, (avail - st.leftIndent) / max(pic[1], 1), ctx.max_h / max(pic[2], 1))
                 parts.append(f'<img src="{pic[0]}" width="{pic[1] * scale:.1f}" height="{pic[2] * scale:.1f}" valign="bottom"/>')
                 if r.get("alt"):
                     alt_texts.append(str(r["alt"]))
@@ -474,7 +483,7 @@ def paragraph_flowables(ctx: Ctx, block: dict, avail: float, parent: Elem, top: 
             if drawn:
                 w = float(r.get("width") or drawn[1] * 0.375)
                 h = float(r.get("height") or drawn[2] * 0.375)
-                sc = min(1.0, (avail - st.leftIndent) / max(w, 1))
+                sc = min(1.0, (avail - st.leftIndent) / max(w, 1), ctx.max_h / max(h, 1))
                 parts.append(f'<img src="{drawn[0]}" width="{w * sc:.1f}" height="{h * sc:.1f}" valign="bottom"/>')
                 if str(r.get("wrap") or "front") not in ("inline", "topBottom"):
                     ctx.warn("Shapes and pictures that float around text are placed in line in the PDF.")
@@ -522,7 +531,10 @@ def paragraph_flowables(ctx: Ctx, block: dict, avail: float, parent: Elem, top: 
         stops = [{"pos": float(s.get("pos", 0)), "align": s.get("align", "left"), "leader": s.get("leader", "none")} for s in tabs if isinstance(s, dict)]
         flow = TabLine(segments, stops, ctx.default_tab, st.leftIndent, st.fontSize, st.leading, face, st.textColor)
         flow.spaceBefore, flow.spaceAfter = st.spaceBefore, st.spaceAfter
-        return [Tagged(flow, elem, (text, level) if level and top and text else None)]
+        plain_runs = all(r.get("type") in ("text", "tab") for r in content)
+        covered = all(ord(ch) < 128 or fam.covers(ch) == fam.faces["regular"] for seg, _ in segments for ch in seg)
+        if plain_runs and covered and flow.place(False) <= avail - st.rightIndent:
+            return [Tagged(flow, elem, (text, level) if level and top and text else None)]
     try:
         flow = Paragraph(xml, st, bulletText=label or None)
     except (ValueError, AttributeError, KeyError, IndexError):
@@ -539,9 +551,9 @@ def paragraph_flowables(ctx: Ctx, block: dict, avail: float, parent: Elem, top: 
         flow.style = copy(st)
         flow.style.leftIndent = 0
         flow.style.spaceBefore = flow.style.spaceAfter = 0
-        wrapper = Table([[out[0]]], colWidths=[max(10, avail - st.leftIndent - st.rightIndent)], style=cmds, hAlign="RIGHT" if st.leftIndent else "LEFT")
+        wrapper = Table([[out[0]]], colWidths=[max(10, avail - st.leftIndent - st.rightIndent)], style=cmds, hAlign="RIGHT" if st.leftIndent else "LEFT", splitInRow=1)
         if st.leftIndent:
-            wrapper = Table([[wrapper]], colWidths=[avail - st.rightIndent], style=[("LEFTPADDING", (0, 0), (-1, -1), st.leftIndent), ("RIGHTPADDING", (0, 0), (-1, -1), 0), ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0)])
+            wrapper = Table([[wrapper]], colWidths=[avail - st.rightIndent], style=[("LEFTPADDING", (0, 0), (-1, -1), st.leftIndent), ("RIGHTPADDING", (0, 0), (-1, -1), 0), ("TOPPADDING", (0, 0), (-1, -1), 0), ("BOTTOMPADDING", (0, 0), (-1, -1), 0)], splitInRow=1)
         wrapper.spaceBefore, wrapper.spaceAfter = st.spaceBefore, st.spaceAfter
         return [wrapper]
     return out
@@ -700,7 +712,7 @@ def table_flowable(ctx: Ctx, block: dict, avail: float, parent: Elem) -> list[Fl
         weight = w * 3 if style == "double" else w
         dash = (3, 2) if style == "dashed" else (1, 2) if style == "dotted" else None
         cmds.append((name, pos, pos, weight, color(col), 0, dash))
-    table = Table(data, colWidths=widths, style=cmds, repeatRows=header_rows if block.get("repeatHeader") else 0, splitByRow=1,
+    table = Table(data, colWidths=widths, style=cmds, repeatRows=header_rows if block.get("repeatHeader") else 0, splitByRow=1, splitInRow=1,
                   hAlign="CENTER" if block.get("align") == "center" else "LEFT")
     table.spaceBefore, table.spaceAfter = 2, 8
     return [table]
@@ -813,6 +825,7 @@ class Builder:
             if group:
                 geo = geometry(current)
                 avail = (geo["w"] - geo["left"] - geo["right"] - geo["gap"] * (geo["cols"] - 1)) / geo["cols"]
+                self.ctx.max_h = max(36.0, (geo["h"] - geo["top"] - geo["bottom"]) * 0.9)
                 story.extend(blocks_flowables(self.ctx, list(group), avail, root))
                 group.clear()
 
@@ -906,13 +919,10 @@ class Builder:
                 align = str(spec.get("align") or ("left" if top else "center"))
                 for i, line in enumerate(lines):
                     y = geo["h"] - float(m.get("header", 36)) - 9 - i * 12 if top else float(m.get("footer", 36)) + 3 + (len(lines) - 1 - i) * 12
-                    text = line if self.ctx.base_family.bundled else line.encode("cp1252", "replace").decode("cp1252")
-                    if align == "right":
-                        canv.drawRightString(geo["w"] - geo["right"], y, text)
-                    elif align == "center":
-                        canv.drawCentredString(geo["left"] + (geo["w"] - geo["left"] - geo["right"]) / 2, y, text)
-                    else:
-                        canv.drawString(geo["left"], y, text)
+                    st = ParagraphStyle("hf", fontName=face, fontSize=9, leading=12, textColor=color("#5f5c55"), alignment=ALIGN.get(align, TA_LEFT))
+                    para = Paragraph(text_markup(self.ctx, line, self.ctx.base_family) or "&nbsp;", st)
+                    _, ph = para.wrap(geo["w"] - geo["left"] - geo["right"], geo["h"])
+                    para.drawOn(canv, geo["left"], y - (ph - 12) - 3)
             artifact_end(canv)
 
         return draw

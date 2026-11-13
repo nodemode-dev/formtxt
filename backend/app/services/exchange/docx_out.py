@@ -1198,7 +1198,16 @@ class DocxWriter:
             share = max(36.0, (avail - sum(widths)) / len(free))
             for i in free:
                 widths[i] = share
+        in_cell = isinstance(container, _Cell)
+        if in_cell and container._tc not in self.used_cells:
+            self.used_cells.add(container._tc)
+            for p in container._tc.findall(qn("w:p")):
+                if not len(p):
+                    container._tc.remove(p)
+                    break
         tbl = container.add_table(rows=len(rows), cols=ncols)
+        if in_cell and local(container._tc[-1]) == "p":
+            container._tc.remove(container._tc[-1])
         t = tbl._tbl
         tblpr = t.tblPr
         for old in tblpr.findall(qn("w:tblStyle")):

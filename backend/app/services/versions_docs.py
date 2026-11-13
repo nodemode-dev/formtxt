@@ -6,7 +6,7 @@ import urllib.request
 from pathlib import Path
 
 from app.core import config
-from app.core.ids import new_id
+from app.core.ids import block_id, new_id
 from app.services import model, store, versions
 
 ENVELOPES = {"dl": ("DL", 623.62, 311.81), "env10": ("#10", 684.0, 297.0), "c5": ("C5", 649.13, 459.21), "monarch": ("Monarch", 540.0, 279.0)}
@@ -114,7 +114,7 @@ def _blocks_walk(blocks: list, fn) -> None:
 
 def _reid(blocks: list) -> None:
     for block in blocks:
-        block["id"] = new_id("t_" if block.get("type") == "table" else "p_")
+        block["id"] = block_id(block)
         if block.get("type") == "table":
             for row in block.get("rows") or []:
                 for cell in (row or {}).get("cells") or []:

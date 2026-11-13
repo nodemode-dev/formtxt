@@ -5,6 +5,7 @@ import zipfile
 
 from docx import Document
 from docx.oxml.ns import qn
+from lxml import etree
 
 from app.core.ids import new_id
 from app.services import model
@@ -26,6 +27,7 @@ HIGHLIGHT = {"yellow": "#ffff00", "green": "#00ff00", "cyan": "#00ffff", "magent
              "darkGray": "#808080", "lightGray": "#c0c0c0", "black": "#000000", "white": "#ffffff"}
 NUMFMT_IN = {"decimal": "decimal", "decimalZero": "decimal-leading-zero", "lowerLetter": "lower-alpha", "upperLetter": "upper-alpha",
              "lowerRoman": "lower-roman", "upperRoman": "upper-roman"}
+SAFE_ID = re.compile(r"[A-Za-z0-9 _.-]+")
 EXT_TYPES = {"png", "jpg", "jpeg", "gif", "bmp", "webp", "tif", "tiff", "svg"}
 
 
@@ -187,6 +189,7 @@ class Reader:
             raise common.Unsupported("This file is not a Word document (.docx or .dotx).") from exc
         if "[Content_Types].xml" not in z.namelist():
             raise common.Unsupported("This file is not a Word document (.docx or .dotx).")
+        common.check_zip(z, "This Word document")
         ct = z.read("[Content_Types].xml")
         if DOTX not in ct and b"macroEnabled" not in ct:
             return data
@@ -263,11 +266,19 @@ class Reader:
             rpr = child(child(dd, "w:rPrDefault"), "w:rPr")
             defaults_run = self.style_run(rpr)
             defaults_para = self.style_para(child(child(dd, "w:pPrDefault"), "w:pPr"))
-        els = root.findall(qn("w:style"))
+        els = [el for el in root.findall(qn("w:style")) if el.get(qn("w:styleId"))]
+        used = {el.get(qn("w:styleId")) for el in els if SAFE_ID.fullmatch(el.get(qn("w:styleId")))}
         for el in els:
             sid = el.get(qn("w:styleId"))
             nm = val(child(el, "w:name")) or sid
-            self.idmap[sid] = common.BUILTIN_NAMES.get(nm.lower(), sid) if el.get(qn("w:type")) == "paragraph" else sid
+            fid = common.BUILTIN_NAMES.get(nm.lower()) if el.get(qn("w:type")) == "paragraph" else None
+            if fid is None and not SAFE_ID.fullmatch(sid):
+                base = re.sub(r"[^A-Za-z0-9 _.-]", "", sid)[:60] or "Style"
+                fid, n = base, 2
+                while fid in used:
+                    fid, n = f"{base}{n}", n + 1
+                used.add(fid)
+            self.idmap[sid] = fid or sid
         for el in els:
             sid = el.get(qn("w:styleId"))
             kind = el.get(qn("w:type"))
@@ -370,7 +381,7 @@ class Reader:
             depth += 1
         if nid is None or nid == "0" or nid not in self.nums:
             return None
-        level = min(8, int(il or 0))
+        level = max(0, min(8, int(il or 0)))
         n = self.nums[nid]
         lvl = self.abstract.get(n["abstract"] or "", {}).get(level)
         if lvl is None:
@@ -921,7 +932,7 @@ class Reader:
             elif t == qn("w:sym"):
                 ch = c.get(qn("w:char"))
                 try:
-                    add_text(chr(int(ch, 16) & 0xFFFF) if ch and not (0xF000 <= int(ch, 16) <= 0xF0FF) else "\u2022", marks, link)
+                    add_text(chr(int(ch, 16) & 0xFFFF) if ch and not (0xF000 <= int(ch, 16) <= 0xF0FF or 0xD800 <= int(ch, 16) & 0xFFFF <= 0xDFFF) else "\u2022", marks, link)
                 except ValueError:
                     pass
             elif t in (qn("w:drawing"), qn("w:pict"), "{%s}AlternateContent" % MC):
@@ -1067,7 +1078,7 @@ class Reader:
                         state["rev"].pop(kind, None)
                     else:
                         state["rev"][kind] = saved
-                elif t in (qn("w:smartTag"), qn("w:customXml")):
+                elif t in (qn("w:smartTag"), qn("w:customXml"), qn("w:dir"), qn("w:bdo")):
                     walk(c, link)
                 elif t == qn("w:commentRangeStart"):
                     self.cm_start(c.get(qn("w:id")))
@@ -1216,7 +1227,7 @@ class Reader:
     def table(self, tbl, part) -> dict:
         grid_el = child(tbl, "w:tblGrid")
         grid = [num(g.get(qn("w:w")), 20) or 0 for g in (grid_el if grid_el is not None else [])]
-        rows_el = tbl.findall(qn("w:tr"))
+        rows_el = [tr for tr in tbl.iter(qn("w:tr")) if next(tr.iterancestors(qn("w:tbl")), None) is tbl]
         parsed = []
         for tr in rows_el:
             col = 0
@@ -1225,7 +1236,7 @@ class Reader:
             gb = child(trpr, "w:gridBefore")
             if gb is not None:
                 col += int(num(val(gb)) or 0)
-            for tc in tr.findall(qn("w:tc")):
+            for tc in [c for c in tr.iter(qn("w:tc")) if next(c.iterancestors(qn("w:tr")), None) is tr]:
                 tcpr = child(tc, "w:tcPr")
                 span = int(num(val(child(tcpr, "w:gridSpan"))) or 1)
                 vm = child(tcpr, "w:vMerge")
@@ -1330,5 +1341,5 @@ def read(data: bytes, name: str) -> tuple[dict, dict[str, bytes]]:
         return Reader(data, name).read()
     except common.Unsupported:
         raise
-    except (KeyError, ValueError, zipfile.BadZipFile) as exc:
+    except (KeyError, ValueError, AttributeError, TypeError, zipfile.BadZipFile, etree.XMLSyntaxError) as exc:
         raise common.Unsupported(f"{name}: could not be read as a Word document ({exc}).") from exc

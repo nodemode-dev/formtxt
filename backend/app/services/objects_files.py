@@ -5,7 +5,7 @@ import zipfile
 
 from app.core import config
 from app.core.ids import is_id
-from app.services import objects_fonts, store, tabular
+from app.services import objects_fonts, store, tabular, versions_vault as vault
 
 VIDEO = {"mp4": "video/mp4", "m4v": "video/mp4", "mov": "video/quicktime", "webm": "video/webm", "ogv": "video/ogg"}
 AUDIO = {"mp3": "audio/mpeg", "wav": "audio/wav", "ogg": "audio/ogg", "oga": "audio/ogg", "opus": "audio/ogg", "m4a": "audio/mp4", "aac": "audio/aac", "flac": "audio/flac"}
@@ -98,6 +98,9 @@ def member(doc_id: str, name: str) -> bytes:
     path = config.documents_dir() / f"{doc_id}{store.EXT}"
     if not path.is_file():
         raise store.NotFound(doc_id)
+    with path.open("rb") as fh:
+        if vault.is_sealed(fh.read(8)):
+            return store.media_file(doc_id, name)
     try:
         with zipfile.ZipFile(path) as z:
             return z.read(f"media/{name}")

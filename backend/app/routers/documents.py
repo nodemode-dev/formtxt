@@ -1,4 +1,6 @@
+import asyncio
 import hashlib
+from urllib.parse import quote
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
 from fastapi.responses import Response
@@ -45,6 +47,14 @@ def purge(doc_id: str) -> dict:
     return {"ok": True}
 
 
+def _import_one(name: str, data: bytes) -> dict:
+    if exchange.handles(name):
+        doc, media = exchange.read(name, data)
+    else:
+        doc, media = intake.to_document(name or "document.txt", data), None
+    return model.summary(store.adopt(doc, media))
+
+
 @router.post("/import")
 async def import_files(files: list[UploadFile] = File(...)) -> dict:
     made, errors = [], []
@@ -54,14 +64,12 @@ async def import_files(files: list[UploadFile] = File(...)) -> dict:
             errors.append(f"{f.filename}: larger than FormTxt opens")
             continue
         try:
-            if exchange.handles(f.filename or ""):
-                doc, media = exchange.read(f.filename or "", data)
-            else:
-                doc, media = intake.to_document(f.filename or "document.txt", data), None
-            made.append(model.summary(store.adopt(doc, media)))
+            made.append(await asyncio.to_thread(_import_one, f.filename or "", data))
         except (intake.Unsupported, exchange.Unsupported) as exc:
             errors.append(str(exc))
             continue
+        except Exception as exc:
+            errors.append(f"{f.filename}: FormTxt could not read this file ({exc}).")
     if not made and errors:
         raise HTTPException(415, " ".join(errors))
     return {"documents": made, "errors": errors}
@@ -94,6 +102,8 @@ def save(doc_id: str, doc: dict, by: str = "") -> dict:
         return store.save(doc)
     except model.InvalidDocument as exc:
         raise HTTPException(422, str(exc))
+    except store.Conflict:
+        raise HTTPException(409, "This document is in the trash. Restore it from the trash to keep editing it.")
     finally:
         versions.set_editor_hint("")
 
@@ -107,7 +117,7 @@ def download(doc_id: str) -> Response:
     name = "".join(c for c in doc["title"] if c.isalnum() or c in " -_").strip() or "document"
     doc, media = package.prune(doc, media)
     return Response(package.pack(doc, media), media_type=package.MIMETYPE,
-                    headers={"content-disposition": f'attachment; filename="{name}.ftxt"'})
+                    headers={"content-disposition": f'attachment; filename*=UTF-8\'\'{quote(name + ".ftxt")}; filename="{name.encode("ascii", "ignore").decode().strip() or "document"}.ftxt"'})
 
 
 @router.get("/{doc_id}/thumb.svg")
@@ -150,7 +160,7 @@ async def add_media(doc_id: str, files: list[UploadFile] = File(...)) -> dict:
             continue
         name = f"{hashlib.sha256(data).hexdigest()[:20]}.{kind[0]}"
         try:
-            store.add_media(doc_id, name, data)
+            await asyncio.to_thread(store.add_media, doc_id, name, data)
         except store.NotFound:
             raise _missing(doc_id)
         added.append({"name": name, "type": kind[1], "bytes": len(data), "source": (f.filename or "")[:200]})
@@ -194,4 +204,6 @@ def restore(doc_id: str) -> dict:
         store.restore(doc_id)
     except store.NotFound:
         raise HTTPException(404, f"No document with the id {doc_id} is in the trash.")
+    except store.Conflict:
+        raise HTTPException(409, f"A document with the id {doc_id} is already in the library, so the trashed copy was left in the trash.")
     return {"ok": True}
