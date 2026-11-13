@@ -760,9 +760,9 @@ class Reader:
     def begin_row(self) -> None:
         self.cell_defs = []
         self.cur_cell_def = {}
-        self.row_cells = []
         self.row_flags = {}
-        self.cell_blocks = []
+        if not self.row_cells:
+            self.cell_blocks = []
         self.in_table = True
 
     def end_cell(self) -> None:
