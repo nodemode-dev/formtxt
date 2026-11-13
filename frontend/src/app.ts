@@ -1,4 +1,5 @@
 import { mirrorCatalogue } from './automation/catalogue';
+import { registerDemoCommands } from './demos';
 import type { DocSummary, FtxtDocument } from './engine/model';
 import { commands } from './engine/registry';
 import { api, type TemplateSummary } from './io/api';
@@ -169,6 +170,7 @@ export async function startApp(): Promise<void> {
     closeDocument: async () => { await commands.run('file.close'); },
   }, root);
   homeRef = home;
+  registerDemoCommands(commands, openDocument);
   registerPrefsCommands();
   applyPrefs();
 
