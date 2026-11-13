@@ -1,4 +1,5 @@
 import asyncio
+from urllib.parse import quote
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import Response
@@ -90,7 +91,7 @@ def get_file(doc_id: str, name: str, request: Request, download: str = "") -> Re
     headers = {**SAFE_HEADERS, "cache-control": "private, max-age=31536000, immutable", "accept-ranges": "bytes"}
     if not inline or download:
         label = (download or name).replace('"', "").replace("\\", "")[:150]
-        headers["content-disposition"] = f'attachment; filename="{label}"'
+        headers["content-disposition"] = f'attachment; filename="{label.encode("ascii", "ignore").decode().strip() or "file"}"; filename*=UTF-8\'\'{quote(label)}'
         mime = "application/octet-stream" if not inline else mime
     span = objects_files.byte_range(request.headers.get("range", ""), len(data)) if inline else None
     if span:
