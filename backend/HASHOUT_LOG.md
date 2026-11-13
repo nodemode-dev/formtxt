@@ -2,10 +2,20 @@
 
 Living log of comment content, rationale and removed code for the engine. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.30.7
-Last updated: 2026-11-12 · the v0.30.7 review fixes (section below). Before: 2026-10-31 · .js, .mjs and .css keep their types on Windows; the Linux packages pull in the media plugins. Before: macOS engine signed for notarization
+Current build version: v0.30.8
+Last updated: 2026-11-13 · the v0.30.8 fixes to the engine entry and scripts (section below). Before: 2026-11-12 · the v0.30.7 review fixes. Before: 2026-10-31 · .js, .mjs and .css keep their types on Windows; the Linux packages pull in the media plugins. Before: macOS engine signed for notarization
 
 ---
+
+## v0.30.8 · review fixes, scripts and engine entry (2026-11-13)
+
+- formtxt_engine.py :: `main` · with port 0 the engine binds a throwaway loopback socket to get a free port and sets `FORMTXT_ENGINE_PORT` to it before the app starts, so `engine.json`, `/api/system` and the share panel report the real port; uvicorn used to pick the port itself while `config.port()` still read 0. The "Uvicorn running on" line the shell parses is unchanged. Checked with a live engine.
+- formtxt.bat · the argument tail comes from the raw `%*` (`for /f "tokens=1,*"`), because cmd splits `%1` at `=` and `cli run id key=value` lost its values; removed the `:collect` loop. A `:desktop` label handles `desktop build` and `desktop dev`; the old line passed the word `build` on to `tauri build`. Not run: no cmd.exe here.
+- setup/desktop_dev · creates an empty sidecar placeholder (or an empty `src-tauri/engine` on macOS) when none exists, since tauri-build checks bundled resources even for a dev build; a real frozen engine is never overwritten.
+- setup/catalogue.py · `from __future__ import annotations` for Python 3.9, and a non-JSON reply gives a clean message.
+- setup/boot_all · the two subshells `exec` their boot script, so the recorded PID is the server on bash 3.2.
+- frontend/boot_frontend · ends with `exec npm run dev`, so stopping the launcher reaches npm instead of the script's bash.
+- Open: the Windows onefile engine leaves its temp folder on quit; network share links and version retention await the owner (see v0.30.7 below).
 
 ## v0.30.7 · review fixes (2026-11-12)
 
