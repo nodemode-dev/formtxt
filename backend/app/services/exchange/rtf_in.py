@@ -307,7 +307,7 @@ class Reader:
             else:
                 if 0xDC00 <= cp <= 0xDFFF and frame.char.get("_hi"):
                     cp = 0x10000 + ((frame.char.pop("_hi") - 0xD800) << 10) + (cp - 0xDC00)
-                self.add_text(frame, chr(cp))
+                self.add_text(frame, "�" if 0xD800 <= cp <= 0xDFFF else chr(cp))
             frame.skip = frame.uc
             return
         if dest == "fonttbl":

@@ -719,4 +719,13 @@ class Reader:
 
 
 def read(data: bytes, name: str) -> tuple[dict, dict[str, bytes]]:
-    return Reader(data, name).read()
+    reader = Reader(data, name)
+    try:
+        return reader.read()
+    except common.Unsupported:
+        raise
+    except (KeyError, ValueError, AttributeError, TypeError, zipfile.BadZipFile, etree.XMLSyntaxError) as exc:
+        manifest = reader.z.read("META-INF/manifest.xml") if "META-INF/manifest.xml" in reader.z.namelist() else b""
+        if b"encryption-data" in manifest:
+            raise common.Unsupported(f"{name}: the document is password protected; remove the password and try again.") from exc
+        raise common.Unsupported(f"{name}: could not be read as an OpenDocument text file ({exc}).") from exc

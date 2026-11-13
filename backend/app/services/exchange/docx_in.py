@@ -5,6 +5,7 @@ import zipfile
 
 from docx import Document
 from docx.oxml.ns import qn
+from lxml import etree
 
 from app.core.ids import new_id
 from app.services import model
@@ -264,7 +265,7 @@ class Reader:
             rpr = child(child(dd, "w:rPrDefault"), "w:rPr")
             defaults_run = self.style_run(rpr)
             defaults_para = self.style_para(child(child(dd, "w:pPrDefault"), "w:pPr"))
-        els = root.findall(qn("w:style"))
+        els = [el for el in root.findall(qn("w:style")) if el.get(qn("w:styleId"))]
         for el in els:
             sid = el.get(qn("w:styleId"))
             nm = val(child(el, "w:name")) or sid
@@ -922,7 +923,7 @@ class Reader:
             elif t == qn("w:sym"):
                 ch = c.get(qn("w:char"))
                 try:
-                    add_text(chr(int(ch, 16) & 0xFFFF) if ch and not (0xF000 <= int(ch, 16) <= 0xF0FF) else "\u2022", marks, link)
+                    add_text(chr(int(ch, 16) & 0xFFFF) if ch and not (0xF000 <= int(ch, 16) <= 0xF0FF or 0xD800 <= int(ch, 16) & 0xFFFF <= 0xDFFF) else "\u2022", marks, link)
                 except ValueError:
                     pass
             elif t in (qn("w:drawing"), qn("w:pict"), "{%s}AlternateContent" % MC):
@@ -1331,5 +1332,5 @@ def read(data: bytes, name: str) -> tuple[dict, dict[str, bytes]]:
         return Reader(data, name).read()
     except common.Unsupported:
         raise
-    except (KeyError, ValueError, zipfile.BadZipFile) as exc:
+    except (KeyError, ValueError, AttributeError, TypeError, zipfile.BadZipFile, etree.XMLSyntaxError) as exc:
         raise common.Unsupported(f"{name}: could not be read as a Word document ({exc}).") from exc
