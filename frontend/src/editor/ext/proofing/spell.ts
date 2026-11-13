@@ -4,6 +4,7 @@ import { engineAvailable, setEngineAvailable } from './state';
 const unknown = new Map<string, boolean>();
 const suggestions = new Map<string, string[]>();
 const inflight = new Map<string, Promise<void>>();
+let retryTimer = 0;
 
 const key = (lang: string, word: string): string => `${lang}\u0000${word}`;
 
@@ -26,7 +27,8 @@ export async function unknownWords(lang: string, words: string[]): Promise<Set<s
         for (const w of batch) unknown.set(key(lang, w), r.checked && bad.has(w));
       }).catch(() => {
         setEngineAvailable(false);
-        for (const w of batch) unknown.set(key(lang, w), false);
+        window.clearTimeout(retryTimer);
+        retryTimer = window.setTimeout(() => setEngineAvailable(true), 20000);
       }).finally(() => { inflight.delete(id); });
       inflight.set(id, job);
     }
