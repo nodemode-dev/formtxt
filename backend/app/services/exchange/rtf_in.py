@@ -321,6 +321,12 @@ class Reader:
                 self.rgb[w] = p or 0
                 self.rgb["set"] = 1
             return
+        if dest == "footnote":
+            if w == "ftnalt":
+                self.note_end = True
+            elif w in ("pict", "fldinst") or w in SKIP_DEST:
+                frame.dest = "skip"
+            return
         if w == "fonttbl":
             frame.dest = "fonttbl"
         elif w == "colortbl":
@@ -354,9 +360,6 @@ class Reader:
             frame.dest = frame.opened = "footnote"
             self.note_text = ""
             self.note_end = False
-        elif dest == "footnote":
-            if w == "ftnalt":
-                self.note_end = True
         elif w in HF_KEYS and dest in ("body", "hf"):
             self.start_hf(frame, w)
         elif w in SKIP_DEST and dest == "body":
@@ -499,6 +502,13 @@ class Reader:
     def body_control(self, frame: Frame, w: str, p: int | None) -> None:
         c = frame.char
         on = p is None or p != 0
+        if self.hf_target is not None and w in ("trowd", "cellx", "cell", "row", "intbl"):
+            if w == "cell":
+                self.hf_lines[-1] += "\t"
+            elif w == "row":
+                self.hf_lines[-1] = self.hf_lines[-1].rstrip("\t")
+                self.hf_lines.append("")
+            return
         if w == "plain":
             for k in ("b", "i", "ul", "strike", "sup", "scaps", "caps", "fs", "cf", "hl", "exp", "f"):
                 c.pop(k, None)
