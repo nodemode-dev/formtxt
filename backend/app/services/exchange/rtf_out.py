@@ -221,7 +221,7 @@ class Rtf:
         lid = len(self.lists) + 1
         lv_defs = []
         for lv in range(9):
-            lst = levels.get(lv) or levels.get(0)
+            lst = levels.get(lv) or levels.get(0) or levels[min(levels)]
             left, hang = 720 + 360 * lv, 360
             if lst["kind"] == "number":
                 fmt = common.list_format(lst if lv in levels else {}, lv)

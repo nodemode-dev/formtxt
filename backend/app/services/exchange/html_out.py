@@ -208,7 +208,7 @@ class Html:
 
     def item(self, b: dict, out: list[str], stack: list[str], close_to: Callable[[int], None]) -> None:
         lst = b["list"]
-        level = min(int(lst.get("level", 0) or 0), 8)
+        level = max(0, min(int(lst.get("level", 0) or 0), 8))
         kind = lst.get("kind", "bullet")
         tag = "ol" if kind == "number" else "ul"
         close_to(level + 1)
@@ -230,6 +230,8 @@ class Html:
                 bullet = lst.get("bullet")
                 css = f"list-style-type:'{bullet} '" if bullet else ""
                 out.append(f'<ul style="{css}">' if css else "<ul>")
+            if lv < level:
+                out.append('<li style="list-style:none">')
         _, attrs = self.para_tag(b)
         inner = self.inline(b.get("content") or [])
         mark = ""

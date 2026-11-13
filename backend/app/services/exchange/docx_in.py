@@ -371,7 +371,7 @@ class Reader:
             depth += 1
         if nid is None or nid == "0" or nid not in self.nums:
             return None
-        level = min(8, int(il or 0))
+        level = max(0, min(8, int(il or 0)))
         n = self.nums[nid]
         lvl = self.abstract.get(n["abstract"] or "", {}).get(level)
         if lvl is None:

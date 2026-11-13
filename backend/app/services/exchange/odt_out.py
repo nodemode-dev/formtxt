@@ -257,7 +257,7 @@ class Odt:
         name = self.new("L")
         lv_xml = []
         for lv in range(9):
-            lst = levels.get(lv) or levels.get(0)
+            lst = levels.get(lv) or levels.get(0) or levels[min(levels)]
             left = 36 + 18 * lv
             props = f'<style:list-level-properties text:list-level-position-and-space-mode="label-alignment"><style:list-level-label-alignment text:label-followed-by="listtab" text:list-tab-stop-position="{pt(left)}" fo:text-indent="-18pt" fo:margin-left="{pt(left)}"/></style:list-level-properties>'
             if lst["kind"] == "number":
