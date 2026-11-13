@@ -54,6 +54,8 @@ def unpack(data: bytes) -> tuple[dict, dict[str, bytes]]:
         raise model.InvalidDocument("not a .ftxt package") from exc
     with z:
         names = set(z.namelist())
+        if sum(i.file_size for i in z.infolist()) > config.MAX_DOCUMENT_BYTES:
+            raise model.InvalidDocument("file is larger than FormTxt opens")
         if "mimetype" not in names or z.read("mimetype").decode("ascii", "replace").strip() != MIMETYPE or DOCUMENT not in names:
             raise model.InvalidDocument("not a .ftxt package")
         doc = model.validate(json.loads(z.read(DOCUMENT).decode("utf-8")))

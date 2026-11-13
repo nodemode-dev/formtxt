@@ -118,13 +118,17 @@ def _from_upload(name: str, data: bytes) -> tuple[dict, str]:
         man = next((n for n in names if n.split("/")[-1] == "manifest.json"), None)
         if not man:
             raise Invalid("The archive has no manifest.json.")
-        manifest = _clean_manifest(json.loads(z.read(man).decode("utf-8")))
+        if z.getinfo(man).file_size > 1_000_000:
+            raise Invalid("That add-in is too large.")
+        manifest =_clean_manifest(json.loads(z.read(man).decode("utf-8")))
         raw = json.loads(z.read(man).decode("utf-8"))
         entry = str(raw.get("script") or "main.js")
         base = man[: -len("manifest.json")]
         if base + entry not in names:
             raise Invalid("The archive has no script named " + entry + ".")
-        code = z.read(base + entry).decode("utf-8")
+        if z.getinfo(base + entry).file_size > MAX_SCRIPT * 4:
+            raise Invalid("That script is too long.")
+        code =z.read(base + entry).decode("utf-8")
         return manifest, code
     try:
         raw = json.loads(data.decode("utf-8"))
