@@ -2,8 +2,8 @@
 
 Living log of comment content, rationale and removed code for the engine. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.31.0
-Last updated: 2026-11-13 · v0.31.0: MCP, terminals and Claude Code in the engine, the agent kit (section below). Before: 2026-11-13 · the v0.30.8 fixes to the engine entry and scripts (section below). Before: 2026-11-12 · the v0.30.7 review fixes. Before: 2026-10-31 · .js, .mjs and .css keep their types on Windows; the Linux packages pull in the media plugins. Before: macOS engine signed for notarization
+Current build version: v0.32.0
+Last updated: 2026-11-13 · v0.32.0 has no change in the engine; `setup/icon_rules.py` also checks the insertable icon and emoji data (frontend log). Before: 2026-11-13 · v0.31.0: MCP, terminals and Claude Code in the engine, the agent kit (section below). Before: 2026-11-13 · the v0.30.8 fixes to the engine entry and scripts (section below). Before: 2026-11-12 · the v0.30.7 review fixes. Before: 2026-10-31 · .js, .mjs and .css keep their types on Windows; the Linux packages pull in the media plugins. Before: macOS engine signed for notarization
 
 ---
 
