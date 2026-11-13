@@ -82,12 +82,12 @@ function warn(text: string): void {
 
 function allowed(tr: Transaction): boolean {
   if (!tr.docChanged || !editor?.doc) return true;
-  if (tr.getMeta(SYSTEM) || tr.getMeta('fields') || tr.getMeta(pagesKey) || tr.getMeta('collab') || tr.getMeta('remote')) return true;
+  if (tr.getMeta(SYSTEM) || tr.getMeta('fields') || tr.getMeta(pagesKey) || tr.getMeta('collabRemote') || tr.getMeta('collabInit')) return true;
   const mode = effectiveMode();
   if (!mode) return true;
   if (mode === 'readonly') { warn(approvalStatus(approvalOf(editor)) === 'approved' ? 'This document is approved and read only. Cancel the approval to edit it.' : 'This document is read only.'); return false; }
   if (mode === 'comments') {
-    if (tr.getMeta('comment') || tr.getMeta('comments') || tr.getMeta('review')) return true;
+    if (tr.getMeta('comment') || tr.getMeta('comments')) return true;
     if (tr.steps.length && tr.steps.every((s) => (s instanceof AddMarkStep || s instanceof RemoveMarkStep) && /comment/i.test(s.mark.type.name))) return true;
     warn('This document allows comments only.');
     return false;
