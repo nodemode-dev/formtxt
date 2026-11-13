@@ -33,7 +33,7 @@ const sweep = async (): Promise<void> => {
     for (const c of live) for (const n of c.needs ?? []) ids.add(n);
     const info: Info = {};
     await Promise.all(Array.from(ids).map(async (id) => {
-      try { info[id] = registry.has(id) ? await registry.run(id, {}) : null; } catch { info[id] = null; }
+      try { const c = registry.get(id); info[id] = c ? await c.run({}) : null; } catch { info[id] = null; }
     }));
     for (const c of live) c.patch?.(info);
   } finally {

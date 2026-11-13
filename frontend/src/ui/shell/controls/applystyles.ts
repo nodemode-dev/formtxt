@@ -43,7 +43,7 @@ export function registerApplyStyles(): void {
         return root;
       },
       patch: () => {
-        void Promise.resolve(registry.run('styles.list', {})).then((r) => {
+        void Promise.resolve(registry.get('styles.list')?.run({})).then((r) => {
           list = (r as StyleRow[]) ?? [];
           for (const s of list) {
             if (!rows.has(s.id)) {

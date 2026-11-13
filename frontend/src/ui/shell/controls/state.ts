@@ -89,7 +89,7 @@ export function pageInfo(): PageInfo | null {
 export function refreshPage(): void {
   if (pageBusy || !registry.has('layout.sections')) return;
   pageBusy = true;
-  void Promise.resolve(registry.run('layout.sections', {})).then((r) => {
+  void Promise.resolve(registry.get('layout.sections')?.run({})).then((r) => {
     const list = (r as Array<Record<string, unknown>>) ?? [];
     sections = list.map((s) => {
       const m = s.margins as Record<string, number>;
