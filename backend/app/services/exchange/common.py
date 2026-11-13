@@ -1,5 +1,6 @@
 import hashlib
 import io
+import re
 from collections.abc import Iterator
 
 from app.core.ids import new_id
@@ -18,6 +19,19 @@ class Unsupported(ValueError):
 
 MAX_ZIP_TOTAL = 1 << 30
 MAX_ZIP_ENTRY = 256 << 20
+
+
+XML_BAD = re.compile("[\x00-\x08\x0b\x0c\x0e-\x1f￾￿\ud800-\udfff]")
+
+
+def xml_safe(value):
+    if isinstance(value, str):
+        return XML_BAD.sub("", value) if XML_BAD.search(value) else value
+    if isinstance(value, dict):
+        return {k: xml_safe(v) for k, v in value.items()}
+    if isinstance(value, list):
+        return [xml_safe(v) for v in value]
+    return value
 
 
 def check_zip(z, name: str = "This file") -> None:
