@@ -1,5 +1,6 @@
 import type { CommandRegistry } from '../engine/registry';
 import { asAgent } from './actor';
+import { mirrorCatalogue } from './catalogue';
 
 function safe(value: unknown): unknown {
   if (value === undefined) return null;
@@ -15,7 +16,7 @@ export function connectBridge(reg: CommandRegistry): void {
   const open = (): void => {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
     const ws = new WebSocket(`${proto}://${location.host}/api/live`);
-    ws.onopen = () => { delay = 500; };
+    ws.onopen = () => { delay = 500; void mirrorCatalogue(reg).catch(() => undefined); };
     ws.onmessage = async (ev) => {
       let msg: { t?: string; id?: string; command?: string; params?: Record<string, unknown> };
       try { msg = JSON.parse(String(ev.data)); } catch { return; }
