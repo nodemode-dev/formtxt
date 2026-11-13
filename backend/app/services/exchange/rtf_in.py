@@ -149,6 +149,11 @@ class Reader:
             return
         if dest == "fonttbl":
             self.font_name += text
+            if ";" in self.font_name and frame.char.get("fontdef") is not None:
+                name = self.font_name.split(";")[0].strip()
+                if name:
+                    self.fonts[frame.char["fontdef"]] = name
+                self.font_name = ""
         elif dest == "stylesheet":
             self.style_text += text
         elif dest == "info":
@@ -279,7 +284,7 @@ class Reader:
             self.note_counts[kind] = self.note_counts.get(kind, 0) + 1
             n = self.note_counts[kind]
             self.runs.append({"type": "noteRef", "id": new_id("n_"), "kind": kind, "n": n, "note": self.note_text.strip(), "text": str(n)})
-        elif frame.opened == "info":
+        elif frame.opened in ("info", "infokey"):
             self.info_key = ""
         elif frame.opened == "fldrslt":
             self.field_link = None
@@ -369,6 +374,7 @@ class Reader:
         elif dest == "info":
             if w in ("title", "author", "subject", "keywords"):
                 self.info_key = w
+                frame.opened = "infokey"
         elif dest == "listtable":
             self.list_control(w, p)
         elif dest == "listoverridetable":
