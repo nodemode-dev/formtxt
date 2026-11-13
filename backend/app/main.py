@@ -10,7 +10,7 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core import config
 from app.core.local_guard import LocalGuard
-from app.routers import blocks, commands, data, documents, formula, live, stock, system, templates
+from app.routers import blocks, commands, data, documents, formula, live, mcp, stock, system, templates
 from app.routers import ai, collab, exchange, objects, printing, proofing, refs, review, versions
 
 mimetypes.add_type("text/javascript", ".js")
@@ -56,6 +56,7 @@ for _area in (refs, review, versions, exchange, printing, proofing, ai, objects,
     app.include_router(_area.router, prefix="/api")
 app.include_router(commands.router)
 app.include_router(live.router)
+app.include_router(mcp.router)
 
 _dist = config.dist_dir()
 if _dist is not None:
