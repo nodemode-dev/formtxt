@@ -1,3 +1,4 @@
+import asyncio
 import json
 import mimetypes
 import os
@@ -12,6 +13,8 @@ from app.core import config
 from app.core.local_guard import LocalGuard
 from app.routers import blocks, commands, data, documents, formula, live, mcp, stock, system, templates
 from app.routers import ai, collab, exchange, objects, printing, proofing, refs, review, versions
+from app.routers import claude_code, terminal
+from app.services import claude_code as _claude_service, terminal as _terminal_service
 
 mimetypes.add_type("text/javascript", ".js")
 mimetypes.add_type("text/javascript", ".mjs")
@@ -38,7 +41,10 @@ def _clear_discovery() -> None:
 @asynccontextmanager
 async def lifespan(_: FastAPI):
     _write_discovery()
+    _terminal_service.bind(asyncio.get_running_loop())
     yield
+    _claude_service.stop(quiet=True)
+    _terminal_service.close_all()
     _clear_discovery()
 
 
@@ -57,6 +63,9 @@ for _area in (refs, review, versions, exchange, printing, proofing, ai, objects,
 app.include_router(commands.router)
 app.include_router(live.router)
 app.include_router(mcp.router)
+app.include_router(terminal.router)
+app.include_router(claude_code.router)
+app.include_router(claude_code.window_router)
 
 _dist = config.dist_dir()
 if _dist is not None:

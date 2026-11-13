@@ -29,6 +29,9 @@ FormTxt. Copyright 2026 NodeAgentc, Inc. Licensed under the Apache License 2.0 (
 | FastAPI, Starlette, Pydantic | MIT | engine |
 | Uvicorn | BSD-3-Clause | engine server |
 | python-multipart | Apache-2.0 | engine uploads |
+| ptyprocess 0.7.0 | ISC | engine, the pseudo-terminals behind the terminal dock on macOS and Linux |
+| pywinpty 3.0.5 | MIT | engine, the same on Windows (ConPTY) |
+| Claude Code | not bundled | the terminal dock's Claude Code tabs and Chat run the person's own `claude` program when it is installed; FormTxt ships none of it and reads or stores no credential |
 | prosemirror-collab 1.3.1 | MIT | live co-editing |
 | wordnet-db 3.1.14 (WordNet 3.0 database, Copyright 2006 by Princeton University; used under the WordNet License, which permits use, copying and distribution with this notice; the database is provided as is, without warranties) | MIT package, WordNet License data | Tools > Thesaurus and dictionary (read by the engine from `frontend/node_modules`) |
 | SCOWL-derived hunspell dictionaries for en-US, en-GB, en-AU and en-CA, from dictionary-en 4.0.0, dictionary-en-gb, -au and -ca 3.0.0 (licence file in `backend/app/services/proofing/data/`) | MIT AND BSD | spelling |
