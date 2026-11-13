@@ -1,3 +1,4 @@
+import asyncio
 import json
 import threading
 from pathlib import Path
@@ -72,7 +73,7 @@ def _open(data: bytes, name: str) -> dict:
 
 @router.post("/print/open-pdf")
 async def open_pdf(file: UploadFile = File(...)) -> dict:
-    return _open(await file.read(config.MAX_UPLOAD_BYTES + 1), file.filename or "document.pdf")
+    return await asyncio.to_thread(_open, await file.read(config.MAX_UPLOAD_BYTES + 1), file.filename or "document.pdf")
 
 
 class PdfPath(BaseModel):

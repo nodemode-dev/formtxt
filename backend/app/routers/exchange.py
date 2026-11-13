@@ -1,3 +1,4 @@
+import asyncio
 from urllib.parse import quote
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
@@ -51,6 +52,11 @@ def export_live(doc_id: str, doc: dict, format: str = "docx") -> Response:
     return _reply(doc, media, format)
 
 
+def _import_one(name: str, data: bytes) -> dict:
+    doc, media = exchange.read(name, data)
+    return model.summary(store.adopt(doc, media))
+
+
 @router.post("/exchange/import")
 async def import_files(files: list[UploadFile] = File(...)) -> dict:
     made, errors = [], []
@@ -61,8 +67,7 @@ async def import_files(files: list[UploadFile] = File(...)) -> dict:
             errors.append(f"{name}: larger than FormTxt opens")
             continue
         try:
-            doc, media = exchange.read(name, data)
-            made.append(model.summary(store.adopt(doc, media)))
+            made.append(await asyncio.to_thread(_import_one, name, data))
         except common.Unsupported as exc:
             errors.append(str(exc))
         except model.InvalidDocument as exc:

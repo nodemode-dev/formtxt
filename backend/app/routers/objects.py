@@ -23,7 +23,7 @@ async def add_fonts(files: list[UploadFile] = File(...), family: str = Form(""))
     for f in files:
         data = await f.read(objects_fonts.MAX_FONT_BYTES + 1)
         try:
-            added.append(objects_fonts.add(data, f.filename or "font", family if len(files) == 1 else ""))
+            added.append(await asyncio.to_thread(objects_fonts.add, data, f.filename or "font", family if len(files) == 1 else ""))
         except objects_fonts.FontError as exc:
             errors.append(str(exc))
     if not added and errors:
@@ -139,7 +139,7 @@ async def library_add(files: list[UploadFile] = File(...)) -> dict:
     for f in files:
         data = await f.read(config.MAX_MEDIA_BYTES + 1)
         try:
-            added.append(objects_source.library_add(f.filename or "data.csv", data))
+            added.append(await asyncio.to_thread(objects_source.library_add, f.filename or "data.csv", data))
         except objects_source.SourceError as exc:
             errors.append(str(exc))
     if not added and errors:

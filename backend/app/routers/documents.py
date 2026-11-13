@@ -1,3 +1,4 @@
+import asyncio
 import hashlib
 
 from fastapi import APIRouter, File, HTTPException, UploadFile
@@ -45,6 +46,14 @@ def purge(doc_id: str) -> dict:
     return {"ok": True}
 
 
+def _import_one(name: str, data: bytes) -> dict:
+    if exchange.handles(name):
+        doc, media = exchange.read(name, data)
+    else:
+        doc, media = intake.to_document(name or "document.txt", data), None
+    return model.summary(store.adopt(doc, media))
+
+
 @router.post("/import")
 async def import_files(files: list[UploadFile] = File(...)) -> dict:
     made, errors = [], []
@@ -54,11 +63,7 @@ async def import_files(files: list[UploadFile] = File(...)) -> dict:
             errors.append(f"{f.filename}: larger than FormTxt opens")
             continue
         try:
-            if exchange.handles(f.filename or ""):
-                doc, media = exchange.read(f.filename or "", data)
-            else:
-                doc, media = intake.to_document(f.filename or "document.txt", data), None
-            made.append(model.summary(store.adopt(doc, media)))
+            made.append(await asyncio.to_thread(_import_one, f.filename or "", data))
         except (intake.Unsupported, exchange.Unsupported) as exc:
             errors.append(str(exc))
             continue
@@ -150,7 +155,7 @@ async def add_media(doc_id: str, files: list[UploadFile] = File(...)) -> dict:
             continue
         name = f"{hashlib.sha256(data).hexdigest()[:20]}.{kind[0]}"
         try:
-            store.add_media(doc_id, name, data)
+            await asyncio.to_thread(store.add_media, doc_id, name, data)
         except store.NotFound:
             raise _missing(doc_id)
         added.append({"name": name, "type": kind[1], "bytes": len(data), "source": (f.filename or "")[:200]})
