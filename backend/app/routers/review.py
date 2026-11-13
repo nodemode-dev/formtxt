@@ -1,7 +1,7 @@
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
-from app.services import review, store
+from app.services import package, review, store
 
 router = APIRouter(prefix="/review", tags=["review"])
 
@@ -52,6 +52,14 @@ def compare(body: CompareBody) -> dict:
         raise HTTPException(400, "Pick a different document to compare with.")
     result, changes = review.compare(base, other, body.author, body.mode == "combine")
     if body.mode != "compare":
+        target = body.baseId or str(base.get("id") or "")
+        wanted = package.referenced(result)
+        try:
+            for name, data in other_media.items():
+                if name in wanted and name not in base_media:
+                    store.add_media(target, name, data)
+        except store.NotFound:
+            pass
         return {"document": result, "changes": changes}
     title = body.title.strip() or f"Comparison of {base.get('title', 'document')} and {other.get('title', 'document')}"
     media = {**other_media, **base_media}
