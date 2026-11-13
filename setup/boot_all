@@ -3,9 +3,9 @@ set -e
 source "$(dirname "$0")/lib.sh"
 cd "$FORMTXT_ROOT"
 pids=()
-( cd backend && ./boot_backend ) &
+( cd backend && exec ./boot_backend ) &
 pids+=($!)
-( cd frontend && ./boot_frontend ) &
+( cd frontend && exec ./boot_frontend ) &
 pids+=($!)
 trap 'kill "${pids[@]}" 2>/dev/null' EXIT INT TERM
 ft_say "frontend http://localhost:${FORMTXT_UI_PORT:-5210} · engine http://127.0.0.1:${FORMTXT_ENGINE_PORT:-8210}"
