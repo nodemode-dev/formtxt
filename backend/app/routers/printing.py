@@ -31,7 +31,7 @@ def _pdf(doc: dict, media: dict[str, bytes], tagged: bool, download: bool) -> Re
         "x-formtxt-pages": str(info["pages"]),
         "x-formtxt-notes": json.dumps(info["warnings"])[:3000],
         "x-formtxt-tagged": json.dumps(info["tagged"]),
-        "content-disposition": f'{"attachment" if download else "inline"}; filename="{_name(doc.get("title", "")).encode("ascii", "ignore").decode().strip() or "document"}.pdf"; filename*=UTF-8\'\'{quote(_name(doc.get("title", "")) + ".pdf")}',
+        "content-disposition": f'{"attachment" if download else "inline"}; filename*=UTF-8\'\'{quote(_name(doc.get("title", "")) + ".pdf")}; filename="{_name(doc.get("title", "")).encode("ascii", "ignore").decode().strip() or "document"}.pdf"',
         "cache-control": "no-store",
     }
     return Response(data, media_type="application/pdf", headers=headers)

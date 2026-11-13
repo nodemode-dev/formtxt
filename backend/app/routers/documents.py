@@ -117,7 +117,7 @@ def download(doc_id: str) -> Response:
     name = "".join(c for c in doc["title"] if c.isalnum() or c in " -_").strip() or "document"
     doc, media = package.prune(doc, media)
     return Response(package.pack(doc, media), media_type=package.MIMETYPE,
-                    headers={"content-disposition": f'attachment; filename="{name.encode("ascii", "ignore").decode().strip() or "document"}.ftxt"; filename*=UTF-8\'\'{quote(name + ".ftxt")}'})
+                    headers={"content-disposition": f'attachment; filename*=UTF-8\'\'{quote(name + ".ftxt")}; filename="{name.encode("ascii", "ignore").decode().strip() or "document"}.ftxt"'})
 
 
 @router.get("/{doc_id}/thumb.svg")
