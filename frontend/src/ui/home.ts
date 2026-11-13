@@ -1,6 +1,7 @@
 import type { DocSummary } from '../engine/model';
 import { api, type TemplateSummary } from '../io/api';
 import { Backstage, backstageMarkup, hicon } from './backstage';
+import { brandMark } from './brand';
 import { Dialog } from './dialog';
 import { el, escapeHtml, patchList, setClass, setHidden, setText } from './dom';
 import { icon } from './icons';
@@ -118,14 +119,14 @@ export class Home {
     this.root = el(`<section class="ft-home" aria-label="Home">
 <nav class="ft-home-nav">
 ${act('back', 'arrowLeft', 'Back', 'ft-home-back-top ft-for-bs', ' title="Back to the document (Esc)"')}
-<div class="ft-home-brand"><img class="ft-logo" src="/formtxt-logo.png" width="28" height="28" alt="" draggable="false">FormTxt <span>by nodemode.ai</span></div>
+<div class="ft-home-brand">${brandMark(26)}formtxt <span translate="no">by nodemode.ai</span></div>
 <div class="ft-for-home ft-home-group">${nav('start', 'home', 'Start')}${nav('recent', 'clock', 'Recent documents', 'ft-doc-count')}${nav('templates', 'template', 'Templates', 'ft-tpl-count')}${nav('trash', 'trash', 'Trash', 'ft-trash-count')}
 <div class="ft-home-nav-sep"></div>
 <div class="ft-home-nav-title">Create</div>
 ${nav('new', 'plus', 'New document')}${nav('open', 'folderOpen', 'Open')}
 <div class="ft-home-nav-sep"></div>
 <div class="ft-home-nav-title">Agents</div>
-<button class="ft-home-nav-item" type="button" data-a="agents">${icon('agent', 16)}<span>Claude Code, Codex, Cursor</span></button></div>
+<button class="ft-home-nav-item" type="button" data-cmd="agent.claudeCode">${icon('agent', 16)}<span>Claude Code</span></button><button class="ft-home-nav-item" type="button" data-cmd="agent.chat">${icon('agentChat', 16)}<span>Chat</span></button><button class="ft-home-nav-item" type="button" data-cmd="view.terminal">${icon('terminal', 16)}<span>Terminal</span></button></div>
 <div class="ft-for-bs ft-home-group">${nav('start', 'home', 'Home')}${nav('new', 'plus', 'New')}${nav('open', 'folderOpen', 'Open')}
 <div class="ft-home-nav-sep"></div>
 ${nav('info', 'info', 'Info')}${nav('save', 'saveCopy', 'Save a Copy')}${nav('print', 'print', 'Print')}${nav('share', 'share', 'Share')}${nav('export', 'exportDoc', 'Export')}
@@ -137,6 +138,9 @@ ${act('closedoc', 'closeDoc', 'Close')}</div>
 <button class="ft-home-nav-item ft-for-home" type="button" data-a="prefs">${icon('settings', 16)}<span>Preferences</span></button>
 ${nav('account', 'user', 'Account', '', 'ft-for-bs')}${act('options', 'options', 'Options', 'ft-for-bs')}
 </div></nav>
+<div class="ft-home-resizer" role="separator" aria-orientation="vertical" aria-label="Resize the side panel"></div>
+<button class="ft-home-nav-hide" type="button" title="Hide the side panel" aria-label="Hide the side panel">${icon('chevronLeft', 14)}</button>
+<button class="ft-home-nav-show" type="button" title="Show the side panel" aria-label="Show the side panel">${icon('chevronRight', 14)}</button>
 <div class="ft-home-main">
 <div class="ft-home-narrow"><button class="ft-home-nav-item ft-for-bs" type="button" data-a="back">${hicon('arrowLeft', 16)}<span>Back</span></button>${nav('start', 'home', 'Start')}${nav('recent', 'clock', 'Recent', 'ft-doc-count', 'ft-for-home')}${nav('templates', 'template', 'Templates', 'ft-tpl-count', 'ft-for-home')}${nav('trash', 'trash', 'Trash', 'ft-trash-count', 'ft-for-home')}${nav('new', 'plus', 'New')}${nav('open', 'folderOpen', 'Open')}${nav('info', 'info', 'Info', '', 'ft-for-bs')}${nav('save', 'saveCopy', 'Save a Copy', '', 'ft-for-bs')}${nav('print', 'print', 'Print', '', 'ft-for-bs')}${nav('share', 'share', 'Share', '', 'ft-for-bs')}${nav('export', 'exportDoc', 'Export', '', 'ft-for-bs')}</div>
 <div class="ft-home-confirm" role="alertdialog" aria-live="assertive" hidden><span class="ft-home-confirm-text"></span><button class="ft-btn sm" type="button" data-a="confirm-no">Cancel</button><button class="ft-btn sm danger" type="button" data-a="confirm-yes"></button></div>
@@ -147,7 +151,7 @@ ${nav('account', 'user', 'Account', '', 'ft-for-bs')}${act('options', 'options',
 <div class="ft-home-hero-text"><div class="ft-home-hero-title">Start from your material</div>
 <div class="ft-home-hero-sub">Drop a Word, OpenDocument, RTF, HTML, Markdown, text, Word 97 or PDF file anywhere on this screen and it opens as a document in your library.</div>
 <div class="ft-home-formats">${FORMATS.map((f) => `<span class="ft-home-format">${f}</span>`).join('')}</div></div>
-<div class="ft-home-hero-actions"><button class="ft-home-action is-primary" type="button" data-a="blank">${icon('plus', 16)}<span class="ft-home-label">New document</span></button><button class="ft-home-action" type="button" data-a="choose">${icon('upload', 16)}<span class="ft-home-label">Choose files</span></button><button class="ft-home-action" type="button" data-a="paste">${icon('fileText', 16)}<span class="ft-home-label">Paste text</span></button><button class="ft-home-action is-ghost" type="button" data-a="agents">${icon('agent', 16)}<span class="ft-home-label">Use your agent</span></button></div>
+<div class="ft-home-hero-actions"><button class="ft-home-action is-primary" type="button" data-a="blank">${icon('plus', 16)}<span class="ft-home-label">New document</span></button><button class="ft-home-action" type="button" data-a="choose">${icon('upload', 16)}<span class="ft-home-label">Choose files</span></button><button class="ft-home-action" type="button" data-a="paste">${icon('fileText', 16)}<span class="ft-home-label">Paste text</span></button><button class="ft-home-action is-ghost" type="button" data-cmd="agent.claudeCode">${icon('agent', 16)}<span class="ft-home-label">Use your agent</span></button></div>
 </div>
 <section class="ft-home-section"><div class="ft-home-section-head"><h2 class="ft-home-section-title">Recent documents</h2><button class="ft-btn ghost sm" type="button" data-v="recent">See all</button></div><div class="ft-card-grid ft-recent-grid">${SKELETON}</div><div class="ft-card-grid ft-recent-empty" hidden><button class="ft-card is-empty" type="button" tabindex="-1" data-a="blank"><span class="ft-card-preview is-blank">${icon('document', 28)}</span><span class="ft-card-body"><span class="ft-card-name">No documents yet</span><span class="ft-card-meta">Start blank, from a template or from a file</span></span></button></div></section>
 <section class="ft-home-section"><div class="ft-home-section-head"><h2 class="ft-home-section-title">New document</h2><button class="ft-btn ghost sm" type="button" data-v="new">More sizes</button></div><div class="ft-home-sizes">${tiles}</div></section>
@@ -184,8 +188,49 @@ ${backstageMarkup()}
     this.chrome();
     setHidden(this.root, !storedPrefs().autoShowHome);
     this.flag();
+    this.sidePanel();
     host.appendChild(this.root);
     this.wire();
+  }
+
+  private sidePanel(): void {
+    const root = this.root;
+    const bar = root.querySelector<HTMLElement>('.ft-home-resizer');
+    if (!bar) return;
+    const save = (): void => {
+      try {
+        localStorage.setItem('formtxt.homeNav', root.style.getPropertyValue('--ft-home-nav-w'));
+        localStorage.setItem('formtxt.homeNavHidden', root.classList.contains('is-nav-hidden') ? '1' : '0');
+      } catch { return; }
+    };
+    const hide = (on: boolean): void => { setClass(root, 'is-nav-hidden', on); save(); };
+    try {
+      const w = localStorage.getItem('formtxt.homeNav');
+      if (w) root.style.setProperty('--ft-home-nav-w', w.trim());
+      if (localStorage.getItem('formtxt.homeNavHidden') === '1') root.classList.add('is-nav-hidden');
+    } catch { void 0; }
+    root.querySelector('.ft-home-nav-hide')?.addEventListener('click', () => hide(true));
+    root.querySelector('.ft-home-nav-show')?.addEventListener('click', () => hide(false));
+    bar.addEventListener('pointerdown', (e) => {
+      e.preventDefault();
+      const x0 = e.clientX;
+      const start = root.querySelector('.ft-home-nav')?.getBoundingClientRect().width || 232;
+      bar.classList.add('is-dragging');
+      const mv = (ev: PointerEvent): void => {
+        const raw = start + ev.clientX - x0;
+        const collapse = raw < 120;
+        if (root.classList.contains('is-nav-hidden') !== collapse) setClass(root, 'is-nav-hidden', collapse);
+        if (!collapse) root.style.setProperty('--ft-home-nav-w', `${Math.round(Math.max(180, Math.min(420, raw)))}px`);
+      };
+      const up = (): void => {
+        bar.classList.remove('is-dragging');
+        window.removeEventListener('pointermove', mv);
+        window.removeEventListener('pointerup', up);
+        save();
+      };
+      window.addEventListener('pointermove', mv);
+      window.addEventListener('pointerup', up);
+    });
   }
 
   private hasDocument(): boolean { return this.hooks.hasDocument ? this.hooks.hasDocument() : this.sawDoc; }
@@ -257,7 +302,6 @@ ${backstageMarkup()}
       else if (a === 'open' || a === 'choose') this.pick();
       else if (a === 'paste') this.pasteText();
       else if (a === 'prefs') this.hooks.preferences();
-      else if (a === 'agents') toast('Agents drive the open window through the command bridge: ./formtxt cli list, ./formtxt cli run <id>, or POST /api/commands/<id>. An MCP server is not built yet.');
       else if (a === 'local') toast('Your documents and templates stay in your FormTxt folder on this computer.');
       if (card?.dataset.doc) this.hooks.openDocument(card.dataset.doc);
       if (card?.dataset.template) {
