@@ -830,7 +830,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
     ed.view.dispatch(ed.view.state.tr.setSelection(NodeSelection.create(ed.view.state.doc, at)));
     mermaidDialog(ed);
   });
-  add('insert.icon', 'Icon', 'Insert', 'Insert an icon from the Tabler library (4,808 outline and 1,009 filled); with no name, opens the icon picker.', async (p) => {
+  add('insert.icon', 'Icon', 'Insert', 'Insert an icon from the Tabler library (4,770 outline and 1,005 filled); with no name, opens the icon picker.', async (p) => {
     if (p.name === undefined) { iconsDialog(ed); return true; }
     const entry = await findIcon(String(p.name));
     if (!entry) throw new Error(`No icon is named ${String(p.name)}. Open the picker to search.`);

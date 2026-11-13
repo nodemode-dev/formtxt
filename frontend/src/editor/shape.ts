@@ -6,6 +6,7 @@ import { type Command, EditorState, NodeSelection, Selection, TextSelection } fr
 import { EditorView, type NodeView } from 'prosemirror-view';
 import type { Block } from '../engine/model';
 import { blocksToNodes, fromPM } from './convert';
+import { retiredPath } from './retired-icons';
 import { schema } from './schema';
 
 const PX = 96 / 72;
@@ -294,7 +295,7 @@ export class ShapeView implements NodeView {
     const attr = (n: Element, k: string, v: string | null): void => { if (v === null) { if (n.hasAttribute(k)) n.removeAttribute(k); } else if (n.getAttribute(k) !== v) n.setAttribute(k, v); };
     attr(this.svg, 'viewBox', vb);
     attr(this.svg, 'preserveAspectRatio', kind === 'ink' ? 'none' : kind === 'icon' ? 'xMidYMid meet' : null);
-    const d = custom ? String(a.path || '') : shapePath(kind, w, h, kind === 'line' ? 0 : sw);
+    const d = custom ? (kind === 'icon' && retiredPath(String(a.path || '')) ? '' : String(a.path || '')) : shapePath(kind, w, h, kind === 'line' ? 0 : sw);
     attr(this.path, 'd', d);
     const grad = !custom && kind !== 'line' && a.gradient && a.fill ? String(a.gradient) : '';
     if (grad) {
