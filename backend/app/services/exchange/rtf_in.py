@@ -1,3 +1,4 @@
+import codecs
 import re
 from collections import Counter
 
@@ -13,7 +14,9 @@ SKIP_DEST = {"rsidtbl", "generator", "themedata", "colorschememapping", "latents
              "category", "comment", "doccomm", "hlinkbase", "creatim", "revtim", "printim", "buptim", "pgdsc", "template", "filetbl", "mmath", "background",
              "defchp", "defpap", "formfield", "objdata"}
 KEEP_IGNORABLE = {"shppict", "header", "footer", "headerf", "footerf", "headerl", "footerl", "headerr", "footerr", "pict", "listtable", "listoverridetable", "footnote"}
-NFC_FORMAT = {0: "decimal", 1: "upper-roman", 2: "lower-roman", 3: "upper-alpha", 4: "lower-alpha", 22: "decimal-leading-zero"}
+CHARSET_CP = {77: "mac_roman", 128: "cp932", 129: "cp949", 134: "cp936", 136: "cp950", 161: "cp1253", 162: "cp1254", 163: "cp1258", 177: "cp1255",
+              178: "cp1256", 186: "cp1257", 204: "cp1251", 222: "cp874", 238: "cp1250"}
+NFC_FORMAT = {0:"decimal", 1: "upper-roman", 2: "lower-roman", 3: "upper-alpha", 4: "lower-alpha", 22: "decimal-leading-zero"}
 CHARS = {"emdash": "\u2014", "endash": "\u2013", "lquote": "\u2018", "rquote": "\u2019", "ldblquote": "\u201c", "rdblquote": "\u201d", "bullet": "\u2022",
          "emspace": "\u2003", "enspace": "\u2002", "qmspace": "\u2005", "zwj": "\u200d", "zwnj": "\u200c"}
 HF_KEYS = {"header": ("headers", "default"), "footer": ("footers", "default"), "headerf": ("headers", "first"), "footerf": ("footers", "first"),
@@ -41,6 +44,9 @@ class Reader:
         self.b = Builder(common.title_of(name))
         self.doc = self.b.doc
         self.codepage = "cp1252"
+        self.font_cp: dict[int, str] = {}
+        self.hexbuf = bytearray()
+        self.hexframe: Frame | None = None
         self.fonts: dict[int, str] = {}
         self.deff = 0
         self.colors: list[str] = []
@@ -172,6 +178,8 @@ class Reader:
                 continue
             pos = m.end()
             word, param, hexv, sym, brace, text = m.groups()
+            if self.hexbuf and hexv is None and (word or sym or brace or text) is not None:
+                self.flush_hex()
             if brace == b"{":
                 stack.append(frame)
                 frame = Frame(frame.dest, frame.char, frame.uc)
@@ -200,13 +208,16 @@ class Reader:
                         self.colors.append("#%02x%02x%02x" % (self.rgb["red"], self.rgb["green"], self.rgb["blue"]) if self.rgb.get("set") else "")
                         self.rgb = {"red": 0, "green": 0, "blue": 0}
                 else:
-                    self.add_text(frame, text.decode(self.codepage, "replace"))
+                    self.add_text(frame, text.decode(self.cp(frame), "replace"))
                 continue
             if hexv is not None:
                 if frame.skip:
                     frame.skip -= 1
                 else:
-                    self.add_text(frame, bytes([int(hexv, 16)]).decode(self.codepage, "replace"))
+                    if self.hexbuf and self.hexframe is not frame:
+                        self.flush_hex()
+                    self.hexbuf.append(int(hexv, 16))
+                    self.hexframe = frame
                 continue
             if sym is not None:
                 self.symbol(frame, sym.decode("ascii"), data, pos)
@@ -225,6 +236,17 @@ class Reader:
                 self.control(frame, w, int(param) if param is not None else None)
                 if w == "bin" and param and int(param) > 0:
                     pos += int(param)
+        if self.hexbuf:
+            self.flush_hex()
+
+    def cp(self, frame: Frame) -> str:
+        return self.font_cp.get(frame.char.get("f", self.deff)) or self.codepage
+
+    def flush_hex(self) -> None:
+        raw, self.hexbuf = bytes(self.hexbuf), bytearray()
+        frame, self.hexframe = self.hexframe, None
+        if frame is not None:
+            self.add_text(frame, raw.decode(self.cp(frame), "replace"))
 
     def symbol(self, frame: Frame, s: str, data: bytes, pos: int) -> None:
         if s == "~":
@@ -265,7 +287,12 @@ class Reader:
     def control(self, frame: Frame, w: str, p: int | None) -> None:
         dest = frame.dest
         if w == "ansicpg" and p:
-            self.codepage = f"cp{p}"
+            name = "mac_roman" if p == 10000 else f"cp{p}"
+            try:
+                codecs.lookup(name)
+                self.codepage = name
+            except LookupError:
+                self.codepage = "cp1252"
             return
         if w == "deff":
             self.deff = p or 0
@@ -286,6 +313,8 @@ class Reader:
         if dest == "fonttbl":
             if w == "f" and p is not None:
                 frame.char["fontdef"] = p
+            elif w == "fcharset" and p in CHARSET_CP and frame.char.get("fontdef") is not None:
+                self.font_cp[frame.char["fontdef"]] = CHARSET_CP[p]
             return
         if dest == "colortbl":
             if w in ("red", "green", "blue"):
