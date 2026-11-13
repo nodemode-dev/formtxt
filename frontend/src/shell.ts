@@ -1,6 +1,6 @@
 import { NodeSelection } from 'prosemirror-state';
 import { isInTable } from 'prosemirror-tables';
-import type { DocEditor } from './editor/editor';
+import { toolbarSynced, type DocEditor } from './editor/editor';
 import { cmdStateChanged, onCmdStateChange, setCmdState, shellCommands } from './ui/shell/cmd';
 import { TitleBar } from './ui/shell/titlebar';
 import { StatusBar } from './ui/shell/status';
@@ -210,7 +210,13 @@ export function mountShell(d: ShellDeps): Shell {
   onIssues(syncProofing);
   new MutationObserver(syncReview).observe(editor.root, { attributes: true, attributeFilter: ['data-review'] });
   onCmdStateChange(() => { ribbon.refresh(); native?.refresh(); syncDocument(); });
-  document.addEventListener('selectionchange', () => cmdStateChanged());
+  let stateFrame = 0;
+  const kick = (): void => {
+    if (stateFrame) return;
+    stateFrame = requestAnimationFrame(() => { stateFrame = 0; cmdStateChanged(); });
+  };
+  toolbarSynced.add(kick);
+  document.addEventListener('selectionchange', kick);
 
   commands.register({ id: 'ribbon.collapse', label: 'Collapse the ribbon', group: 'View', description: 'Show only the ribbon tabs, or show the whole ribbon again (Ctrl+F1).', keys: ['Ctrl+F1'], run: () => { ribbon.setCollapsed(!ribbon.collapsed); return ribbon.collapsed; } });
   commands.register({ id: 'ribbon.simplified', label: 'Simplified ribbon', group: 'View', description: 'Switch between the simplified one-line ribbon and the full ribbon.', run: () => { ribbon.setSimplified(!ribbon.simplified); return ribbon.simplified; } });
