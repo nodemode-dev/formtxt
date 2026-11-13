@@ -84,6 +84,13 @@ def main() -> int:
     port = int(raw)
     if len(sys.argv) > 1 and sys.argv[1].isdigit():
         port = int(sys.argv[1])
+    if port == 0:
+        import socket
+
+        with socket.socket() as probe:
+            probe.bind(("127.0.0.1", 0))
+            port = probe.getsockname()[1]
+    os.environ["FORMTXT_ENGINE_PORT"] = str(port)
     uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
     return 0
 
