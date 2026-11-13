@@ -7,6 +7,7 @@ from urllib.parse import quote
 from fastapi import APIRouter, File, HTTPException, Request, UploadFile
 from fastapi.responses import Response
 from pydantic import BaseModel
+from reportlab.platypus.doctemplate import LayoutError
 
 from app.core import config
 from app.services import model, store
@@ -27,6 +28,8 @@ def _pdf(doc: dict, media: dict[str, bytes], tagged: bool, download: bool) -> Re
             data, info = render_pdf(doc, media, tagged)
     except model.InvalidDocument as exc:
         raise HTTPException(422, str(exc))
+    except LayoutError:
+        raise HTTPException(422, "part of this document is too large to place on a page")
     headers = {
         "x-formtxt-pages": str(info["pages"]),
         "x-formtxt-notes": json.dumps(info["warnings"])[:3000],
