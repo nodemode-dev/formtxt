@@ -27,6 +27,7 @@ HIGHLIGHT = {"yellow": "#ffff00", "green": "#00ff00", "cyan": "#00ffff", "magent
              "darkGray": "#808080", "lightGray": "#c0c0c0", "black": "#000000", "white": "#ffffff"}
 NUMFMT_IN = {"decimal": "decimal", "decimalZero": "decimal-leading-zero", "lowerLetter": "lower-alpha", "upperLetter": "upper-alpha",
              "lowerRoman": "lower-roman", "upperRoman": "upper-roman"}
+SAFE_ID = re.compile(r"[A-Za-z0-9 _.-]+")
 EXT_TYPES = {"png", "jpg", "jpeg", "gif", "bmp", "webp", "tif", "tiff", "svg"}
 
 
@@ -266,10 +267,18 @@ class Reader:
             defaults_run = self.style_run(rpr)
             defaults_para = self.style_para(child(child(dd, "w:pPrDefault"), "w:pPr"))
         els = [el for el in root.findall(qn("w:style")) if el.get(qn("w:styleId"))]
+        used = {el.get(qn("w:styleId")) for el in els if SAFE_ID.fullmatch(el.get(qn("w:styleId")))}
         for el in els:
             sid = el.get(qn("w:styleId"))
             nm = val(child(el, "w:name")) or sid
-            self.idmap[sid] = common.BUILTIN_NAMES.get(nm.lower(), sid) if el.get(qn("w:type")) == "paragraph" else sid
+            fid = common.BUILTIN_NAMES.get(nm.lower()) if el.get(qn("w:type")) == "paragraph" else None
+            if fid is None and not SAFE_ID.fullmatch(sid):
+                base = re.sub(r"[^A-Za-z0-9 _.-]", "", sid)[:60] or "Style"
+                fid, n = base, 2
+                while fid in used:
+                    fid, n = f"{base}{n}", n + 1
+                used.add(fid)
+            self.idmap[sid] = fid or sid
         for el in els:
             sid = el.get(qn("w:styleId"))
             kind = el.get(qn("w:type"))
