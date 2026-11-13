@@ -10,7 +10,7 @@ import type { Command, Commands } from './cmd';
 
 export const QAT_KEY = 'formtxt.qat';
 export const DEFAULT_QAT = ['edit.undo', 'edit.redo'];
-export const COMMON_QAT = ['file.new', 'file.open', 'file.save', 'print.run', 'edit.undo', 'edit.redo', 'review.spelling', 'insert.table'];
+export const COMMON_QAT = ['file.new', 'file.open', 'print.run', 'edit.undo', 'edit.redo', 'proofing.checkDocument', 'insert.table'];
 
 export const hasIcon = (name: string): boolean => !!(ICONS[name] ?? SHELL_ICONS[name] ?? WORD_ICONS[name] ?? WORDCMD_ICONS[name] ?? CHROME_ICONS[name] ?? HOME_ICONS[name] ?? PREF_ICONS[name]);
 
