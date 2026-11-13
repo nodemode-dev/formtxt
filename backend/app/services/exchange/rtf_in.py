@@ -182,7 +182,7 @@ class Reader:
                     frame = stack.pop()
                 continue
             if frame.dest == "skip":
-                if word == b"bin" and param:
+                if word == b"bin" and param and int(param) > 0:
                     pos += int(param)
                 continue
             if text is not None:
@@ -223,7 +223,7 @@ class Reader:
             if word is not None:
                 w = word.decode("ascii")
                 self.control(frame, w, int(param) if param is not None else None)
-                if w == "bin" and param:
+                if w == "bin" and param and int(param) > 0:
                     pos += int(param)
 
     def symbol(self, frame: Frame, s: str, data: bytes, pos: int) -> None:
