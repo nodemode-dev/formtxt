@@ -1,6 +1,8 @@
 :root { --ft-dock-size: 280px; --ft-dock-h: 0px; }
 :root[data-ft-dock="open"] { --ft-dock-h: min(var(--ft-dock-size), 70vh); }
 :root #app { grid-template-rows: var(--ft-titlebar-h) auto minmax(0, 1fr) var(--ft-dock-h) var(--ft-status-h); }
+#app > .ft-main { grid-row: 3; }
+#app > .ft-status { grid-row: 5; }
 :root[data-ft-dock="open"] .ft-home { bottom: calc(var(--ft-status-h) + var(--ft-dock-h)); }
 body.ft-focus .ft-dock { display: none; }
 
