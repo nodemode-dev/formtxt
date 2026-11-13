@@ -135,7 +135,7 @@ async def _join(peer: Peer, msg: dict) -> None:
         out.update(mode="resume", sid=sess.sid, version=sess.version, base=None, **_tail(sess, version))
     elif sess:
         out.update(mode="replace", sid=sess.sid, version=sess.version, base={"version": sess.base_version, "doc": sess.base_doc}, **_tail(sess, sess.base_version))
-    elif isinstance(msg.get("doc"), dict):
+    elif isinstance(msg.get("doc"), dict) and peer.access == "edit":
         _counter["n"] += 1
         sess = Session(peer.doc, tab, f"s{_counter['n']}x{peer.cid}", msg["doc"])
         room.sessions[tab] = sess
