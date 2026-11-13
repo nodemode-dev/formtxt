@@ -217,7 +217,7 @@ class Rtf:
     def list_run(self, items: list[dict], in_cell: bool) -> str:
         levels: dict[int, dict] = {}
         for it in items:
-            levels.setdefault(min(int(it["list"].get("level", 0) or 0), 8), it["list"])
+            levels.setdefault(max(0, min(int(it["list"].get("level", 0) or 0), 8)), it["list"])
         lid = len(self.lists) + 1
         lv_defs = []
         for lv in range(9):
@@ -241,7 +241,7 @@ class Rtf:
         out = []
         for it in items:
             lst = it["list"]
-            level = min(int(lst.get("level", 0) or 0), 8)
+            level = max(0, min(int(lst.get("level", 0) or 0), 8))
             label = counter.label(lst) if lst["kind"] == "number" else ("\u2022" if not lst.get("bullet") else lst["bullet"])
             left = 720 + 360 * level
             sid = self.style_ids.get(it.get("style") or "Normal")

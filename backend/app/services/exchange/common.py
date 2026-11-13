@@ -254,7 +254,7 @@ class ListCounter:
         self.counts = []
 
     def label(self, lst: dict) -> str:
-        level = int(lst.get("level", 0) or 0)
+        level = max(0, int(lst.get("level", 0) or 0))
         kind = lst.get("kind")
         if kind == "check":
             return chr(0x2611) if lst.get("checked") else chr(0x2610)
