@@ -387,8 +387,8 @@ class Evaluator:
             t = self.need_table(n.pos)
             (r1, c1), (r2, c2) = t.ref(n.value[0]), t.ref(n.value[1])
             out: list = []
-            for r in range(min(r1, r2), max(r1, r2) + 1):
-                for c in range(min(c1, c2), max(c1, c2) + 1):
+            for r in range(max(0, min(r1, r2)), min(max(r1, r2), len(t.grid) - 1) + 1):
+                for c in range(max(0, min(c1, c2)), min(max(c1, c2), len(t.grid[r]) - 1) + 1):
                     v = t.at(r, c)
                     if v is not None:
                         nv = cell_number(v)
