@@ -35,7 +35,7 @@ import { api } from '../io/api';
 import { toast } from '../ui/toast';
 
 export type ViewMode = 'print' | 'draft' | 'read' | 'focus';
-import { mediaUrl, schema, setMediaDocument } from './schema';
+import { ALIGNS, hexColor, mediaUrl, schema, setMediaDocument } from './schema';
 
 const PX = 96 / 72;
 export const FONTS = ['Inter', 'Source Serif 4', 'Libre Baskerville', 'Lora', 'Merriweather', 'Playfair Display', 'IBM Plex Sans', 'IBM Plex Serif', 'Work Sans', 'Space Grotesk'];
@@ -71,10 +71,10 @@ function styleSheet(doc: FtxtDocument): string {
     const css = [
       `font-family:${fontStack(run.font ?? 'Inter')}`,
       `font-size:${((run.size ?? 11) * PX).toFixed(2)}px`,
-      `color:${run.color ?? '#1a1a1a'}`,
+      `color:${hexColor(run.color) || '#1a1a1a'}`,
       `font-weight:${run.bold ? 700 : 400}`,
       `font-style:${run.italic ? 'italic' : 'normal'}`,
-      `text-align:${para.align ?? 'left'}`,
+      `text-align:${(ALIGNS as readonly string[]).includes(String(para.align)) ? para.align : 'left'}`,
       `line-height:${((para.lineSpacing ?? 1.15) * 1.2).toFixed(3)}`,
       `margin:${((para.spaceBefore ?? 0) * PX).toFixed(1)}px 0 ${((para.spaceAfter ?? 8) * PX).toFixed(1)}px ${((para.indentLeft ?? 0) * PX).toFixed(1)}px`,
     ];

@@ -14,6 +14,7 @@ export interface ListFmt { format?: string; prefix?: string; suffix?: string; st
 
 function safeJson(s: string): unknown { try { return JSON.parse(s); } catch { return null; } }
 
+export const hexColor = (v: unknown): string => (typeof v === 'string' && /^#[0-9a-f]{6}$/i.test(v) ? v : '');
 const cssString = (s: string): string => `"${s.replace(/[\u0000-\u001f\u007f]/g, '').replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"`;
 
 export const CHIP_KINDS = ['date', 'person', 'dropdown', 'doc', 'placeholder'] as const;
@@ -136,7 +137,7 @@ function paraAttrs(n: PMNode): Attrs {
   if (a.indent) css.push(`margin-left:${(Number(a.indent) * 96) / 72}px`);
   if (a.indentRight) css.push(`margin-right:${(Number(a.indentRight) * 96) / 72}px`);
   if (a.indentFirst) css.push(`text-indent:${(Number(a.indentFirst) * 96) / 72}px`);
-  if (a.shading) css.push(`background:${a.shading}`);
+  if (hexColor(a.shading)) css.push(`background:${a.shading}`);
   if (a.border) {
     const line = '1px solid #6b6b6b';
     if (a.border === 'box') css.push(`border:${line}`, 'padding:4px 6px');
@@ -172,11 +173,11 @@ export function mediaUrl(name: string, from = ''): string {
 
 export const TABLE_LOOKS =['grid', 'plain', 'rows', 'banded', 'accent'] as const;
 
-const cellAttr = (name: string, css: string) => ({
+const cellAttr = (name: string, css: string, ok: (v: unknown) => unknown = (v) => v) => ({
   default: '',
   getFromDOM: (dom: HTMLElement) => dom.dataset[name] || '',
   setDOMAttr: (value: unknown, attrs: Record<string, unknown>) => {
-    if (!value) return;
+    if (!value || !ok(value)) return;
     attrs[`data-${name}`] = String(value);
     attrs.style = `${String(attrs.style ?? '')}${css}:${String(value)};`;
   },
@@ -190,7 +191,7 @@ export type CellBorders = Partial<Record<(typeof BORDER_SIDES)[number], BorderEd
 export function borderCss(b: BorderEdge): string {
   if (b.style === 'none') return 'hidden';
   const px = Math.max(b.style === 'double' ? 3 : 1, Math.round(((Number(b.width) || 0.75) * 96) / 72));
-  return `${px}px ${b.style} ${b.color || '#000000'}`;
+  return `${px}px ${b.style} ${hexColor(b.color) || '#000000'}`;
 }
 
 const bordersAttr = {
@@ -217,7 +218,7 @@ const textDirAttr = {
 const tables = tableNodes({
   tableGroup: 'block',
   cellContent: '(paragraph | code_block | table | chart | diagram | mermaid)+',
-  cellAttributes: { shading: cellAttr('shading', 'background'), valign: cellAttr('valign', 'vertical-align'), borders: bordersAttr, textDirection: textDirAttr },
+  cellAttributes: { shading: cellAttr('shading', 'background', hexColor), valign: cellAttr('valign', 'vertical-align'), borders: bordersAttr, textDirection: textDirAttr },
 });
 
 export function tableAttrs(n: PMNode): Record<string, string> {
@@ -475,12 +476,12 @@ const marks: Record<string, MarkSpec> = {
   color: {
     attrs: { value: {} },
     parseDOM: [{ tag: 'span[data-color]', getAttrs: (dom: HTMLElement) => ({ value: dom.dataset.color }) }],
-    toDOM: (m) => ['span', { style: `color:${String(m.attrs.value)}`, 'data-color': String(m.attrs.value) }, 0],
+    toDOM: (m) => ['span', { style: `color:${hexColor(m.attrs.value) || 'inherit'}`, 'data-color': String(m.attrs.value) }, 0],
   },
   highlight: {
     attrs: { value: { default: '#fde047' } },
     parseDOM: [{ tag: 'mark', getAttrs: (dom: HTMLElement) => ({ value: dom.dataset.color || '#fde047' }) }],
-    toDOM: (m) => ['mark', { style: `background:${String(m.attrs.value)}`, 'data-color': String(m.attrs.value) }, 0],
+    toDOM: (m) => ['mark', { style: `background:${hexColor(m.attrs.value) || '#fde047'}`, 'data-color': String(m.attrs.value) }, 0],
   },
 };
 
