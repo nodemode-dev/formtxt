@@ -3,7 +3,7 @@ import json
 import re
 import time
 
-from app.core.ids import new_id
+from app.core.ids import block_id, new_id
 
 TOKEN = re.compile(r"\s+|[\w']+|[^\w\s]", re.UNICODE)
 LIMIT = 6_000_000
@@ -301,7 +301,7 @@ def diff_table(base: dict, other: dict, marker: Marker, combine: bool, section: 
 
 def incoming(block: dict, marker: Marker, combine: bool, section: str) -> dict:
     out = tag_block(remap_block(block, marker) if combine else block, "ins", marker, combine)
-    out["id"] = new_id("p_")
+    out["id"] = block_id(out)
     if section:
         out["section"] = section
     return out
