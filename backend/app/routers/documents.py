@@ -102,6 +102,8 @@ def save(doc_id: str, doc: dict, by: str = "") -> dict:
         return store.save(doc)
     except model.InvalidDocument as exc:
         raise HTTPException(422, str(exc))
+    except store.Conflict:
+        raise HTTPException(409, "This document is in the trash. Restore it from the trash to keep editing it.")
     finally:
         versions.set_editor_hint("")
 
@@ -202,4 +204,6 @@ def restore(doc_id: str) -> dict:
         store.restore(doc_id)
     except store.NotFound:
         raise HTTPException(404, f"No document with the id {doc_id} is in the trash.")
+    except store.Conflict:
+        raise HTTPException(409, f"A document with the id {doc_id} is already in the library, so the trashed copy was left in the trash.")
     return {"ok": True}
