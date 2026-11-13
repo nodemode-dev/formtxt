@@ -75,8 +75,8 @@ def block_text(block: dict) -> str:
 
 def signature(block: dict) -> str:
     if block.get("type") == "paragraph":
-        return "p:" + block_text(block)
-    skip = {"id", "section"}
+        return "p:" + block_text(block) + json.dumps([{k: v for k, v in r.items() if k != "marks"} for r in block.get("content") or [] if isinstance(r, dict) and r.get("type", "text") != "text"], sort_keys=True, default=str)
+    skip ={"id", "section"}
     return "o:" + json.dumps({k: v for k, v in block.items() if k not in skip}, sort_keys=True, default=str)
 
 
@@ -173,13 +173,13 @@ def diff_paragraph(base: dict, other: dict, marker: Marker, combine: bool) -> di
         if kind == "del":
             tok, template, marks = a[i]
             if template.get("type", "text") != "text":
+                emit(out, tok, template, merged(copy.deepcopy(template.get("marks") or {}), {"del": change}))
                 continue
             emit(out, tok, template, merged(copy.deepcopy(marks), {"del": change}))
         else:
             tok, template, marks = b[j]
             if template.get("type", "text") != "text":
-                emit(out, tok, template, {})
-                continue
+                marks = template.get("marks") or {}
             extra = marker.foreign(marks) if combine else {}
             plain = {k: copy.deepcopy(v) for k, v in marks.items() if k not in KEEP_FROM_OTHER}
             emit(out, tok, template, merged(plain, {**extra, "ins": extra.get("ins", change)}))
