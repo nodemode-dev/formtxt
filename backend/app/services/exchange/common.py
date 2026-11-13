@@ -16,6 +16,16 @@ class Unsupported(ValueError):
     pass
 
 
+MAX_ZIP_TOTAL = 1 << 30
+MAX_ZIP_ENTRY = 256 << 20
+
+
+def check_zip(z, name: str = "This file") -> None:
+    sizes = [i.file_size for i in z.infolist()]
+    if sum(sizes) > MAX_ZIP_TOTAL or any(s > MAX_ZIP_ENTRY for s in sizes):
+        raise Unsupported(f"{name}: unpacks to more data than FormTxt opens.")
+
+
 def sniff(data: bytes) -> tuple[str, str] | None:
     if data[:8] == b"\x89PNG\r\n\x1a\n":
         return "png", "image/png"

@@ -187,6 +187,7 @@ class Reader:
             raise common.Unsupported("This file is not a Word document (.docx or .dotx).") from exc
         if "[Content_Types].xml" not in z.namelist():
             raise common.Unsupported("This file is not a Word document (.docx or .dotx).")
+        common.check_zip(z, "This Word document")
         ct = z.read("[Content_Types].xml")
         if DOTX not in ct and b"macroEnabled" not in ct:
             return data

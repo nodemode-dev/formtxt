@@ -51,6 +51,7 @@ class Reader:
             raise common.Unsupported(f"{name}: not an OpenDocument text file.") from exc
         if "content.xml" not in self.z.namelist():
             raise common.Unsupported(f"{name}: not an OpenDocument text file.")
+        common.check_zip(self.z, name)
         self.b = Builder(common.title_of(name))
         self.doc = self.b.doc
         self.named: dict[str, etree._Element] = {}
@@ -361,7 +362,7 @@ class Reader:
             elif c.tag == q("text", "tab"):
                 out.append("\t")
             elif c.tag == q("text", "s"):
-                out.append(" " * int(c.get(q("text", "c"), "1")))
+                out.append(" " * min(int(c.get(q("text", "c"), "1")), 1000))
             else:
                 out.append(self.hf_text(c))
             out.append(c.tail or "")
@@ -464,7 +465,7 @@ class Reader:
                 m = {**marks, "link": c.get(q("xlink", "href")) or ""}
                 self.inline(c, m, out)
             elif t == q("text", "s"):
-                out.append(common.text_run(" " * int(c.get(q("text", "c"), "1")), dict(marks) or None))
+                out.append(common.text_run(" " * min(int(c.get(q("text", "c"), "1")), 1000), dict(marks) or None))
             elif t == q("text", "tab"):
                 out.append({"type": "tab"})
             elif t == q("text", "line-break"):
@@ -585,7 +586,7 @@ class Reader:
         for col in tbl.iter(q("table", "table-column")):
             st = self.auto.get(col.get(q("table", "style-name")) or "")
             w = length(self.props(st, "table-column").get(q("style", "column-width"))) if st is not None else None
-            for _ in range(int(col.get(q("table", "number-columns-repeated"), "1"))):
+            for _ in range(min(int(col.get(q("table", "number-columns-repeated"), "1")), 64)):
                 widths.append(round(w, 2) if w else 0.0)
         rows: list[list[dict]] = []
         header_rows = 0
