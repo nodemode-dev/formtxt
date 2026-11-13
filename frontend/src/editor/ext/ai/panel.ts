@@ -212,6 +212,8 @@ export class AIPanel {
   }
 
   addSource(ref: SourceRef): void {
+    const max = ref.kind === 'file' ? 8 : 12;
+    if (!this.sources.some((s) => s.id === ref.id) && this.sources.filter((s) => s.kind === ref.kind).length >= max) { this.say(ref.kind === 'file' ? `Up to ${max} files can be attached. Remove one first.` : `Up to ${max} library documents can be sources. Remove one first.`, true); return; }
     if (!this.sources.some((s) => s.id === ref.id)) this.sources = [...this.sources, ref];
     this.renderChips();
   }
@@ -502,7 +504,11 @@ export class AIPanel {
     const paras = collectParagraphs(this.view());
     if (!paras.length) throw new Error('The document has no text to revise.');
     this.say('Reading the whole document...');
-    const out = await api.post<{ changes: Array<{ n: number; text: string }> }>('/ai/revise', { instruction: text, paragraphs: paras.map((p) => p.text), ...this.opts() });
+    const out: { changes: Array<{ n: number; text: string }> } = { changes: [] };
+    for (let at = 0; at < paras.length; at += 600) {
+      const part = await api.post<{ changes: Array<{ n: number; text: string }> }>('/ai/revise', { instruction: text, paragraphs: paras.slice(at, at + 600).map((p) => p.text), ...this.opts() });
+      for (const c of part.changes) out.changes.push({ n: c.n + at, text: c.text });
+    }
     this.proposals = out.changes.filter((c) => paras[c.n]).map((c, i) => ({ key: `r${i}`, id: paras[c.n].id, old: paras[c.n].text, text: c.text }));
     this.renderProposals();
     this.say(this.proposals.length ? `${this.proposals.length} paragraphs have a proposed change.` : 'No paragraph needed a change.');

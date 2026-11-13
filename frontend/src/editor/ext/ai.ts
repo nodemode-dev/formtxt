@@ -47,6 +47,7 @@ export function register(reg: CommandRegistry, ed: DocEditor): void {
   }, [S('model', 'Model name'), S('effort', 'fast, balanced or thorough')]);
   add('ai.sources', 'Choose AI sources', 'Set the library documents the assistant is grounded in, by id separated by commas, or clear them. Answers say which documents they used.', async (p) => {
     const ids = String(p.ids ?? '').split(',').map((x) => x.trim()).filter(Boolean);
+    if (ids.length > 12) throw new Error('Choose up to 12 library documents.');
     const refs = [];
     for (const id of ids) {
       const r = await api.get<{ title: string }>(`/ai/library/${encodeURIComponent(id)}/text?limit=100`);

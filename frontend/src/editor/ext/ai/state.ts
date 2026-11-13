@@ -69,10 +69,10 @@ export async function requireOn(): Promise<AIStatus> {
 
 export async function ask(body: AskBody): Promise<Reply> {
   const s = await requireOn();
-  const library = (body.sources ?? []).filter((x) => x.kind === 'library').map((x) => x.id);
-  const files = (body.sources ?? []).filter((x) => x.kind === 'file').map((x) => ({ title: x.title, text: x.text ?? '' }));
+  const library = (body.sources ?? []).filter((x) => x.kind === 'library').map((x) => x.id).slice(0, 12);
+  const files = (body.sources ?? []).filter((x) => x.kind === 'file').map((x) => ({ title: x.title, text: x.text ?? '' })).slice(0, 8);
   return api.post<Reply>('/ai/complete', {
-    task: body.task, instruction: body.instruction ?? '', text: body.text ?? '', mode: body.mode ?? '', language: body.language ?? '',
-    selection: !!body.selection, history: body.history ?? [], model: body.model ?? s.model, effort: body.effort ?? s.effort, sources: library, files,
+    task: body.task, instruction: (body.instruction ?? '').slice(0, 20000), text: (body.text ?? '').slice(0, 400000), mode: body.mode ?? '', language: body.language ?? '',
+    selection: !!body.selection, history: (body.history ?? []).slice(-24), model: body.model ?? s.model, effort: body.effort ?? s.effort, sources: library, files,
   });
 }
