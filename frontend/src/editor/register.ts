@@ -116,7 +116,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
       const s = ed.sectionById(id);
       const m = { ...s.margins };
       for (const k of ['top', 'bottom', 'left', 'right', 'header', 'footer'] as const) if (p[k] !== undefined) m[k] = Number(p[k]) * 72;
-      ed.updateSectionById(id, { page: pageGeometry(String(p.size ?? s.page.size), String(p.orientation ?? s.page.orientation)), margins: m });
+      ed.updateSectionById(id, { page: pageGeometry(String(p.size ?? s.page.size), String(p.orientation ?? s.page.orientation), s.page), margins: m });
     }
     return true;
   }, [
