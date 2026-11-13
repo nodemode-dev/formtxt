@@ -584,6 +584,8 @@ class Reader:
                 pre = self.apply_master(master) + pre
         widths: list[float] = []
         for col in tbl.iter(q("table", "table-column")):
+            if next(col.iterancestors(q("table", "table")), None) is not tbl:
+                continue
             st = self.auto.get(col.get(q("table", "style-name")) or "")
             w = length(self.props(st, "table-column").get(q("style", "column-width"))) if st is not None else None
             for _ in range(min(int(col.get(q("table", "number-columns-repeated"), "1")), 64)):
