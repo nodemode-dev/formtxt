@@ -8,6 +8,7 @@ import { toast } from '../../../ui/toast';
 import type { DocEditor } from '../../editor';
 import { pagesKey } from '../../pages';
 import { FORM, type Loose, SYSTEM, ask, docSettings, input, note, requireView, setSetting, sha, when } from './core';
+import { setSealed } from './props';
 
 export type Mode = '' | 'readonly' | 'comments' | 'tracked' | 'forms';
 
@@ -297,10 +298,10 @@ export function passwordPrompt(ed: DocEditor, kind: 'set' | 'remove'): void {
     d.button('Cancel', 'ghost', () => d.close());
     d.button('Encrypt', 'primary', () => {
       if (!a.value || a.value !== b.value) { err.textContent = 'The two passwords do not match.'; err.hidden = false; return; }
-      void import('./api').then(({ vx }) => vx.setPassword(id, a.value, cur.value)).then(() => { d.close(); toast('The document is password protected.'); }).catch((e: Error) => { err.textContent = e.message; err.hidden = false; });
+      void import('./api').then(({ vx }) => vx.setPassword(id, a.value, cur.value)).then(() => { setSealed(id, true); d.close(); toast('The document is password protected.'); }).catch((e: Error) => { err.textContent = e.message; err.hidden = false; });
     });
     d.open(a);
     return;
   }
-  ask('Remove password', 'Password', 'password', 'Remove password', async (pw) => { const { vx } = await import('./api'); await vx.removePassword(id, pw); toast('The password was removed and the document is no longer encrypted.'); });
+  ask('Remove password', 'Password', 'password', 'Remove password', async (pw) => { const { vx } = await import('./api'); await vx.removePassword(id, pw); setSealed(id, false); toast('The password was removed and the document is no longer encrypted.'); });
 }

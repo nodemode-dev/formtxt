@@ -467,6 +467,14 @@ export class ShapeView implements NodeView {
     this.view.focus();
   }
 
+  destroy(): void {
+    const inner = this.inner;
+    this.inner = null;
+    this.editing = false;
+    if (inner && shapeEditing.view === inner) shapeEditing.view = null;
+    inner?.destroy();
+  }
+
   private down(e: PointerEvent): void {
     if (e.button !== 0 || !this.view.editable || this.editing || this.node.attrs.kind === 'connector') return;
     const handle = (e.target as HTMLElement).closest<HTMLElement>('.ft-pic-handle')?.dataset.h;

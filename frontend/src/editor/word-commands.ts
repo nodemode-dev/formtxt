@@ -100,6 +100,7 @@ export function registerWordCommands(reg: CommandRegistry, ed: DocEditor): void 
   const fail = (m: string): never => { throw new Error(m); };
   const scroller = (): HTMLElement => ed.root.querySelector('.ft-scroll') as HTMLElement;
   const run = (id: string, p: Record<string, unknown> = {}): unknown => reg.run(id, p);
+  const runClose = (d: Dialog, id: string, p: Record<string, unknown>): void => { void Promise.resolve().then(() => run(id, p)).then(() => d.close()).catch((e: Error) => toast(e.message, 'error')); };
 
   const baseSize = (styleId: string): number => Number(ed.resolvedStyle(styleId).run.size) || 11;
   const stepFont = (dir: 1 | -1): { size: number } => {
@@ -206,8 +207,8 @@ export function registerWordCommands(reg: CommandRegistry, ed: DocEditor): void 
     }
     d.body.appendChild(sw);
     d.field('Text', text);
-    const apply = (): void => { void run('design.watermark', { text: text.value }); d.close(); };
-    d.button('Remove watermark', 'ghost', () => { void run('design.watermark', { preset: 'remove' }); d.close(); });
+    const apply = (): void => runClose(d, 'design.watermark', { text: text.value });
+    d.button('Remove watermark', 'ghost', () => runClose(d, 'design.watermark', { preset: 'remove' }));
     d.button('Cancel', 'ghost', () => d.close());
     d.button('Apply', 'primary', apply);
     submitOn(d, [text], apply);
@@ -236,9 +237,9 @@ export function registerWordCommands(reg: CommandRegistry, ed: DocEditor): void 
     const d = new Dialog('Page colour', 360);
     const color = dialogInput('color', '#ffffff');
     d.field('Colour', color);
-    d.button('No colour', 'ghost', () => { void run('design.pageColor', { color: '' }); d.close(); });
+    d.button('No colour', 'ghost', () => runClose(d, 'design.pageColor', { color: '' }));
     d.button('Cancel', 'ghost', () => d.close());
-    d.button('Apply', 'primary', () => { void run('design.pageColor', { color: color.value }); d.close(); });
+    d.button('Apply', 'primary', () => runClose(d, 'design.pageColor', { color: color.value }));
     return { d, color };
   });
   add('design.pageColor', 'Page colour', 'Layout', 'Set the background colour of every page; empty or white removes it. With no colour, opens a picker.', (p) => {
@@ -273,7 +274,7 @@ export function registerWordCommands(reg: CommandRegistry, ed: DocEditor): void 
     if ($f.depth < 1 || $f.parent.type !== schema.nodes.paragraph || $f.depth > 1) at = $f.depth >= 1 ? $f.after(1) : state.selection.from;
     else if ($f.parent.content.size === 0 || $f.parentOffset === $f.parent.content.size) at = $f.after(1);
     else if ($f.parentOffset === 0) at = $f.before(1);
-    else { tr.split($f.pos); at = tr.mapping.map($f.pos) + 1; }
+    else { tr.split($f.pos); at = tr.mapping.map($f.pos, -1) + 1; }
     const nodes = [schema.nodes.page_break.create(), schema.nodes.paragraph.create(), schema.nodes.page_break.create()];
     if (at >= tr.doc.content.size) nodes.push(schema.nodes.paragraph.create());
     tr.insert(at, nodes);
@@ -747,9 +748,9 @@ export function registerWordCommands(reg: CommandRegistry, ed: DocEditor): void 
     }
     d.body.appendChild(g);
     const go = (): void => {
-      try { void run('table.cellMargins', { top: Number(f.top.value), bottom: Number(f.bottom.value), left: Number(f.left.value), right: Number(f.right.value) }); d.close(); } catch (e) { toast((e as Error).message, 'error'); }
+      runClose(d, 'table.cellMargins', { top: Number(f.top.value), bottom: Number(f.bottom.value), left: Number(f.left.value), right: Number(f.right.value) });
     };
-    d.button('Default', 'ghost', () => { void run('table.cellMargins', { reset: true }); d.close(); });
+    d.button('Default', 'ghost', () => runClose(d, 'table.cellMargins', { reset: true }));
     d.button('Cancel', 'ghost', () => d.close());
     d.button('Apply', 'primary', go);
     submitOn(d, Object.values(f), go);
@@ -847,7 +848,7 @@ export function registerWordCommands(reg: CommandRegistry, ed: DocEditor): void 
     const order = dialogSelect([['asc', 'Ascending (A to Z)'], ['desc', 'Descending (Z to A)']], 'asc');
     d.field('Type', type);
     d.field('Order', order);
-    const go = (): void => { try { void run('edit.sortParagraphs', { order: order.value, type: type.value }); d.close(); } catch (e) { toast((e as Error).message, 'error'); } };
+    const go = (): void => runClose(d, 'edit.sortParagraphs', { order: order.value, type: type.value });
     d.button('Cancel', 'ghost', () => d.close());
     d.button('Sort', 'primary', go);
     submitOn(d, [type, order], go);

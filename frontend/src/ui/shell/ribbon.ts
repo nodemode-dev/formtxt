@@ -33,6 +33,13 @@ const readJson = <T,>(key: string): Partial<T> => {
   try { const raw = localStorage.getItem(key); return raw ? (JSON.parse(raw) as Partial<T>) : {}; } catch { return {}; }
 };
 
+const isStr = (v: unknown): v is string => typeof v === 'string';
+const isId = (v: unknown): v is string => isStr(v) && /^[\w-]+$/.test(v);
+const wellFormed = (v: unknown): v is CustomTab => {
+  const t = v as CustomTab | null;
+  return !!t && isId(t.id) && isStr(t.label) && Array.isArray(t.groups) && t.groups.every((g) => !!g && isId(g.id) && isStr(g.label) && Array.isArray(g.cmds) && g.cmds.every(isStr));
+};
+
 const parseParams = (b: HTMLElement): Record<string, unknown> | undefined => {
   const raw = b.dataset.params;
   if (!raw) return undefined;
@@ -131,7 +138,7 @@ export class Ribbon {
     this.collapsed = !!s.collapsed;
     this.simplified = !!s.simplified;
     this.compact = !!s.compact;
-    this.config = { hiddenTabs: Array.isArray(s.hiddenTabs) ? s.hiddenTabs : [], hiddenGroups: Array.isArray(s.hiddenGroups) ? s.hiddenGroups : [], custom: Array.isArray(s.custom) ? s.custom : [] };
+    this.config = { hiddenTabs: Array.isArray(s.hiddenTabs) ? s.hiddenTabs.filter(isStr) : [], hiddenGroups: Array.isArray(s.hiddenGroups) ? s.hiddenGroups.filter(isStr) : [], custom: Array.isArray(s.custom) ? s.custom.filter((t) => wellFormed(t) && !opts.tabs.some((d) => d.id === t.id)) : [] };
     this.firstTab = opts.tabs.find((t) => !t.ctx)?.id ?? opts.tabs[0]?.id ?? '';
     this.tab = typeof s.tab === 'string' ? s.tab : this.firstTab;
     this.root = el(`<div class="ft-rb">
@@ -376,7 +383,7 @@ export class Ribbon {
     if (b.dataset.cmd) this.commands.run(b.dataset.cmd, parseParams(b));
     else if (b.dataset.act === 'ribbon-full') { this.setSimplified(false); return; }
     else if (b.dataset.act) this.opts.act(b.dataset.act, b);
-    else if (b.dataset.menu) { this.openMenu(b); return; }
+    else if (b.dataset.menu) { this.openMenu(b, e.detail === 0); return; }
     if (this.popGroup && b.dataset.cmd && this.gpop.contains(b)) this.closePop(false);
     if (this.float) this.setFloat(false);
     this.opts.after?.();
@@ -521,20 +528,27 @@ export class Ribbon {
     };
   }
 
-  private openMenu(b: HTMLButtonElement): void {
+  private openMenu(b: HTMLButtonElement, byKey = false): void {
     const key = b.dataset.menu as string;
     let m = this.menus.get(key);
     if (!m) {
       m = new PopupMenu(this.commands, null, true);
       this.menus.set(key, m);
     }
-    m.onClose = () => { this.closedAt.set(key, performance.now()); b.setAttribute('aria-expanded', 'false'); };
+    const menu = m;
+    m.onClose = () => {
+      this.closedAt.set(key, performance.now());
+      b.setAttribute('aria-expanded', 'false');
+      const a = document.activeElement;
+      if (b.isConnected && (!a || a === document.body || menu.contains(a))) b.focus();
+    };
     if (m.isOpen) { m.close(); return; }
     if (performance.now() - (this.closedAt.get(key) ?? 0) < 250) return;
     m.setItems(this.menuItems.get(key) ?? []);
     const r = b.getBoundingClientRect();
     m.openAt(r.left, r.bottom + 2, true);
     b.setAttribute('aria-expanded', 'true');
+    if (byKey) m.focusFirst();
   }
 
   private displayMenu(anchor: HTMLElement): void {

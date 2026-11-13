@@ -1,4 +1,4 @@
-import type { Style } from '../engine/model';
+import type { Section, Style } from '../engine/model';
 import { Dialog } from '../ui/dialog';
 import { el, escapeHtml, patchList, setText } from '../ui/dom';
 import { setCellAttr } from 'prosemirror-tables';
@@ -372,9 +372,13 @@ export const PAGE_SIZES: Record<string, [string, number, number]> = {
   a5: ['A5, 148 x 210 mm', 419.53, 595.28], executive: ['Executive, 7.25 x 10.5 in', 522, 756], tabloid: ['Tabloid, 11 x 17 in', 792, 1224],
 };
 
-export function pageGeometry(size: string, orientation: string): { size: string; width: number; height: number; orientation: 'portrait' | 'landscape' } {
-  const [, w, h] = PAGE_SIZES[size] ?? PAGE_SIZES.letter;
+export function pageGeometry(size: string, orientation: string, cur?: Section['page']): { size: string; width: number; height: number; orientation: 'portrait' | 'landscape' } {
   const land = orientation === 'landscape';
+  if (!PAGE_SIZES[size] && cur && size === cur.size && cur.width > 0 && cur.height > 0) {
+    const flip = land !== (cur.orientation === 'landscape');
+    return { size: cur.size, width: flip ? cur.height : cur.width, height: flip ? cur.width : cur.height, orientation: land ? 'landscape' : 'portrait' };
+  }
+  const [, w, h] = PAGE_SIZES[size] ?? PAGE_SIZES.letter;
   return { size: PAGE_SIZES[size] ? size : 'letter', width: land ? h : w, height: land ? w : h, orientation: land ? 'landscape' : 'portrait' };
 }
 
@@ -388,7 +392,9 @@ export function pageSetupDialog(ed: DocEditor): void {
   const d = new Dialog(sections.length > 1 ? `Page setup: section ${index + 1} of ${sections.length}` : 'Page setup', 600);
   const applyTo = select([['section', 'This section'], ['all', 'Whole document']], sections.length > 1 ? 'section' : 'all');
   const start = select([['nextPage', 'New page'], ['continuous', 'Continuous (same page)'], ['oddPage', 'Odd page'], ['evenPage', 'Even page']], String(s.start || 'nextPage'));
-  const size = select(Object.entries(PAGE_SIZES).map(([k, v]) => [k, v[0]]), s.page.size);
+  const sizes: Array<[string, string]> = Object.entries(PAGE_SIZES).map(([k, v]) => [k, v[0]]);
+  if (!PAGE_SIZES[s.page.size]) sizes.push([s.page.size, `Custom, ${+(s.page.width / 72).toFixed(2)} x ${+(s.page.height / 72).toFixed(2)} in`]);
+  const size = select(sizes, s.page.size);
   const orient = select([['portrait', 'Portrait'], ['landscape', 'Landscape']], s.page.orientation);
   const m = s.margins;
   const inch = (pt: number): string => String(+(pt / 72).toFixed(2));
@@ -408,7 +414,7 @@ export function pageSetupDialog(ed: DocEditor): void {
   d.button('Apply', 'primary', () => {
     const pt = (i: HTMLInputElement, fallback: number): number => (i.value.trim() === '' ? fallback : Math.max(0, Number(i.value) * 72));
     const patch = {
-      page: pageGeometry(size.value, orient.value),
+      page: pageGeometry(size.value, orient.value, s.page),
       margins: { ...m, top: pt(top, m.top), bottom: pt(bottom, m.bottom), left: pt(left, m.left), right: pt(right, m.right), header: pt(header, m.header), footer: pt(footer, m.footer) },
       pageColor: color.value.toLowerCase() === '#ffffff' ? '' : color.value, pageBorder: border.value,
       columns: { count: Number(cols.value) || 1, gap: pt(colGap, s.columns?.gap ?? 36) },
@@ -659,7 +665,7 @@ export function chartDialog(ed: DocEditor, insert: boolean): void {
   setText(note, 'First row: a label column, then one column per series. Paste straight from a spreadsheet, or import a .csv or .xlsx file.');
   const attrs = (): Record<string, unknown> => ({
     kind: kind.value, title: title.value.trim(), width: Math.max(120, Number(width.value) || 468), height: Math.max(90, Number(height.value) || 252), align: align.value,
-    options: { labels: labels.checked, legend: legend.checked, smooth: smooth.checked, stacked: stacked.checked, fn: fn.value, ...(Number(target.value) ? { target: Number(target.value) } : {}) },
+    options: { labels: labels.checked, legend: legend.checked, smooth: smooth.checked, stacked: stacked.checked, fn: fn.value, target: Number(target.value) || undefined },
     data: withColors(parseGrid(grid.value), colors.value),
   });
   let frame = 0;

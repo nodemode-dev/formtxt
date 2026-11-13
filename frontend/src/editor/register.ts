@@ -116,7 +116,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
       const s = ed.sectionById(id);
       const m = { ...s.margins };
       for (const k of ['top', 'bottom', 'left', 'right', 'header', 'footer'] as const) if (p[k] !== undefined) m[k] = Number(p[k]) * 72;
-      ed.updateSectionById(id, { page: pageGeometry(String(p.size ?? s.page.size), String(p.orientation ?? s.page.orientation)), margins: m });
+      ed.updateSectionById(id, { page: pageGeometry(String(p.size ?? s.page.size), String(p.orientation ?? s.page.orientation), s.page), margins: m });
     }
     return true;
   }, [
@@ -334,7 +334,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   });
   ed.root.addEventListener('dblclick', (e) => {
     const pic = (e.target as HTMLElement).closest<HTMLElement>('.ft-pm-root .ft-pic');
-    if (!pic || !ed.view || !ed.view.editable) return;
+    if (!pic || !ed.view || !ed.view.editable || !ed.view.dom.contains(pic)) return;
     e.preventDefault();
     const pos = ed.view.posAtDOM(pic, 0);
     ed.view.dispatch(ed.view.state.tr.setSelection(NodeSelection.create(ed.view.state.doc, pos)));
@@ -661,7 +661,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   add('fields.list', 'List fields', 'Fields', 'Every formula field with its code, result and table cell.', () => (ed.view ? formulaSites(ed.view.state.doc).map((s) => ({ pos: s.pos, code: s.node.attrs.code, format: s.node.attrs.format, result: s.node.attrs.result, error: s.node.attrs.error, row: s.item.row, col: s.item.col })) : []));
   ed.root.addEventListener('dblclick', (e) => {
     const span = (e.target as HTMLElement).closest<HTMLElement>('.ft-pm-root .ft-docfield');
-    if (!span || !ed.view || !ed.view.editable) return;
+    if (!span || !ed.view || !ed.view.editable || !ed.view.dom.contains(span)) return;
     e.preventDefault();
     const pos = ed.view.posAtDOM(span, 0);
     const at = ed.view.state.doc.resolve(pos).nodeAfter?.type === schema.nodes.field ? pos : pos - 1;
@@ -763,7 +763,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   });
   ed.root.addEventListener('dblclick', (e) => {
     const fig = (e.target as HTMLElement).closest<HTMLElement>('.ft-pm-root figure.ft-diagram');
-    if (!fig || !ed.view || !ed.view.editable) return;
+    if (!fig || !ed.view || !ed.view.editable || !ed.view.dom.contains(fig)) return;
     e.preventDefault();
     const pos = ed.view.posAtDOM(fig, 0);
     const at = ed.view.state.doc.resolve(pos).nodeAfter?.type === schema.nodes.diagram ? pos : pos - 1;
@@ -823,7 +823,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   });
   ed.root.addEventListener('dblclick', (e) => {
     const fig = (e.target as HTMLElement).closest<HTMLElement>('.ft-pm-root figure.ft-mermaid');
-    if (!fig || !ed.view || !ed.view.editable) return;
+    if (!fig || !ed.view || !ed.view.editable || !ed.view.dom.contains(fig)) return;
     e.preventDefault();
     const pos = ed.view.posAtDOM(fig, 0);
     const at = ed.view.state.doc.resolve(pos).nodeAfter?.type === schema.nodes.mermaid ? pos : pos - 1;
@@ -848,7 +848,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
   }), [{ name: 'border', type: 'string', description: '#rrggbb' }, { name: 'borderWidth', type: 'number', description: 'Points; 0 removes the border' }, { name: 'radius', type: 'number', description: 'Corner radius in points' }, { name: 'shadow', type: 'boolean', description: 'Soft shadow' }]);
   ed.root.addEventListener('dblclick', (e) => {
     const m = (e.target as HTMLElement).closest<HTMLElement>('.ft-pm-root .ft-math');
-    if (!m || !ed.view || !ed.view.editable) return;
+    if (!m || !ed.view || !ed.view.editable || !ed.view.dom.contains(m)) return;
     e.preventDefault();
     const pos = ed.view.posAtDOM(m, 0);
     const $p = ed.view.state.doc.resolve(pos);
@@ -859,7 +859,7 @@ export function registerEditorCommands(reg: CommandRegistry, ed: DocEditor): voi
 
   ed.root.addEventListener('dblclick', (e) => {
     const fig = (e.target as HTMLElement).closest<HTMLElement>('.ft-pm-root figure.ft-chart');
-    if (!fig || !ed.view || !ed.view.editable) return;
+    if (!fig || !ed.view || !ed.view.editable || !ed.view.dom.contains(fig)) return;
     e.preventDefault();
     const pos = ed.view.posAtDOM(fig, 0);
     const $p = ed.view.state.doc.resolve(pos);

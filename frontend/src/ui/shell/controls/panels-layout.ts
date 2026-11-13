@@ -110,7 +110,6 @@ export function registerLayoutPanels(): void {
         rows: [
           R('Page', 'insert.pageBreak', undefined, { icon: 'pageBreak', sub: 'Mark the point at which one page ends and the next page begins.' }),
           R('Column', 'insert.columnBreak', undefined, { icon: 'columns', sub: 'Indicate that the text following the column break will begin in the next column.' }),
-          R('Text Wrapping', 'insert.lineBreak', undefined, { icon: 'wrapText', sub: 'Separate text around objects on web pages, such as caption text from body text.' }),
         ],
       },
       { t: 'head', text: 'Section Breaks' },

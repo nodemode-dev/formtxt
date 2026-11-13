@@ -68,6 +68,14 @@
       }
     } else if (localStorage.getItem('formtxt.theme') === 'light') theme = 'light';
   } catch (e) {}
+  try {
+    var ap = JSON.parse(localStorage.getItem('formtxt.prefs') || '{}');
+    if (ap.themeAuto === true && window.matchMedia) {
+      var dk = window.matchMedia('(prefers-color-scheme: dark)').matches;
+      var want = dk ? ap.themeDark : ap.themeLight;
+      theme = typeof want === 'string' && PROFILES[want] && !LIGHT[want] === dk ? want : (dk ? DEFAULT_THEME : 'light');
+    }
+  } catch (e) {}
   var p = PROFILES[theme];
   root.setAttribute('data-theme', LIGHT[theme] ? 'light' : 'dark');
   for (i = 0; i < NAMES.length; i++) root.style.setProperty(NAMES[i], p[i]);

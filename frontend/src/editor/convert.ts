@@ -1,7 +1,7 @@
 import type { Mark, Node as PMNode } from 'prosemirror-model';
 import type { Block, FtxtDocument, TextRun } from '../engine/model';
 import { TableMap } from 'prosemirror-tables';
-import { BORDER_SIDES, BORDER_STYLES, type CellBorders, type ListFmt, chipLabel, cleanChip, cleanListFmt, schema } from './schema';
+import { BORDER_SIDES, BORDER_STYLES, type CellBorders, type ListFmt, chipLabel, cleanChip, cleanListFmt, hexColor, schema } from './schema';
 import { BLOCK_BY_NODE, BLOCK_BY_TYPE, INLINE_BY_NODE, INLINE_BY_TYPE, MARK_BY_KEY, MARK_BY_NAME } from './ext/codecs';
 import { EXT_PARA } from './ext/specs';
 
@@ -24,8 +24,8 @@ function marksFrom(m: Record<string, unknown> | undefined): Mark[] {
   if (typeof m.spacing === 'number' && m.spacing) out.push(schema.marks.spacing.create({ pt: m.spacing }));
   if (typeof m.font === 'string' && m.font) out.push(schema.marks.font.create({ family: m.font }));
   if (typeof m.size === 'number' && m.size > 0) out.push(schema.marks.size.create({ pt: m.size }));
-  if (typeof m.color === 'string' && m.color) out.push(schema.marks.color.create({ value: m.color }));
-  if (typeof m.highlight === 'string' && m.highlight) out.push(schema.marks.highlight.create({ value: m.highlight }));
+  if (hexColor(m.color)) out.push(schema.marks.color.create({ value: m.color }));
+  if (hexColor(m.highlight)) out.push(schema.marks.highlight.create({ value: m.highlight }));
   if (typeof m.link === 'string' && m.link) out.push(schema.marks.link.create({ href: m.link }));
   for (const [k, codec] of Object.entries(MARK_BY_KEY)) {
     if (m[k] === undefined || m[k] === null || m[k] === false) continue;
@@ -104,7 +104,7 @@ function tableToPM(t: FtxtTable): PMNode | null {
       for (let k = 0; k < span; k++) taken[col + k] = rowspan;
       const body = blocksToPM(c.body ?? [], false);
       const type = c.header ? schema.nodes.table_header : schema.nodes.table_cell;
-      cells.push(type.create({ colspan: span, rowspan, colwidth: widths.length === span && widths.every((w) => w > 0) ? widths : null, shading: c.shading ?? '', valign: c.valign ?? '', borders: cleanBorders(c.borders), textDirection: c.textDirection === 'rotate90' || c.textDirection === 'rotate270' ? c.textDirection : '' }, body));
+      cells.push(type.create({ colspan: span, rowspan, colwidth: widths.length === span && widths.every((w) => w > 0) ? widths : null, shading: hexColor(c.shading), valign: c.valign ?? '', borders: cleanBorders(c.borders), textDirection: c.textDirection === 'rotate90' || c.textDirection === 'rotate270' ? c.textDirection : '' }, body));
       col += span;
     }
     for (let k = 0; k < taken.length; k++) if (taken[k]) taken[k]--;
@@ -149,6 +149,7 @@ function blocksToPM(body: Block[], top: boolean): PMNode[] {
       const p = blk.props ?? {};
       const props: Record<string, unknown> = {};
       for (const k of PROPS) props[k] = p[k] !== undefined && p[k] !== null ? p[k] : PROP_DEFAULTS[k];
+      props.shading = hexColor(props.shading);
       for (const [k, spec] of Object.entries(EXT_PARA)) props[k] = (p as Record<string, unknown>)[k] !== undefined && (p as Record<string, unknown>)[k] !== null ? (p as Record<string, unknown>)[k] : spec.default;
       blocks.push(schema.nodes.paragraph.create({
         ...props,

@@ -31,6 +31,8 @@ export function dropDecos(ed: DocEditor, issue: { from: number; to: number }): v
 export function replaceIssue(ed: DocEditor, issue: Located, text: string): boolean {
   const view = ed.view;
   if (!view) return false;
+  const { doc } = view.state;
+  if (issue.to > doc.content.size || doc.textBetween(issue.from, issue.to, '\n', '￼').replace(/­/g, '') !== issue.text) throw new Error(`${issue.text} has changed since it was checked. Check it again.`);
   view.dispatch(view.state.tr.insertText(text, issue.from, issue.to).scrollIntoView());
   return true;
 }

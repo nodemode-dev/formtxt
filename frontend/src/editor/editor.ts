@@ -11,7 +11,7 @@ import type { FtxtDocument, ParaProps, RunProps } from '../engine/model';
 import { Dialog } from '../ui/dialog';
 import { el, escapeHtml, patchList, setClass, setHidden, setText, setValue } from '../ui/dom';
 import { icon } from '../ui/icons';
-import { type CaseMode, changeCase, clearFormatting, insertColumnBreak, insertPageBreak, mark, setAlign, setLineSpacing, setLink, setMarkValue, setParaProps, setStyle, shiftIndent, splitWithNextStyle, toggleChecked, toggleCodeBlock, toggleCollapsed, toggleList } from './commands';
+import { type CaseMode, KEEP_MARKS, changeCase, clearFormatting, insertColumnBreak, insertPageBreak, mark, setAlign, setLineSpacing, setLink, setMarkValue, setParaProps, setStyle, shiftIndent, splitWithNextStyle, toggleChecked, toggleCodeBlock, toggleCollapsed, toggleList } from './commands';
 import { fromPM, toPM } from './convert';
 import { collapsePlugin, findKey, findPlugin, rules, uniqueIds } from './plugins';
 import type { DocTab, Section, Style } from '../engine/model';
@@ -35,13 +35,14 @@ import { api } from '../io/api';
 import { toast } from '../ui/toast';
 
 export type ViewMode = 'print' | 'draft' | 'read' | 'focus';
-import { mediaUrl, schema, setMediaDocument } from './schema';
+import { ALIGNS, hexColor, mediaUrl, schema, setMediaDocument } from './schema';
 
 const PX = 96 / 72;
 export const FONTS = ['Inter', 'Source Serif 4', 'Libre Baskerville', 'Lora', 'Merriweather', 'Playfair Display', 'IBM Plex Sans', 'IBM Plex Serif', 'Work Sans', 'Space Grotesk'];
 const SERIF = new Set(['Source Serif 4', 'Libre Baskerville', 'Lora', 'Merriweather', 'Playfair Display', 'IBM Plex Serif']);
 const SIZES = [8, 9, 10, 10.5, 11, 12, 14, 16, 18, 20, 24, 28, 32, 36, 48, 60, 72];
 const SPACINGS: Array<[string, string]> = [['', 'Style spacing'], ['1', 'Single'], ['1.15', '1.15'], ['1.5', '1.5'], ['2', 'Double']];
+export const toolbarSynced = new Set<() => void>();
 export const fontStack = (f: string): string => `'${f.replace(/'/g, '')}', ${SERIF.has(f) ? 'Georgia, serif' : "'Inter', system-ui, sans-serif"}`;
 
 export interface EditorHooks {
@@ -70,10 +71,10 @@ function styleSheet(doc: FtxtDocument): string {
     const css = [
       `font-family:${fontStack(run.font ?? 'Inter')}`,
       `font-size:${((run.size ?? 11) * PX).toFixed(2)}px`,
-      `color:${run.color ?? '#1a1a1a'}`,
+      `color:${hexColor(run.color) || '#1a1a1a'}`,
       `font-weight:${run.bold ? 700 : 400}`,
       `font-style:${run.italic ? 'italic' : 'normal'}`,
-      `text-align:${para.align ?? 'left'}`,
+      `text-align:${(ALIGNS as readonly string[]).includes(String(para.align)) ? para.align : 'left'}`,
       `line-height:${((para.lineSpacing ?? 1.15) * 1.2).toFixed(3)}`,
       `margin:${((para.spaceBefore ?? 0) * PX).toFixed(1)}px 0 ${((para.spaceAfter ?? 8) * PX).toFixed(1)}px ${((para.indentLeft ?? 0) * PX).toFixed(1)}px`,
     ];
@@ -281,7 +282,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
         handlePaste: (_view, e) => {
           const files = Array.from(e.clipboardData?.files ?? []).filter((f) => f.type.startsWith('image/'));
           if (!files.length) return false;
-          void this.insertPictures(files);
+          this.insertPictures(files).catch((err: Error) => toast(`Could not paste the picture: ${err.message}`, 'error'));
           return true;
         },
         handleDrop: (view, e) => {
@@ -289,7 +290,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
           if (!files.length) return false;
           e.preventDefault();
           const at = view.posAtCoords({ left: (e as DragEvent).clientX, top: (e as DragEvent).clientY })?.pos;
-          void this.insertPictures(files, at);
+          this.insertPictures(files, at).catch((err: Error) => toast(`Could not drop the picture: ${err.message}`, 'error'));
           return true;
         },
         dispatchTransaction: (tr) => {
@@ -737,8 +738,8 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
     setClass(this.mount, 'is-painting', false);
     const tr = this.view.state.tr;
     if (!empty) {
-      for (const t of Object.values(schema.marks)) if (t.name !== 'link') tr.removeMark(from, to, t);
-      for (const m of paint.marks) if (m.type.name !== 'link') tr.addMark(from, to, m);
+      for (const t of Object.values(schema.marks)) if (!KEEP_MARKS.has(t.name)) tr.removeMark(from, to, t);
+      for (const m of paint.marks) if (!KEEP_MARKS.has(m.type.name)) tr.addMark(from, to, m);
     }
     if (paint.para) {
       this.view.state.doc.nodesBetween(from, to, (node, pos) => {
@@ -900,6 +901,7 @@ ${TB('view.focus', 'focus', 'Focus mode (Esc leaves)')}${TB('layout.pageSetup', 
       indent: Number(a.indent || resolved.para.indentLeft || 0), indentFirst: Number(a.indentFirst || 0), indentRight: Number(a.indentRight || resolved.para.indentRight || 0),
       tabs: Array.isArray(a.tabs) ? (a.tabs as Array<{ pos: number; align: string }>) : [],
     });
+    for (const f of toolbarSynced) f();
   }
 
   private scheduleOutline(): void {

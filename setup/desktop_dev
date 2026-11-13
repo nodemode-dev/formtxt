@@ -2,6 +2,14 @@
 set -e
 source "$(dirname "$0")/lib.sh"
 cd "$FORMTXT_ROOT"
+if [ "$(ft_os)" = macos ]; then
+  mkdir -p src-tauri/engine
+else
+  ext=""
+  if [ "$(ft_os)" = windows ]; then ext=".exe"; fi
+  bin="src-tauri/binaries/formtxt-engine-${FORMTXT_TARGET:-$(rustc -vV | awk '/^host:/ {print $2}')}$ext"
+  [ -e "$bin" ] || : > "$bin"
+fi
 setup/boot_all &
 sides=$!
 trap 'kill "$sides" 2>/dev/null' EXIT INT TERM

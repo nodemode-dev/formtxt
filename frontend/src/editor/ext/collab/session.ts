@@ -4,6 +4,7 @@ import { Plugin, PluginKey, Selection, type EditorState, type Transaction } from
 import { Step } from 'prosemirror-transform';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import { commands } from '../../../engine/registry';
+import { toast } from '../../../ui/toast';
 import type { DocEditor } from '../../editor';
 import { schema } from '../../schema';
 import { addPlugin } from '../plugins';
@@ -229,9 +230,21 @@ function onInit(msg: Record<string, unknown>): void {
         v.dispatch(v.state.tr.setMeta(collabPlugin, { version, unconfirmed: collabState(v.state).unconfirmed }).setMeta('addToHistory', false));
       } else {
         const head = v.state.selection.head;
+        const pending = sendableSteps(v.state)?.steps ?? [];
         const tr = v.state.tr.replaceWith(0, v.state.doc.content.size, doc.content).setMeta('collabInit', true).setMeta(collabPlugin, { version, unconfirmed: [] }).setMeta('addToHistory', false);
         tr.setSelection(Selection.near(tr.doc.resolve(Math.min(head, tr.doc.content.size))));
         v.dispatch(tr);
+        if (pending.length) {
+          const re = v.state.tr.setMeta('addToHistory', false);
+          let lost = 0;
+          for (let i = 0; i < pending.length; i++) {
+            let failed = true;
+            try { failed = !!re.maybeStep(pending[i]).failed; } catch { failed = true; }
+            if (failed) { lost = pending.length - i; break; }
+          }
+          if (re.docChanged) v.dispatch(re);
+          toast(lost ? 'Some of your unsent edits could not be put back after reconnecting, because the shared copy changed under them.' : 'Your unsent edits were put back after reconnecting. Check them, since others changed the document meanwhile.', lost ? 'error' : 'info');
+        }
       }
     } else if (mode === 'resume') {
       const steps = toSteps(msg.steps);

@@ -28,7 +28,7 @@ function applyDocument(nd: FtxtDocument): void {
   const e = ed();
   const v = view();
   if (!e.doc) throw new Error('Open a document first.');
-  e.doc = { ...e.doc, comments: nd.comments ?? {} };
+  e.doc = { ...e.doc, comments: nd.comments ?? {}, media: { ...(nd.media ?? {}), ...(e.doc.media ?? {}) } };
   if (nd.tabs.length === 1 && e.doc.tabs.length === 1) {
     const pm = toPM(nd, 0);
     v.dispatch(v.state.tr.replaceWith(0, v.state.doc.content.size, pm.content).setMeta(REVIEW_META, true));

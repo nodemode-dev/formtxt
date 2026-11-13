@@ -133,7 +133,7 @@ export function insertBibliography(ed: DocEditor, all: boolean): void {
 
 export function insertNote(ed: DocEditor, kind: 'footnote' | 'endnote', text: string): string {
   const id = newId('n_');
-  insertInline(ed, schema.nodes.note_ref.create({ id, kind, n: '', text }));
+  insertInline(ed, schema.nodes.note_ref.create({ id, kind, n: '', text }), true);
   quick(ed);
   return id;
 }
@@ -221,7 +221,7 @@ export function insertCrossRef(ed: DocEditor, kind: string, target: string, what
   if (!XREF_WHAT[kind]) return 'Choose what to refer to.';
   if (!targetsFor(ed, kind).some((t) => t.value === target)) return 'That target is not in this document.';
   if (!XREF_WHAT[kind].some((w) => w[0] === what)) what = XREF_WHAT[kind][0][0];
-  insertInline(ed, schema.nodes.xref.create({ kind, target, what, result: '' }));
+  insertInline(ed, schema.nodes.xref.create({ kind, target, what, result: '' }), true);
   quick(ed, what === 'page');
 }
 
@@ -241,7 +241,7 @@ export function insertCitation(ed: DocEditor, id: string, locator: string): stri
   if (!ids.length || ids.some((x) => !known.has(x))) return 'Choose a source.';
   const locs = locator.split(';').map((x) => x.trim());
   const items: CiteItem[] = ids.filter((x, i) => ids.indexOf(x) === i).map((x, i) => ({ id: x, ...(locs[i] ? { locator: locs[i] } : {}) }));
-  insertInline(ed, schema.nodes.citation.create({ items, result: '' }));
+  insertInline(ed, schema.nodes.citation.create({ items, result: '' }), true);
   refreshAll(ed);
 }
 
