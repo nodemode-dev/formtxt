@@ -273,7 +273,7 @@ export function registerWordCommands(reg: CommandRegistry, ed: DocEditor): void 
     if ($f.depth < 1 || $f.parent.type !== schema.nodes.paragraph || $f.depth > 1) at = $f.depth >= 1 ? $f.after(1) : state.selection.from;
     else if ($f.parent.content.size === 0 || $f.parentOffset === $f.parent.content.size) at = $f.after(1);
     else if ($f.parentOffset === 0) at = $f.before(1);
-    else { tr.split($f.pos); at = tr.mapping.map($f.pos) + 1; }
+    else { tr.split($f.pos); at = tr.mapping.map($f.pos, -1) + 1; }
     const nodes = [schema.nodes.page_break.create(), schema.nodes.paragraph.create(), schema.nodes.page_break.create()];
     if (at >= tr.doc.content.size) nodes.push(schema.nodes.paragraph.create());
     tr.insert(at, nodes);
