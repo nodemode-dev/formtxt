@@ -21,7 +21,7 @@ usage: ./formtxt [command] [options]
   cli list|describe|run  the editor's command catalogue from a terminal; run <id> [key=value ...] needs the window open
   clean [--all]       remove build output (--all also venv and node_modules)
   icons --check       fail when interface code draws a sparkle icon (banned app-wide)
-  help               this text
+  help                this text
 USAGE
 }
 cmd="${1:-boot}"
