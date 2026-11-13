@@ -80,10 +80,12 @@ const savedStyles = (): Array<{ id: string; name: string; def: TableStyleDef }> 
   try { return tableStyleList(ed()).filter((s) => !allPresets().some((p) => p.id === s.id)); } catch { return []; }
 };
 
+const hexOnly = (c: unknown): string => (typeof c === 'string' && /^#[0-9a-f]{3,8}$/i.test(c) ? c : '');
+
 const styleItems = (): GItem[] => {
   const items: GItem[] = allPresets().map((p) => ({ id: p.id, name: p.name, title: p.name, thumb: () => p.html, run: () => applyPreset(p), group: 'Built-In' }));
   for (const s of savedStyles()) {
-    items.push({ id: `saved:${s.id}`, name: s.name, title: s.name, group: 'Custom', thumb: () => thumb({ mode: s.def.look === 'plain' ? 'none' : s.def.look === 'rows' ? 'rows' : 'grid', header: s.def.header?.shading || (s.def.look === 'accent' ? '#f97316' : ''), band: s.def.band?.shading || (s.def.look === 'banded' ? '#eef2f7' : '') }), run: () => run('table.applyStyle', { style: s.id }) });
+    items.push({ id: `saved:${s.id}`, name: s.name, title: s.name, group: 'Custom', thumb: () => thumb({ mode: s.def.look === 'plain' ? 'none' : s.def.look === 'rows' ? 'rows' : 'grid', header: hexOnly(s.def.header?.shading) || (s.def.look === 'accent' ? '#f97316' : ''), band: hexOnly(s.def.band?.shading) || (s.def.look === 'banded' ? '#eef2f7' : '') }), run: () => run('table.applyStyle', { style: s.id }) });
   }
   return items;
 };
