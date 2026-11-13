@@ -129,6 +129,15 @@ The commands need the window open, and the first one an outside agent runs asks 
 
 All FormTxt builds are compiled and released from [FormCompiler](https://github.com/nodemode-dev/formcompiler); this repo holds the source.
 
+## Demo
+
+[`demo/index.html`](demo/index.html) is an offline demo that opens from `file://` or any static server and runs the real FormTxt window: A report under review, an annual report with suggested edits by two people, comments, a chart and a table. The document lives in the page for that tab; what needs the engine (new documents, templates, other formats, export, proofing, versions, sharing, the assistant and the terminal) says so. See [`demo/README.md`](demo/README.md).
+
+- [`demos/paper/index.html`](demos/paper/index.html): A paper with references, with contents, equations, figures, footnotes, citations and a bibliography. See [`demos/paper/README.md`](demos/paper/README.md).
+- [`demos/newsletter/index.html`](demos/newsletter/index.html): A two-column newsletter, with Text Art, an IntelligentArt diagram, pictures and events. See [`demos/newsletter/README.md`](demos/newsletter/README.md).
+
+The same three demos open inside the app from Home, from Help > Demos, or with the `demo.review`, `demo.paper` and `demo.newsletter` commands, each as a new document in your library.
+
 ## Run it from source
 
 Prefer it in your browser, or want to contribute? Run the web UI straight from this repo.
