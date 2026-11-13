@@ -30,6 +30,6 @@ export const WORDCMD_ICONS: Record<string, string> = {
   sort: L('<path d="M5 17l2.5-4 2.5 4M5.8 15.5h3.4M5 7h5l-5 4h5"/><path d="M16 5v14M13.5 16.5l2.5 2.5 2.5-2.5"/>'),
   dateTime: L('<rect x="4" y="5.5" width="16" height="14" rx="1.5"/><path d="M4 10h16M8.5 3.5v3M15.5 3.5v3"/><circle cx="14" cy="15" r="2.4"/><path d="M14 13.8v1.3l.9.6"/>'),
   about: L('<circle cx="12" cy="12" r="8.5"/><path d="M12 11v5.5M12 7.8h.01" stroke-width="2"/>'),
-  whatsNew: L('<path d="M12 3.5l1.9 4.6 4.6 1.9-4.6 1.9L12 16.5l-1.9-4.6L5.5 10l4.6-1.9z" stroke-linejoin="round"/><path d="M18.5 15.5v4M16.5 17.5h4"/>'),
+  whatsNew: L('<path d="M13.5 3.5h-7A1.5 1.5 0 0 0 5 5v14a1.5 1.5 0 0 0 1.5 1.5h11A1.5 1.5 0 0 0 19 19v-8.5"/><path d="M8.5 12.5h7M8.5 16h5M8.5 9h3"/><circle cx="18" cy="6" r="2.5"/>'),
   feedback: L('<path d="M5 5.5A1.5 1.5 0 0 1 6.5 4h11A1.5 1.5 0 0 1 19 5.5v8a1.5 1.5 0 0 1-1.5 1.5H11l-4 3.5V15H6.5A1.5 1.5 0 0 1 5 13.5z"/><path d="M12 7.5v3.2M12 12.6h.01" stroke-width="2"/>'),
 };

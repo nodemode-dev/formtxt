@@ -8,6 +8,7 @@ Documents in the form family: an open, local-first Word and Google Docs alternat
 - Zero DOM flash: patch nodes with the helpers in `frontend/src/ui/dom.ts`, never rebuild a live container; verify under 4x CPU and network throttling.
 - Every `z-index` comes from the `--z-*` scale in `frontend/src/styles/tokens.css`.
 - Icons are inline `currentColor` SVG in `frontend/src/ui/icons.ts`; no icon libraries, no emojis, no React.
+- The sparkle icon (a cluster of four-point stars, or a wand trailing them) is banned app-wide, under any name and in any form (SVG, glyph, CSS content), for AI, Claude Code or anything else; use the `agent`, `agentChat` and `terminal` icons for Claude Code and agents. `./formtxt icons --check` fails if it returns. The Tabler library behind Insert > Icons is document content and keeps its icons.
 - The engine owns the document; every user action is a command in `frontend/src/engine/registry.ts`, mirrored to `/api/commands` and `./formtxt cli`.
 - `docs/FORMAT.md` is the `.ftxt` contract and wins over the code.
 - Comments live in `frontend/HASHOUT_LOG.md` and `backend/HASHOUT_LOG.md`, not in source.

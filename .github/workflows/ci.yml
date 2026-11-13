@@ -120,6 +120,8 @@ jobs:
             case "$f" in *.bat|*.py) continue ;; esac
             bash -n "$f"
           done
+      - name: No sparkle icon
+        run: python3 -B setup/icon_rules.py
       - name: No em dash or emoji in tracked markdown
         run: |
           python3 - <<'PY'
