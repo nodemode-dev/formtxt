@@ -16,6 +16,8 @@ import { unlockDocument } from './editor/ext/versions';
 import { connectBridge } from './automation/bridge';
 import { noteEdit, takeEditor } from './automation/actor';
 import { CommandPalette } from './ui/palette';
+import { TerminalDock } from './ui/terminal-dock';
+import { cmdStateChanged, setCmdState } from './ui/shell/cmd';
 import { Shortcuts } from './ui/shortcuts';
 import { toast } from './ui/toast';
 
@@ -263,6 +265,15 @@ export async function startApp(): Promise<void> {
     description: 'List the documents in your library, newest first.',
     run: async () => (await api.get<{ documents: DocSummary[] }>('/documents')).documents,
   });
+  const dock = new TerminalDock();
+  commands.register({ id: 'view.terminal', label: 'Terminal', group: 'View', description: 'Show or hide the terminal dock at the bottom of the window. Shells and Claude Code keep running while it is hidden.', keys: ['Ctrl+J'], run: () => { dock.toggle(); return dock.isOpen(); } });
+  commands.register({ id: 'view.newTerminal', label: 'New Terminal', group: 'View', description: 'Open a new shell tab in the terminal dock.', run: async () => { await dock.newTerminal(); return true; } });
+  commands.register({ id: 'agent.claudeCode', label: 'Claude Code', group: 'Agent', description: 'Open Claude Code in a tab of the terminal dock, with FormTxt\'s commands attached, or hide the dock while it shows Claude Code.', run: async () => { await dock.toggleKind('claude'); return dock.isShowing('claude'); } });
+  commands.register({ id: 'agent.chat', label: 'Chat with Claude', group: 'Agent', description: 'Open the Chat tab of the terminal dock and talk with Claude about your document, or hide the dock while it shows the chat.', run: async () => { await dock.toggleKind('chat'); return dock.isShowing('chat'); } });
+  setCmdState('view.terminal', { icon: 'terminal', checked: () => dock.isOpen() });
+  setCmdState('view.newTerminal', { icon: 'plus' });
+  setCmdState('agent.claudeCode', { icon: 'agent', checked: () => dock.isShowing('claude') });
+  setCmdState('agent.chat', { icon: 'agentChat', checked: () => dock.isShowing('chat') });
 
   shell = mountShell({
     root,
@@ -272,6 +283,10 @@ export async function startApp(): Promise<void> {
   });
   root.prepend(shell.titlebar.root);
   shell.titlebar.root.after(shell.ribbonHost);
+  root.insertBefore(dock.root, shell.status.root);
+  shell.titlebar.dock = (kind) => { void dock.toggleKind(kind); };
+  dock.onTab = () => { shell?.titlebar.syncDock(dock.isOpen(), dock.activeKind()); cmdStateChanged(); };
+  dock.onTab();
 
   root.addEventListener('click', (e) => {
     const target = (e.target as HTMLElement).closest<HTMLElement>('button[data-cmd]');

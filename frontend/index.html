@@ -94,6 +94,17 @@
     if (k) { var base = [11, 12, 13, 14, 16, 20]; for (i = 0; i < base.length; i++) root.style.setProperty('--ft-' + base[i], (Math.round(base[i] * k * 10) / 10) + 'px'); }
   } catch (e) {}
 })();
+(function () {
+  var r = document.documentElement, open = 0, h = 280;
+  try {
+    var t = JSON.parse(localStorage.getItem('formtxt.terminal') || '{}');
+    open = t.open === true ? 1 : 0;
+    if (typeof t.h === 'number' && t.h >= 120 && t.h <= 2000) h = Math.round(t.h);
+  } catch (e) {}
+  r.setAttribute('data-ft-dock', open ? 'open' : 'closed');
+  r.setAttribute('data-ft-dock-h', String(h));
+  r.style.setProperty('--ft-dock-size', h + 'px');
+})();
   </script>
   <link rel="stylesheet" href="/src/styles/fonts.css">
   <link rel="stylesheet" href="/src/styles/tokens.css">
@@ -122,6 +133,7 @@
   <link rel="stylesheet" href="/src/styles/chrome.css">
   <link rel="stylesheet" href="/src/styles/word-commands.css">
   <link rel="stylesheet" href="/src/styles/word-shell.css">
+  <link rel="stylesheet" href="/src/styles/terminal.css">
 </head>
 <body>
   <div id="app"></div>
