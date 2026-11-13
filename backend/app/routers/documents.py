@@ -67,6 +67,8 @@ async def import_files(files: list[UploadFile] = File(...)) -> dict:
         except (intake.Unsupported, exchange.Unsupported) as exc:
             errors.append(str(exc))
             continue
+        except Exception as exc:
+            errors.append(f"{f.filename}: FormTxt could not read this file ({exc}).")
     if not made and errors:
         raise HTTPException(415, " ".join(errors))
     return {"documents": made, "errors": errors}
