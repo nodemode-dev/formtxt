@@ -1,6 +1,6 @@
 import dataUrl from '../data/tabler-icons.json?url';
 import { Dialog } from '../ui/dialog';
-import { el, escapeHtml, setText } from '../ui/dom';
+import { el, escapeHtml, patchList, setText } from '../ui/dom';
 import { toast } from '../ui/toast';
 import type { DocEditor } from './editor';
 import { insertShape } from './shape';
@@ -58,14 +58,18 @@ export function iconsDialog(ed: DocEditor): void {
       const words = q.split(/\s+/).filter(Boolean);
       const all = lib!.icons.filter((e) => (c < 0 || e.cat === c) && (!filled || !!e.f) && words.every((w) => e.name.includes(w) || e.tags.includes(w)));
       shown = all.slice(0, LIMIT);
-      gridEl.innerHTML = shown.map((e, i) => `<button type="button" class="ft-icon-pick" data-i="${i}" title="${escapeHtml(e.label)}" aria-label="${escapeHtml(e.label)}">${filled ? `<svg viewBox="0 0 24 24" fill="currentColor"><path d="${escapeHtml(e.f)}" fill-rule="evenodd"/></svg>` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${escapeHtml(e.o)}"/></svg>`}</button>`).join('');
+      patchList(gridEl, shown, {
+        key: (e) => `${filled ? 'f' : 'o'}:${e.name}`,
+        create: (e) => el(`<button type="button" class="ft-icon-pick" title="${escapeHtml(e.label)}" aria-label="${escapeHtml(e.label)}">${filled ? `<svg viewBox="0 0 24 24" fill="currentColor"><path d="${escapeHtml(e.f)}" fill-rule="evenodd"/></svg>` : `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="${escapeHtml(e.o)}"/></svg>`}</button>`),
+        update: () => undefined,
+      });
       setText(status, all.length > LIMIT ? `Showing ${LIMIT} of ${all.length.toLocaleString()} icons; type to narrow the list. ${lib!.source}, MIT licence.` : `${all.length.toLocaleString()} icons. ${lib!.source}, MIT licence.`);
     });
   };
   for (const n of [search, cat, style]) n.addEventListener('input', render);
   gridEl.addEventListener('click', (e) => {
-    const i = (e.target as HTMLElement).closest<HTMLElement>('[data-i]')?.dataset.i;
-    const entry = i === undefined ? null : shown[Number(i)];
+    const name = (e.target as HTMLElement).closest<HTMLElement>('.ft-icon-pick')?.dataset.key?.slice(2);
+    const entry = name === undefined ? null : shown.find((x) => x.name === name);
     if (!entry) return;
     ed.run(insertShape(iconAttrs(entry, style.value === 'filled', color.value, Math.max(8, Number(size.value) || 36))));
     d.close();
