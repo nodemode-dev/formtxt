@@ -33,6 +33,13 @@ const readJson = <T,>(key: string): Partial<T> => {
   try { const raw = localStorage.getItem(key); return raw ? (JSON.parse(raw) as Partial<T>) : {}; } catch { return {}; }
 };
 
+const isStr = (v: unknown): v is string => typeof v === 'string';
+const isId = (v: unknown): v is string => isStr(v) && /^[\w-]+$/.test(v);
+const wellFormed = (v: unknown): v is CustomTab => {
+  const t = v as CustomTab | null;
+  return !!t && isId(t.id) && isStr(t.label) && Array.isArray(t.groups) && t.groups.every((g) => !!g && isId(g.id) && isStr(g.label) && Array.isArray(g.cmds) && g.cmds.every(isStr));
+};
+
 const parseParams = (b: HTMLElement): Record<string, unknown> | undefined => {
   const raw = b.dataset.params;
   if (!raw) return undefined;
@@ -131,7 +138,7 @@ export class Ribbon {
     this.collapsed = !!s.collapsed;
     this.simplified = !!s.simplified;
     this.compact = !!s.compact;
-    this.config = { hiddenTabs: Array.isArray(s.hiddenTabs) ? s.hiddenTabs : [], hiddenGroups: Array.isArray(s.hiddenGroups) ? s.hiddenGroups : [], custom: Array.isArray(s.custom) ? s.custom : [] };
+    this.config = { hiddenTabs: Array.isArray(s.hiddenTabs) ? s.hiddenTabs.filter(isStr) : [], hiddenGroups: Array.isArray(s.hiddenGroups) ? s.hiddenGroups.filter(isStr) : [], custom: Array.isArray(s.custom) ? s.custom.filter((t) => wellFormed(t) && !opts.tabs.some((d) => d.id === t.id)) : [] };
     this.firstTab = opts.tabs.find((t) => !t.ctx)?.id ?? opts.tabs[0]?.id ?? '';
     this.tab = typeof s.tab === 'string' ? s.tab : this.firstTab;
     this.root = el(`<div class="ft-rb">
