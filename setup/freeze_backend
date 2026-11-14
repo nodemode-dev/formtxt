@@ -51,15 +51,34 @@ if [ "$mode" = --onedir ]; then
   if [ -n "${APPLE_SIGNING_IDENTITY:-}" ]; then
     ents="$FORMTXT_ROOT/src-tauri/entitlements.plist"
     sign=(codesign --force --options runtime --timestamp --entitlements "$ents" -s "$APPLE_SIGNING_IDENTITY")
+    work="$(mktemp -d)"
+    needs_sign() {
+      local info
+      info="$(codesign -dvv "$1" 2>&1)" || return 0
+      case "$info" in *"Signature=adhoc"*) return 0 ;; esac
+      printf '%s\n' "$info" | grep -q '^CodeDirectory .*flags=.*runtime' || return 0
+      printf '%s\n' "$info" | grep -q '^Timestamp=' || return 0
+      return 1
+    }
     while IFS= read -r -d '' f; do
       file -b "$f" | grep -q 'Mach-O' || continue
-      "${sign[@]}" "$f"
+      case "$f" in
+        *.framework/*)
+          cp -p "$f" "$work/${f##*/}"
+          "${sign[@]}" "$work/${f##*/}"
+          mv -f "$work/${f##*/}" "$f"
+          ;;
+        *) if needs_sign "$f"; then "${sign[@]}" "$f"; fi ;;
+      esac
     done < <(find "$out" -type f ! -path "$out/formtxt-engine" -print0)
-    while IFS= read -r -d '' d; do
-      "${sign[@]}" "$d"
-    done < <(find "$out" -depth -type d \( -name '*.framework' -o -name '*.app' \) -print0)
     "${sign[@]}" "$out/formtxt-engine"
     codesign --verify --strict "$out/formtxt-engine"
+    while IFS= read -r -d '' l; do
+      file -bL "$l" | grep -q 'Mach-O' || continue
+      cp -L "$l" "$work/${l##*/}"
+      codesign --verify --strict "$work/${l##*/}" || ft_die "this engine library loses its signature when it is copied as a plain file, which is how the app bundle carries it: $l"
+    done < <(find "$out" -type l -print0)
+    rm -rf "$work"
     ft_say "engine signed with $APPLE_SIGNING_IDENTITY"
   fi
   "$out/formtxt-engine" --selfcheck

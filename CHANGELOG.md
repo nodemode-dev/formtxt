@@ -1,5 +1,9 @@
 # Changelog
 
+## 0.32.1 · 2026-11-14
+
+- macOS: the app starts again. In 0.32.0 the desktop app stopped at "The FormTxt engine failed to start" because macOS refused the code signature of the engine's Python library; the build now signs that library so the signature stays valid inside the app, and stops if it would not. If you have 0.32.0, update to this version.
+
 ## 0.32.0 · 2026-11-13
 
 - The three demos also open as offline browser pages (`demo/index.html`, `demos/paper/index.html`, `demos/newsletter/index.html`) that run the real FormTxt window from `file://`; the README has a Demo section for them.
