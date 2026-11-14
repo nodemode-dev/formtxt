@@ -2,10 +2,28 @@
 
 Living log of comment content, rationale and removed code for the engine. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.32.0
-Last updated: 2026-11-13 · v0.32.0 has no change in the engine; `setup/icon_rules.py` also checks the insertable icon and emoji data (frontend log). Before: 2026-11-13 · v0.31.0: MCP, terminals and Claude Code in the engine, the agent kit (section below). Before: 2026-11-13 · the v0.30.8 fixes to the engine entry and scripts (section below). Before: 2026-11-12 · the v0.30.7 review fixes. Before: 2026-10-31 · .js, .mjs and .css keep their types on Windows; the Linux packages pull in the media plugins. Before: macOS engine signed for notarization
+Current build version: v0.32.1
+Last updated: 2026-11-14 · v0.32.1: the macOS freeze keeps the Python library loadable inside the app bundle (section below). Before: 2026-11-13 · v0.32.0 has no change in the engine; `setup/icon_rules.py` also checks the insertable icon and emoji data (frontend log). Before: 2026-11-13 · v0.31.0: MCP, terminals and Claude Code in the engine, the agent kit (section below). Before: 2026-11-13 · the v0.30.8 fixes to the engine entry and scripts (section below). Before: 2026-11-12 · the v0.30.7 review fixes. Before: 2026-10-31 · .js, .mjs and .css keep their types on Windows; the Linux packages pull in the media plugins. Before: macOS engine signed for notarization
 
 ---
+
+## v0.32.1 · the macOS freeze keeps the Python library loadable in the app (2026-11-14)
+
+- Fault (FormTxt 0.32.0 for macOS, the first build formcompiler made): the app showed "The FormTxt engine failed to start" on every launch. Run by hand, the engine printed `Failed to load Python shared library '.../Contents/Resources/engine/_internal/Python'` with `code signature invalid`, and `codesign -vvv` on that file said `invalid Info.plist (plist or signature have been modified)`.
+- Cause: the runner's Python is a framework build, so PyInstaller puts the library at `_internal/Python.framework/Versions/3.12/Python` and makes `_internal/Python` a symlink to it. The 0.30.3 loop re-signed every Mach-O in place and then signed each `.framework` folder. `codesign` signs a file that sits in a framework as that framework's main binary, which binds the signature to the framework's `Info.plist`. In the installed app `_internal/Python` is a plain file, not a link (seen with `ls -l` on the 0.32.0 install), and a framework-bound signature does not validate on a plain copy. `--selfcheck` passed because it runs in `src-tauri/engine`, where the link is still a link.
+- setup/freeze_backend :: the `APPLE_SIGNING_IDENTITY` block of the onedir branch · Now: (1) a Mach-O under a `*.framework/` folder is always signed as a copy in a temporary folder outside the framework and moved back, so its signature binds to the file alone; (2) any other Mach-O is signed only when `needs_sign` says so (no signature, ad hoc, no hardened runtime or no timestamp), which is FormCel's rule and keeps PyInstaller's own Developer ID signatures; (3) `formtxt-engine` is signed last with the entitlements, as before; (4) a guard copies every symlinked Mach-O with `cp -L` and stops the build when the copy fails `codesign --verify --strict`, which is the fault above caught at build time.
+- Removed: the unconditional re-sign and the folder loop.
+  ```
+  while IFS= read -r -d '' f; do
+    file -b "$f" | grep -q 'Mach-O' || continue
+    "${sign[@]}" "$f"
+  done < <(find "$out" -type f ! -path "$out/formtxt-engine" -print0)
+  while IFS= read -r -d '' d; do
+    "${sign[@]}" "$d"
+  done < <(find "$out" -depth -type d \( -name '*.framework' -o -name '*.app' \) -print0)
+  ```
+  The engine folder holds no `.app`. A framework folder is no longer sealed as a bundle; nothing reads that seal at run time.
+- Checked: `bash -n`, and the block run against a stand-in engine folder with stub `codesign` and `file` (the framework library signed outside its folder, a PyInstaller-signed library kept, ad hoc and unsigned ones signed, the guard stopping on a framework-bound signature). Not run: a macOS build. Apple's notary service has not seen an engine signed this way, because notarization is off while formcompiler's `signing.macos` is `developer-id`.
 
 ## v0.31.0 · MCP, terminals and Claude Code in the engine, the agent kit (2026-11-13)
 
