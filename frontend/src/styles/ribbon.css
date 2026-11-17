@@ -12,6 +12,9 @@
 :root[data-theme="light"] {
   --rb-ink: color-mix(in srgb, var(--accent-color) 45%, var(--text-primary));
 }
+:root[data-oled] {
+  --rb-body-bg: var(--bg-secondary);
+}
 
 .ft-rb { position: relative; z-index: var(--z-chrome); display: flex; flex-direction: column; min-width: 0; background: var(--rb-bg); }
 .ft-rb[hidden], .ft-rb-simple[hidden] { display: none; }

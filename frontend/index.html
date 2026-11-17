@@ -23,6 +23,7 @@
   var DEFAULT_THEME = 'studio';
   var DEFAULT_ACCENT = '#f97316';
   var LIGHT = { 'light': 1, 'sand': 1, 'nineties': 1, 'duck': 1, 'pro-light-grey': 1, 'pro-light': 1, 'classic': 1, 'adwaita-light': 1, 'soft-light': 1 };
+  var OLED = { 'amoled': 1 };
   var PROFILES = {
     'studio':          ['#111111', '#17151b', '#222127', '#2a2a2a', '#34333a', '#f7f7f7', '#a4a4a4', '#8a8a8b', '#1c1b1d', '#191919'],
     'nodemode-dark':   ['#0a0a0a', '#121218', '#1a1a24', '#2a2a35', '#3a3a48', '#e8e8ee', '#a8a8b8', '#7a7a8a', '#0a0a0a', '#121218'],
@@ -39,6 +40,7 @@
     'rose':            ['#170b10', '#211117', '#301a22', '#4d2b38', '#653a49', '#f5e7ec', '#cfa5b3', '#aa8493', '#170b10', '#211117'],
     'terminal':        ['#050d05', '#0a140a', '#102010', '#1f3d1f', '#2b522b', '#d8f5d8', '#8fce8f', '#6ca66c', '#050d05', '#0a140a'],
     'contrast':        ['#000000', '#0a0a0a', '#161616', '#555555', '#777777', '#ffffff', '#d8d8d8', '#b0b0b0', '#000000', '#0a0a0a'],
+    'amoled':          ['#000000', '#000000', '#141414', '#262626', '#3a3a3a', '#ededed', '#a6a6a6', '#858585', '#000000', '#000000'],
     'nineties':        ['#c0c0c0', '#d4d0c8', '#b4b0a8', '#808080', '#ffffff', '#000000', '#202020', '#484848', '#008080', '#d4d0c8'],
     'duck':            ['#e9e4f7', '#f4f1fc', '#d9d2ef', '#c7bde6', '#b3a6dc', '#2b2540', '#4f4770', '#6b6388', '#e2dcf2', '#f4f1fc'],
     'pro-dark':        ['#1f1f1f', '#2b2b2b', '#363636', '#4a4a4a', '#818181', '#ececec', '#bdbdbd', '#a0a0a0', '#181818', '#2b2b2b'],
@@ -77,6 +79,7 @@
   } catch (e) {}
   var p = PROFILES[theme];
   root.setAttribute('data-theme', LIGHT[theme] ? 'light' : 'dark');
+  if (OLED[theme]) root.setAttribute('data-oled', '');
   for (i = 0; i < NAMES.length; i++) root.style.setProperty(NAMES[i], p[i]);
   root.style.setProperty('--accent-color', accent);
   root.style.setProperty('--accent-color-dim', accent + '33');

@@ -92,6 +92,10 @@
   --z-home-modal: 10010;
   --z-overlay: 50000;
 }
+:root[data-oled] {
+  --bg-hover: rgba(255, 255, 255, 0.1);
+  --border-soft: rgba(255, 255, 255, 0.12);
+}
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 body {
