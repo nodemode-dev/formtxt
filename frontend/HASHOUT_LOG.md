@@ -2,8 +2,10 @@
 
 Living log of comment content, rationale and removed code for the frontend. Source files stay comment-free; read this first, then edit surgically.
 
-Current build version: v0.32.1
-Last updated: 2026-11-14 · v0.32.1 has no change in the window; the macOS freeze fix is in the backend log, and the three browser demo pages were not rebuilt, so they still say 0.32.0. Before: 2026-11-13 · v0.32.0: Read and Focus mode show the document again, the sparkle ban covers insertable icons and emoji, the inline mark in the title bar and About, browser demo pages (entries below). Before: 2026-11-13 · the v0.31.0 family release pass: Home, the terminal dock with Claude Code, demos, no sparkle icon (entries below). Before: 2026-11-13 · the v0.30.8 review fixes, second pass.
+Current build version: v0.33.0
+Last updated: 2026-11-17 · v0.33.0: AMOLED Black, a true-black theme, and Dark Page at full inversion under it (entries below); the three browser demo pages were not rebuilt, so they still say 0.32.0 and do not offer the theme. Before: 2026-11-14 · v0.32.1 has no change in the window; the macOS freeze fix is in the backend log, and the three browser demo pages were not rebuilt, so they still say 0.32.0. Before: 2026-11-13 · v0.32.0: Read and Focus mode show the document again, the sparkle ban covers insertable icons and emoji, the inline mark in the title bar and About, browser demo pages (entries below). Before: 2026-11-13 · the v0.31.0 family release pass: Home, the terminal dock with Claude Code, demos, no sparkle icon (entries below). Before: 2026-11-13 · the v0.30.8 review fixes, second pass.
+
+- v0.33.0 (AMOLED Black). A true-black theme, id `amoled`, in `src/ui/themes.ts` and in the pre-paint table in `index.html`; a profile flag `oled` puts `data-oled` on `html`, and three CSS rules hang on it: hover and soft borders in `styles/tokens.css`, the ribbon body in `styles/ribbon.css`, and Dark Page at full inversion in `styles/editor.css`, so the page is black too. Entries: [themes](#themes), [index](#index), [tokens](#tokens), [dark page](#dark-page). Checked in headless Chrome at 1440 by 900, 4x CPU and a slow network with the cache off: on a cold load and on a hard reload every frame after navigation is `#000000` at the corners and centre, a live switch between Studio Dark and AMOLED Black in Preferences changes colours only, and layout shift is 0 in all three. The three browser demo pages were not rebuilt, so they do not offer the theme.
 
 - v0.32.0 (Read and Focus mode). Since the terminal dock, `#app` has five grid rows (title bar, ribbon, main, dock, status) and only `.ft-dock` was pinned. Read mode hides `.ft-ribbon-host`, so `.ft-main` moved up into the ribbon's `auto` row and measured 0 px, and the status bar took the 1fr row: the window showed no document. `styles/terminal.css` now pins `#app > .ft-main { grid-row: 3; }` and `#app > .ft-status { grid-row: 5; }`. Focus mode's own template had three rows, so the ribbon filled the window and the page sat out of sight; `styles/editor.css` changed `body.ft-focus #app { grid-template-rows: 0 1fr 0; }` to `0 0 minmax(0, 1fr) 0 0` and hides the ribbon host with the title bar and status bar. `editor/ext/refs/footnotes.ts` :: `pageFootnotes` laid footnotes at the foot of each page only when `ed.viewMode === 'print'`, so entering Read mode moved them after the text and the paper demo went from 4 pages to 5; the test is now `ed.viewMode !== 'draft'`. Checked in headless Chrome with all three demos and a new document at 1440 and 900 px, panes and dock open and closed, throttled 4x: one frame each way. Left as they are: at 900 px with a side pane open the 816 px page scrolls sideways (Print layout does the same), and Draft view keeps a stale `.ft-sheet-notes` box.
 - v0.32.0 (sparkle ban on content). The ban now covers what a person can insert. `src/data/retired-icons.json` lists FNV-1a hashes of the outline and filled paths of 38 Tabler icons (sparkle, sparkles, stars, flare, wand, moon-stars, image-generation, vip-2, subtitles-ai and every `-spark` and `-sparkle` icon) and 5 emoji codepoints. `editor/retired-icons.ts` :: `retiredPath`, `retiredEmoji` read it; `editor/icons-dialog.ts` :: `load` and `editor/emoji.ts` :: `loadEmoji`, `readRecent` drop them, so the picker, `insert.icon name=` and the emoji panel cannot offer them; `editor/shape.ts` :: `ShapeView.apply` draws an empty path for a retired icon, so a document that already holds one opens and keeps the frame's size. `tabler-icons.json` itself is unchanged: it is one 1.6 MB line with no generator, and it may not be rewritten by script, so the retired list sits beside it. `north-star` (crossing lines, an asterisk) is kept. `setup/icon_rules.py` gains `insertable_problems` with an outline test for four-point stars; `./formtxt icons --check` fails if a sparkle returns in the data. `editor/register.ts` :: `insert.icon` description counts went from "4,808 outline and 1,009 filled" to "4,770 outline and 1,005 filled".
@@ -51,6 +53,7 @@ frontend/
     ├── io/api.ts            fetch helpers and EngineError
     ├── ui/dom.ts            patch helpers (from FormDeck)
     ├── ui/icons.ts          inline currentColor SVG icons
+    ├── ui/themes.ts         theme profiles, the saved choice, applyTheme
     ├── ui/home.ts           Home: Start, Recent, Templates, Trash, template preview
     ├── editor/schema.ts     ProseMirror schema shaped like WordprocessingML
     ├── editor/convert.ts    .ftxt body to and from the ProseMirror document
@@ -76,6 +79,7 @@ frontend/
 - [index.html](#index)
 - [src/app.ts](#app)
 - [src/styles/tokens.css](#tokens)
+- [src/ui/themes.ts](#themes)
 - [src/ui/home.ts](#home)
 - [src/ui/reader.ts](#reader)
 - [src/editor/](#editor)
@@ -592,6 +596,12 @@ The owner's trademark plan (rename table approved 2026-10-23) takes Microsoft's 
 - logged: v0.1.0 · 2026-10-21
 - `data-theme` is set on `html` from `localStorage['formtxt.theme']` before any stylesheet applies, and light-mode tokens hang off `:root[data-theme="light"]`, so a reload in light never paints dark first. `#app` stays hidden until `revealApp`.
 
+### index · the OLED flag before first paint
+- refers-to: index.html :: inline script in head, `OLED`, `PROFILES`
+- kind: warning-context
+- logged: v0.33.0 · 2026-11-17
+- `PROFILES` and `LIGHT` here are a second copy of `THEMES` in `src/ui/themes.ts`; a theme added to one and not the other paints Studio Dark first and then switches. `OLED` is the same kind of copy for the `oled` flag: the script sets `data-oled` on `html` beside `data-theme`, so the true-black rules (`styles/tokens.css`, `styles/ribbon.css`, the Dark Page rule in `styles/editor.css`) apply on the first frame. The tenth column of a `PROFILES` row is `--bg-node`.
+
 ### index · font preloads
 - refers-to: index.html :: link rel=preload
 - kind: warning-context
@@ -626,6 +636,20 @@ The owner's trademark plan (rename table approved 2026-10-23) takes Microsoft's 
 - logged: v0.1.0 · 2026-10-21
 - The one declared scale, a subset of FormDeck's: behind (-1, added in v0.9.0 for pictures behind text, only meaningful inside the isolated `.ft-pm-root`), base, raised, chrome, menu, modal, context, toast, home, home-modal, overlay. Anything that must escape its container renders into `#overlay-root`, a direct child of `body`.
 
+### tokens · hover and soft border under data-oled
+- refers-to: src/styles/tokens.css :: `:root[data-oled]`, src/styles/ribbon.css :: `:root[data-oled]`
+- kind: rationale
+- logged: v0.33.0 · 2026-11-17
+- `--bg-hover` and `--border-soft` are white at 6% and 8%. Over `#000000` that is `#0f0f0f` and `#141414`, a contrast of 1.10 and 1.14 against the surface, where Studio Dark gets 1.17 and 1.24 from the same tokens, and an OLED panel crushes the darkest greys further. Under `data-oled` they are 10% and 12% (`#1a1a1a` at 1.21, `#1f1f1f` at 1.27), so a hovered control and a soft divider read as they do in Studio Dark. `--rb-body-bg` mixes 6% of the text colour into the ribbon body, which made the 96 px ribbon `#0e0e0e`, 8.6% of a 1440 by 900 window; under `data-oled` it is `--bg-secondary`.
+
+## src/ui/themes.ts {#themes}
+
+### themes · AMOLED Black and the oled flag
+- refers-to: src/ui/themes.ts :: `THEMES['amoled']`, `ThemeProfile.oled`, `applyTheme`
+- kind: rationale
+- logged: v0.33.0 · 2026-11-17
+- A true-black theme for OLED screens, where a `#000000` pixel is off. High Contrast is not that theme: its panels are `#0a0a0a` and `#161616` and its borders are bright. AMOLED Black puts `--bg-primary`, `--bg-secondary`, `--bg-node` and `--canvas-bg` at `#000000`, so panels are told apart by `--border-color` `#262626` and `--border-light` `#3a3a3a` alone. `--bg-tertiary` stays a grey, `#141414`, because inputs, menus, the ruler and selected rows use it as their only fill and would vanish at black. Text is `#ededed`, `#a6a6a6` and `#858585` (17.9, 8.6 and 5.7 to 1 on black; 5.0 to 1 for the muted grey on `#141414`), off-white rather than `#ffffff` to limit halation on black.
+- `oled: true` on a profile makes `applyTheme` set `data-oled` on `html` (removed for every other theme); CSS hangs the true-black exceptions on it instead of on the theme id, so another OLED profile only needs the flag. The id is `amoled`; other NodeMode apps that read `nodemode_ui_settings` and do not know it fall back to their default theme.
 ## src/editor/ext/ {#ext}
 
 ### ext · area seams
@@ -779,6 +803,13 @@ The owner's trademark plan (rename table approved 2026-10-23) takes Microsoft's 
 - kind: rationale
 - logged: v0.29.1 · 2026-10-22
 - Documents carry inline colours from .docx and styles, so swapping tokens would miss them. A screen-only invert(0.9) hue-rotate(180deg) on .ft-pages and the split page turns black ink light and white paper dark while hues survive; img, video, canvas, iframe and picture get invert(1) hue-rotate(180deg) back. It is per viewer (localStorage formtxt.darkPage), set in the index.html boot script before first paint, and under @media screen so print and exports are untouched.
+
+### view.darkPage · full inversion under an OLED theme
+- refers-to: frontend/src/styles/editor.css :: `:root[data-page-dark][data-oled]`
+- kind: rationale
+- logged: v0.33.0 · 2026-11-17
+- invert(0.9) turns white paper into `#1a1a1a`, so with AMOLED Black the page, the largest surface in the window, stayed lit. Under `data-oled` the same whole-page filter runs at invert(1): white paper is `#000000` and the default ink `#1a1a1a` is `#e5e5e5`. Pictures already get invert(1) hue-rotate(180deg) back, which now restores them exactly. The page edge is still drawn: the 1 px ring in `--page-shadow` inverts to white at 16%, `#292929` on black. It is still one global toggle and one filter over the whole page, with no per-object or per-colour work, as `CLAUDE.md` requires. Every other theme keeps invert(0.9).
+- Measured in headless Chrome at 1440 by 900 with the review demo open and Dark Page on: 90% of pixels are `#000000`, against 19% in High Contrast and 0% in Studio Dark. With Dark Page off the page stays white, as in every theme, and the share is 53%.
 
 ### ruler · theme tokens
 - refers-to: frontend/src/styles/tokens.css :: --ruler-*, frontend/src/styles/light-mode.css

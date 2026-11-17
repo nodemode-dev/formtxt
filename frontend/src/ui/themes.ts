@@ -1,4 +1,4 @@
-export interface ThemeProfile { label: string; vars: Record<string, string>; light?: boolean }
+export interface ThemeProfile { label: string; vars: Record<string, string>; light?: boolean; oled?: boolean }
 
 export const THEMES: Record<string, ThemeProfile> = {
   'studio': { label: 'Studio Dark', vars: { '--bg-primary': '#111111', '--bg-secondary': '#17151b', '--bg-tertiary': '#222127', '--border-color': '#2a2a2a', '--border-light': '#34333a', '--text-primary': '#f7f7f7', '--text-secondary': '#a4a4a4', '--text-muted': '#8a8a8b', '--canvas-bg': '#1c1b1d', '--bg-node': '#191919' } },
@@ -16,6 +16,7 @@ export const THEMES: Record<string, ThemeProfile> = {
   'rose': { label: 'Rose Noir', vars: { '--bg-primary': '#170b10', '--bg-secondary': '#211117', '--bg-tertiary': '#301a22', '--border-color': '#4d2b38', '--border-light': '#653a49', '--text-primary': '#f5e7ec', '--text-secondary': '#cfa5b3', '--text-muted': '#aa8493', '--canvas-bg': '#170b10' } },
   'terminal': { label: 'Terminal Green', vars: { '--bg-primary': '#050d05', '--bg-secondary': '#0a140a', '--bg-tertiary': '#102010', '--border-color': '#1f3d1f', '--border-light': '#2b522b', '--text-primary': '#d8f5d8', '--text-secondary': '#8fce8f', '--text-muted': '#6ca66c', '--canvas-bg': '#050d05' } },
   'contrast': { label: 'High Contrast', vars: { '--bg-primary': '#000000', '--bg-secondary': '#0a0a0a', '--bg-tertiary': '#161616', '--border-color': '#555555', '--border-light': '#777777', '--text-primary': '#ffffff', '--text-secondary': '#d8d8d8', '--text-muted': '#b0b0b0', '--canvas-bg': '#000000' } },
+  'amoled': { label: 'AMOLED Black', oled: true, vars: { '--bg-primary': '#000000', '--bg-secondary': '#000000', '--bg-tertiary': '#141414', '--bg-node': '#000000', '--border-color': '#262626', '--border-light': '#3a3a3a', '--text-primary': '#ededed', '--text-secondary': '#a6a6a6', '--text-muted': '#858585', '--canvas-bg': '#000000' } },
   'nineties': { label: '90s', light: true, vars: { '--bg-primary': '#c0c0c0', '--bg-secondary': '#d4d0c8', '--bg-tertiary': '#b4b0a8', '--bg-node': '#d4d0c8', '--border-color': '#808080', '--border-light': '#ffffff', '--text-primary': '#000000', '--text-secondary': '#202020', '--text-muted': '#484848', '--canvas-bg': '#008080' } },
   'duck': { label: 'Duck', light: true, vars: { '--bg-primary': '#e9e4f7', '--bg-secondary': '#f4f1fc', '--bg-tertiary': '#d9d2ef', '--bg-node': '#f4f1fc', '--border-color': '#c7bde6', '--border-light': '#b3a6dc', '--text-primary': '#2b2540', '--text-secondary': '#4f4770', '--text-muted': '#6b6388', '--canvas-bg': '#e2dcf2' } },
   'pro-dark': { label: 'Pro Dark', vars: { '--bg-primary': '#1f1f1f', '--bg-secondary': '#2b2b2b', '--bg-tertiary': '#363636', '--border-color': '#4a4a4a', '--border-light': '#818181', '--text-primary': '#ececec', '--text-secondary': '#bdbdbd', '--text-muted': '#a0a0a0', '--canvas-bg': '#181818' } },
@@ -78,6 +79,7 @@ export function applyTheme(choice: ThemeChoice = readChoice()): void {
   const theme = THEMES[choice.theme] ?? THEMES[DEFAULT_THEME];
   const mode = theme.light ? 'light' : 'dark';
   if (root.getAttribute('data-theme') !== mode) root.setAttribute('data-theme', mode);
+  if (theme.oled) { if (!root.hasAttribute('data-oled')) root.setAttribute('data-oled', ''); } else if (root.hasAttribute('data-oled')) root.removeAttribute('data-oled');
   for (const n of NAMES) put(n, theme.vars[n]);
   put('--bg-node', theme.vars['--bg-node'] || theme.vars['--bg-secondary']);
   put('--accent-color', choice.accentColor);

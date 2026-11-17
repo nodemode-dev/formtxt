@@ -1,5 +1,10 @@
 # Changelog
 
+## 0.33.0 · 2026-11-17
+
+- AMOLED Black, a theme for OLED screens: the window, panels, ribbon and canvas are true black, with thin grey borders between them. Pick it in Preferences, under Interface, in the theme grid after High Contrast, or as the Dark theme for Match System Appearance.
+- With AMOLED Black, Dark Page (View tab) turns the page true black as well; in every other theme it stays the dark grey it was. Without Dark Page the page keeps the document's own colours, white for most.
+
 ## 0.32.1 · 2026-11-14
 
 - macOS: the app starts again. In 0.32.0 the desktop app stopped at "The FormTxt engine failed to start" because macOS refused the code signature of the engine's Python library; the build now signs that library so the signature stays valid inside the app, and stops if it would not. If you have 0.32.0, update to this version.
