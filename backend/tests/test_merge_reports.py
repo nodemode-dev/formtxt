@@ -149,6 +149,105 @@ def test_a_total_in_a_page_merge_covers_every_record(client):
     assert [text_of([b]) for b in body if b["type"] == "paragraph"][1::2] == ["560", "560", "560"]
 
 
+@pytest.fixture
+def allowed():
+    from app.services import agents
+
+    agents.set_allowed(True)
+    yield
+    agents.set_allowed(False)
+
+
+def report(client, doc, db, out, **extra):
+    body = {"template": doc["id"], "data": {"path": str(db), "sql": "select order_id, item, qty, qty * price as amount from order_items"}, "out": str(out), **extra}
+    return client.post("/api/reports/run", json=body)
+
+
+def test_a_report_needs_the_persons_consent_when_no_window_can_ask(client, tmp_path):
+    db = orders_db(tmp_path)
+    r = report(client, invoice(client), db, tmp_path / "invoice.pdf")
+    assert r.status_code == 403
+    assert "window" in r.json()["detail"]
+    assert not (tmp_path / "invoice.pdf").exists()
+
+
+def test_the_in_app_token_runs_a_report_without_asking(client, tmp_path):
+    from app.services import agents
+
+    db = orders_db(tmp_path)
+    r = client.post("/api/reports/run", headers={agents.INAPP_HEADER: agents.INAPP_TOKEN},
+                    json={"template": invoice(client)["id"], "data": {"path": str(db), "sql": "select * from order_items"}, "out": str(tmp_path / "a.pdf")})
+    assert r.status_code == 200, r.text
+    assert (tmp_path / "a.pdf").read_bytes()[:4] == b"%PDF"
+
+
+def test_an_allowed_report_writes_a_pdf_and_keeps_the_document(client, tmp_path, allowed):
+    db = orders_db(tmp_path)
+    out = tmp_path / "invoice-1001.pdf"
+    r = report(client, invoice(client, closing=[field("amount", "sum")]), db, out, groupBy="order_id")
+    assert r.status_code == 200, r.text
+    got = r.json()
+    assert got["records"] == 3 and got["file"] == str(out)
+    data = out.read_bytes()
+    assert data[:4] == b"%PDF" and len(data) > 1024
+    body = client.get(f"/api/documents/{got['id']}").json()["tabs"][0]["body"]
+    assert text_of([body[2]]) == "300"
+
+
+@pytest.mark.parametrize("fmt,magic", [("docx", b"PK"), ("ftxt", b"PK")])
+def test_other_formats_write_their_packages(client, tmp_path, allowed, fmt, magic):
+    db = orders_db(tmp_path)
+    out = tmp_path / f"invoice.{fmt}"
+    assert report(client, invoice(client), db, out, format=fmt).status_code == 200
+    assert out.read_bytes()[:2] == magic
+
+
+def test_an_existing_file_is_kept_unless_overwrite_is_sent(client, tmp_path, allowed):
+    db = orders_db(tmp_path)
+    out = tmp_path / "invoice.pdf"
+    out.write_bytes(b"keep me")
+    doc = invoice(client)
+    r = report(client, doc, db, out)
+    assert r.status_code == 409 and "overwrite" in r.json()["detail"]
+    assert out.read_bytes() == b"keep me"
+    assert report(client, doc, db, out, overwrite=True).status_code == 200
+    assert out.read_bytes()[:4] == b"%PDF"
+
+
+def test_a_link_or_folder_at_out_is_never_written(client, tmp_path, allowed):
+    db = orders_db(tmp_path)
+    kept = tmp_path / "kept.pdf"
+    kept.write_bytes(b"kept")
+    link = tmp_path / "link.pdf"
+    link.symlink_to(kept)
+    folder = tmp_path / "folder.pdf"
+    folder.mkdir()
+    doc = invoice(client)
+    assert report(client, doc, db, link, overwrite=True).status_code == 409
+    assert report(client, doc, db, folder, overwrite=True).status_code == 409
+    assert kept.read_bytes() == b"kept"
+
+
+def test_bad_out_paths_and_inputs_are_refused(client, tmp_path, allowed):
+    db = orders_db(tmp_path)
+    doc = invoice(client)
+    assert report(client, doc, db, "invoice.pdf").status_code == 422
+    assert report(client, doc, db, tmp_path / "invoice.txt").status_code == 422
+    assert report(client, doc, db, tmp_path / "missing" / "invoice.pdf").status_code == 422
+    assert client.post("/api/reports/run", json={"template": "d_missing", "data": {"path": str(db), "sql": "select 1"}}).status_code == 404
+    assert client.post("/api/reports/run", json={"template": doc["id"], "data": {"path": str(db), "sql": "delete from orders"}}).status_code == 422
+    both = {"template": doc["id"], "data": {"path": str(db), "sql": "select 1", "records": ITEMS}}
+    assert client.post("/api/reports/run", json=both).status_code == 422
+    assert count(db) == 3
+    assert sorted(p.name for p in tmp_path.iterdir()) == ["orders.db"]
+
+
+def test_records_can_stand_in_for_a_query(client, tmp_path, allowed):
+    r = client.post("/api/reports/run", json={"template": invoice(client)["id"], "data": {"records": ITEMS}})
+    assert r.status_code == 200
+    assert r.json()["records"] == 3 and r.json()["file"] == ""
+
+
 def test_a_select_reads_like_a_data_file_with_the_tables_listed(client, tmp_path):
     db = orders_db(tmp_path)
     out = client.post("/api/data/sqlite", json={"path": str(db), "sql": "select * from orders;"}).json()

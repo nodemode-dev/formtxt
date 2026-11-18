@@ -12,7 +12,7 @@ from fastapi.staticfiles import StaticFiles
 from app.core import config
 from app.core.local_guard import LocalGuard
 from app.routers import blocks, commands, data, documents, formula, live, mcp, stock, system, templates
-from app.routers import ai, collab, exchange, objects, printing, proofing, refs, review, versions
+from app.routers import ai, collab, exchange, objects, printing, proofing, refs, reports, review, versions
 from app.routers import claude_code, terminal
 from app.services import claude_code as _claude_service, terminal as _terminal_service
 
@@ -58,7 +58,7 @@ app.include_router(data.router, prefix="/api")
 app.include_router(formula.router, prefix="/api")
 app.include_router(blocks.router, prefix="/api")
 app.include_router(stock.router, prefix="/api")
-for _area in (refs, review, versions, exchange, printing, proofing, ai, objects, collab):
+for _area in (refs, review, versions, exchange, printing, proofing, ai, objects, collab, reports):
     app.include_router(_area.router, prefix="/api")
 app.include_router(commands.router)
 app.include_router(live.router)
