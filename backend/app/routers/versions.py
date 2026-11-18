@@ -48,6 +48,7 @@ class Merge(BaseModel):
     records: list[dict]
     title: str = ""
     mode: Literal["pages", "list"] = "pages"
+    groupBy: str = Field("", max_length=200)
 
 
 def _data(doc_id: str) -> bytes:
@@ -120,7 +121,7 @@ def cloud_open(body: Name) -> dict:
 @router.post("/merge")
 def merge(body: Merge) -> dict:
     try:
-        return docs.merge(body.source, body.doc, body.tab, body.records, body.title or f"{body.doc.get('title', 'Document')} (merged)", body.mode)
+        return docs.merge(body.source, body.doc, body.tab, body.records, body.title or f"{body.doc.get('title', 'Document')} (merged)", body.mode, body.groupBy)
     except (ValueError, store.NotFound) as exc:
         raise HTTPException(422, str(exc))
 

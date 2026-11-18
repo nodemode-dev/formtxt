@@ -6,6 +6,7 @@ import { toast } from '../../../ui/toast';
 import type { DocEditor } from '../../editor';
 import { parseData, vx } from './api';
 import { docSettings, parseCsv, requireView, setSetting } from './core';
+import { MERGE_AGGS } from '../versions-spec';
 
 interface Query { path: string; sql: string }
 interface Data { source: string; columns: string[]; rows: string[][]; query?: Query }
@@ -33,13 +34,24 @@ export const mergePlugin = new Plugin({
       state.doc.descendants((node, pos) => {
         if (node.type.name !== 'merge_field') return true;
         const i = data.columns.indexOf(String(node.attrs.name));
-        out.push(Decoration.node(pos, pos + node.nodeSize, { class: 'is-previewed', 'data-preview': i >= 0 ? rec[i] ?? '' : '' }));
+        const shown = i < 0 ? '' : node.attrs.agg ? total(String(node.attrs.agg), data.rows.map((r) => r[i] ?? '')) : rec[i] ?? '';
+        out.push(Decoration.node(pos, pos + node.nodeSize, { class: 'is-previewed', 'data-preview': shown }));
         return false;
       });
       return DecorationSet.create(state.doc, out);
     },
   },
 });
+
+function total(kind: string, values: string[]): string {
+  const filled = values.map((v) => v.trim()).filter(Boolean);
+  if (kind === 'count') return String(filled.length);
+  const nums = filled.map((v) => Number(v.replace(/,/g, ''))).filter((n) => Number.isFinite(n));
+  if (!nums.length) return '';
+  const sum = nums.reduce((a, b) => a + b, 0);
+  const out = kind === 'sum' ? sum : kind === 'avg' ? sum / nums.length : kind === 'min' ? Math.min(...nums) : Math.max(...nums);
+  return String(Math.round(out * 1e6) / 1e6);
+}
 
 function repaint(): void {
   editor?.view?.dispatch(editor.view.state.tr.setMeta(key, true));
@@ -98,13 +110,14 @@ export function setCsv(ed: DocEditor, text: string, source = 'pasted data'): Dat
   return setData(ed, { source, columns: head, rows });
 }
 
-export function insertMergeField(ed: DocEditor, name: string): boolean {
+export function insertMergeField(ed: DocEditor, name: string, agg = ''): boolean {
   requireView(ed);
   const data = mergeData(ed);
   const n = name.trim();
   if (!n) throw new Error('name needs a column name.');
   if (data && !data.columns.includes(n)) throw new Error(`The data has no column ${n}. Columns: ${data.columns.join(', ')}.`);
-  const node = ed.view!.state.schema.nodes.merge_field.create({ name: n });
+  if (agg && !MERGE_AGGS.includes(agg)) throw new Error(`agg is one of ${MERGE_AGGS.join(', ')}, or empty for the value.`);
+  const node = ed.view!.state.schema.nodes.merge_field.create({ name: n, agg });
   ed.view!.dispatch(ed.view!.state.tr.replaceSelectionWith(node, false).scrollIntoView());
   return true;
 }
@@ -137,14 +150,15 @@ export function toggleRepeatRow(ed: DocEditor): { repeat: boolean } {
   throw new Error('Put the cursor in a table row first.');
 }
 
-export async function finishMerge(ed: DocEditor, title = '', mode = 'pages'): Promise<{ id: string; title: string; records: number; mode: string }> {
+export async function finishMerge(ed: DocEditor, title = '', mode = 'pages', groupBy = ''): Promise<{ id: string; title: string; records: number; mode: string }> {
   requireView(ed);
   const data = mergeData(ed);
   if (!data || !data.rows.length) throw new Error('Choose a data file with at least one record first.');
   if (mode !== 'pages' && mode !== 'list') throw new Error('mode is pages (a page per record) or list (one document, a table row per record).');
+  if (groupBy && !data.columns.includes(groupBy)) throw new Error(`The data has no column ${groupBy}. Columns: ${data.columns.join(', ')}.`);
   const doc = ed.current()!;
   const records = data.rows.map((r) => Object.fromEntries(data.columns.map((c, i) => [c, r[i] ?? ''])));
-  const made = await vx.merge({ source: doc.id, doc, tab: ed.activeTab, records, title: title || `${doc.title} (merged)`, mode });
+  const made = await vx.merge({ source: doc.id, doc, tab: ed.activeTab, records, title: title || `${doc.title} (merged)`, mode, groupBy });
   await commands.run('file.open', { id: made.id });
   toast(mode === 'list' ? `Created ${made.title} listing ${records.length} record${records.length === 1 ? '' : 's'}.` : `Created ${made.title} with ${records.length} page${records.length === 1 ? '' : 's'}.`);
   return { id: made.id, title: made.title, records: records.length, mode };
@@ -161,6 +175,7 @@ export function mergePanel(ed: DocEditor): HTMLElement {
 <label class="ft-field"><span class="ft-field-label">SQL</span><textarea class="ft-input" data-k="sql" rows="3" spellcheck="false" placeholder="select * from orders"></textarea></label>
 <div class="ft-vx-merge-src"><button type="button" class="ft-btn" data-a="query">Run query</button><button type="button" class="ft-btn" data-a="refresh">Refresh data</button></div>
 <label class="ft-field"><span class="ft-field-label">Merge field</span><select class="ft-input" data-k="field"></select></label>
+<label class="ft-field"><span class="ft-field-label">Total</span><select class="ft-input" data-k="agg"><option value="">None, the record's value</option><option value="sum">Sum</option><option value="count">Count</option><option value="avg">Average</option><option value="min">Minimum</option><option value="max">Maximum</option></select></label>
 <button type="button" class="ft-btn" data-a="insert">Insert merge field</button>
 <div class="ft-vx-pager"><button type="button" class="ft-btn sm" data-a="prev" aria-label="Previous record">Previous</button><span class="ft-vx-pager-count" aria-live="polite"></span><button type="button" class="ft-btn sm" data-a="next" aria-label="Next record">Next</button></div>
 <button type="button" class="ft-btn" data-a="preview">Preview results</button>
@@ -186,7 +201,7 @@ export function mergePanel(ed: DocEditor): HTMLElement {
     const data = mergeData(ed);
     const run = async (): Promise<void> => {
       if (a === 'load') file.click();
-      else if (a === 'insert') insertMergeField(ed, (root!.querySelector('[data-k="field"]') as HTMLSelectElement).value);
+      else if (a === 'insert') insertMergeField(ed, (root!.querySelector('[data-k="field"]') as HTMLSelectElement).value, (root!.querySelector('[data-k="agg"]') as HTMLSelectElement).value);
       else if (a === 'preview') setPreview(ed, preview ? 0 : 1);
       else if (a === 'prev') setPreview(ed, Math.max(1, preview - 1));
       else if (a === 'next') setPreview(ed, Math.min(data?.rows.length ?? 0, (preview || 0) + 1));

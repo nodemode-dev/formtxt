@@ -104,6 +104,51 @@ def test_an_unknown_mode_is_refused(client):
     assert r.status_code == 422
 
 
+def test_grouping_gives_a_page_per_order_with_its_own_rows_and_total(client):
+    doc = invoice(client, closing=[{"type": "text", "text": "Total "}, field("amount", "sum"), {"type": "text", "text": " in "}, field("item", "count")])
+    body = merged(client, doc, mode="list", groupBy="order_id")
+    assert [b["type"] for b in body] == ["paragraph", "table", "paragraph", "pageBreak", "paragraph", "table", "paragraph"]
+    assert text_of([body[0]]) == "Order 1001" and text_of([body[4]]) == "Order 1002"
+    assert row_texts(body[1])[1:] == [["Lamp", "2", "80"], ["Desk", "1", "220"]]
+    assert row_texts(body[5])[1:] == [["Chair", "4", "260"]]
+    assert text_of([body[2]]) == "Total 300 in 2"
+    assert text_of([body[6]]) == "Total 260 in 1"
+
+
+@pytest.mark.parametrize("agg,expected", [("avg", "150"), ("min", "80"), ("max", "220"), ("count", "2")])
+def test_each_total_kind_over_a_group(client, agg, expected):
+    doc = invoice(client, closing=[field("amount", agg)])
+    body = merged(client, doc, mode="list", groupBy="order_id")
+    assert text_of([body[2]]) == expected
+
+
+def test_the_grouped_sum_matches_the_database(client, tmp_path):
+    db = orders_db(tmp_path)
+    data = client.post("/api/data/sqlite", json={"path": str(db), "sql": "select order_id, item, qty, qty * price as amount from order_items"}).json()["rows"]
+    records = [dict(zip(data[0], row)) for row in data[1:]]
+    doc = invoice(client, closing=[field("amount", "sum")])
+    r = client.post("/api/versions/merge", json={"source": doc["id"], "doc": doc, "records": records, "mode": "list", "groupBy": "order_id"})
+    body = client.get(f"/api/documents/{r.json()['id']}").json()["tabs"][0]["body"]
+    con = sqlite3.connect(db)
+    want = con.execute("select sum(qty * price) from order_items where order_id = 1001").fetchone()[0]
+    con.close()
+    assert text_of([body[2]]) == str(int(want))
+
+
+def test_grouping_needs_a_known_column_and_list_mode(client):
+    doc = invoice(client)
+    missing = client.post("/api/versions/merge", json={"source": doc["id"], "doc": doc, "records": ITEMS, "mode": "list", "groupBy": "region"})
+    assert missing.status_code == 422 and "order_id" in missing.json()["detail"]
+    pages = client.post("/api/versions/merge", json={"source": doc["id"], "doc": doc, "records": ITEMS, "groupBy": "order_id"})
+    assert pages.status_code == 422
+
+
+def test_a_total_in_a_page_merge_covers_every_record(client):
+    doc = invoice(client, closing=[field("amount", "sum")])
+    body = merged(client, doc)
+    assert [text_of([b]) for b in body if b["type"] == "paragraph"][1::2] == ["560", "560", "560"]
+
+
 def test_a_select_reads_like_a_data_file_with_the_tables_listed(client, tmp_path):
     db = orders_db(tmp_path)
     out = client.post("/api/data/sqlite", json={"path": str(db), "sql": "select * from orders;"}).json()
