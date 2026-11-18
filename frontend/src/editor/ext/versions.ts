@@ -10,7 +10,7 @@ import { type Loose, ask, requireView } from './versions/core';
 import { bindFieldClicks, fieldDialog, infoPlugin, insertInfoField, listInfoFields, updateInfoFields } from './versions/fields';
 import { activityDialog, bindHistory, historyElement, nameDialog, refreshHistory, restoreVersion, saveNamed, versionRows } from './versions/history';
 import { envelopeDialog, labelsDialog, makeEnvelope, makeLabels } from './versions/mail';
-import { bindMerge, finishMerge, insertMergeField, mergeData, mergePanel, mergePlugin, paint as paintMerge, previewRecord, refreshQuery, setCsv, setPreview, setQuery } from './versions/merge';
+import { bindMerge, finishMerge, insertMergeField, mergeData, mergePanel, mergePlugin, paint as paintMerge, previewRecord, refreshQuery, setCsv, setPreview, setQuery, toggleRepeatRow } from './versions/merge';
 import { type Mode, MODES, applyProtection, approvalDialog, approvalOf, approvalStatus, bannerText, cancelApproval, mountBanner, passwordPrompt, protectDialog, protectPlugin, protectionOf, refreshProtection, removeProtection, requestApproval, respondApproval } from './versions/protect';
 import { bindRecovery, offerRecovery, propertiesDialog, propertiesOf, recoveryPlugin, setProperties, setSealed } from './versions/props';
 import { insertSignatureLine, requestSignature, signatureDialog } from './versions/sign';
@@ -160,7 +160,8 @@ export function register(reg: CommandRegistry, ed: DocEditor): void {
   add('merge.loadFile', 'Choose mail merge data file', 'Tools', 'Open the Mail merge panel and choose a CSV or Excel data file.', () => { togglePanel('merge', 'Mail merge', () => mergePanel(ed)); const input = document.querySelector<HTMLInputElement>('.ft-vx-merge input[type="file"]'); input?.click(); return true; });
   add('merge.insertField', 'Insert merge field', 'Tools', 'Insert a merge field for a data column at the cursor.', (p) => insertMergeField(ed, String(p.name ?? '')), [{ name: 'name', type: 'string', description: 'Column name' }]);
   add('merge.preview', 'Preview merge results', 'Tools', 'Show the values of one record in place of the merge fields; 0 turns the preview off.', (p) => setPreview(ed, Number(p.record ?? 1)), [{ name: 'record', type: 'number', description: 'Record number from 1, or 0 for none' }]);
-  add('merge.finish', 'Finish and merge', 'Tools', 'Create one new document with a page for each record and open it.', (p) => finishMerge(ed, String(p.title ?? '')), [{ name: 'title', type: 'string', description: 'Title of the merged document' }]);
+  add('merge.finish', 'Finish and merge', 'Tools', 'Create one new document and open it: mode pages gives a page for each record, mode list gives one copy with each repeating table row once per record.', (p) => finishMerge(ed, String(p.title ?? ''), String(p.mode ?? 'pages')), [{ name: 'title', type: 'string', description: 'Title of the merged document' }, { name: 'mode', type: 'string', description: 'pages (default) or list' }]);
+  add('merge.repeatRow', 'Repeat row for each record', 'Tools', 'Mark the table row at the cursor to repeat once per record in a list merge, or clear the mark.', () => toggleRepeatRow(ed));
   add('merge.info', 'Mail merge status', 'Tools', 'The data columns, record count and preview position.', () => { requireView(ed); const d = mergeData(ed); return d ? { source: d.source, columns: d.columns, records: d.rows.length, preview: previewRecord() } : null; });
 
   add('envelope.dialog', 'Envelope', 'Insert', 'Build an envelope document with a delivery and return address.', () => { envelopeDialog(ed); return true; });

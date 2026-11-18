@@ -85,7 +85,7 @@ function cleanBorders(b: unknown): CellBorders | null {
   }
   return Object.keys(out).length ? out : null;
 }
-interface FtxtTable { id?: string; look?: string; style?: string; repeatHeader?: boolean; rowSplit?: boolean; align?: string; columns?: number[]; cellMargins?: { top: number; right: number; bottom: number; left: number }; rows?: Array<{ height?: number; cells?: FtxtCell[] }> }
+interface FtxtTable { id?: string; look?: string; style?: string; repeatHeader?: boolean; rowSplit?: boolean; align?: string; columns?: number[]; cellMargins?: { top: number; right: number; bottom: number; left: number }; rows?: Array<{ height?: number; repeat?: boolean; cells?: FtxtCell[] }> }
 
 const PX = 96 / 72;
 
@@ -108,7 +108,7 @@ function tableToPM(t: FtxtTable): PMNode | null {
       col += span;
     }
     for (let k = 0; k < taken.length; k++) if (taken[k]) taken[k]--;
-    if (cells.length) rows.push(schema.nodes.table_row.create({ height: Number(r.height) > 0 ? Number(r.height) : 0 }, cells));
+    if (cells.length) rows.push(schema.nodes.table_row.create({ height: Number(r.height) > 0 ? Number(r.height) : 0, repeat: r.repeat === true }, cells));
   }
   if (!rows.length) return null;
   return schema.nodes.table.create({ id: t.id || newId('t_'), look: t.look || 'grid', repeatHeader: !!t.repeatHeader, rowSplit: t.rowSplit !== false, align: t.align || '', tstyle: typeof t.style === 'string' ? t.style : '', cellMargins: t.cellMargins ?? null }, rows);
@@ -249,7 +249,7 @@ function tableFromPM(node: PMNode, section: string): Record<string, unknown> {
       if (cell.attrs.borders) c.borders = cell.attrs.borders as CellBorders;
       cells.push(c);
     });
-    rows.push(row.attrs.height ? { height: row.attrs.height, cells } : { cells });
+    rows.push({ ...(row.attrs.height ? { height: row.attrs.height } : {}), ...(row.attrs.repeat ? { repeat: true } : {}), cells });
   });
   const a = node.attrs;
   const out: Record<string, unknown> = { type: 'table', id: a.id || newId('t_'), look: a.look || 'grid', columns, rows };

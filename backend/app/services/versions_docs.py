@@ -121,34 +121,69 @@ def _reid(blocks: list) -> None:
                     _reid(cell.get("body") or [])
 
 
-def merge(source_id: str, doc: dict, tab_id: str, records: list[dict], title: str) -> dict:
+def _filler(record: dict):
+    def fill(block: dict) -> None:
+        runs = block.get("content")
+        if not isinstance(runs, list):
+            return
+        out = []
+        for run in runs:
+            if isinstance(run, dict) and run.get("type") == "mergefield":
+                value = str(record.get(str(run.get("name", "")), ""))
+                if value:
+                    item = {"type": "text", "text": value}
+                    if run.get("marks"):
+                        item["marks"] = run["marks"]
+                    out.append(item)
+            else:
+                out.append(run)
+        block["content"] = out
+    return fill
+
+
+def _repeat_rows(blocks: list, records: list[dict]) -> int:
+    found = 0
+    for block in blocks:
+        if not isinstance(block, dict) or block.get("type") != "table":
+            continue
+        rows: list = []
+        for row in block.get("rows") or []:
+            if isinstance(row, dict) and row.get("repeat") is True:
+                found += 1
+                for record in records:
+                    clone = copy.deepcopy(row)
+                    clone.pop("repeat", None)
+                    for cell in clone.get("cells") or []:
+                        _blocks_walk(cell.get("body") or [], _filler(record))
+                    rows.append(clone)
+            else:
+                for cell in (row or {}).get("cells") or []:
+                    found += _repeat_rows(cell.get("body") or [], records)
+                rows.append(row)
+        block["rows"] = rows
+    return found
+
+
+def merge(source_id: str, doc: dict, tab_id: str, records: list[dict], title: str, mode: str = "pages") -> dict:
     tab = next((t for t in doc.get("tabs", []) if t.get("id") == tab_id), (doc.get("tabs") or [None])[0])
     if not tab:
         raise ValueError("The document has no text to merge.")
     if not records:
         raise ValueError("The data file has no records.")
+    if mode not in ("pages", "list"):
+        raise ValueError("mode is pages (a copy per record) or list (one copy, a table row per record).")
     _, media = store.load(source_id)
     merged: list[dict] = []
-    for n, record in enumerate(records[:1000]):
+    if mode == "list":
         blocks = copy.deepcopy(tab.get("body") or [])
-
-        def fill(block: dict, record=record) -> None:
-            runs = block.get("content")
-            if not isinstance(runs, list):
-                return
-            out = []
-            for run in runs:
-                if isinstance(run, dict) and run.get("type") == "mergefield":
-                    value = str(record.get(str(run.get("name", "")), ""))
-                    if value:
-                        item = {"type": "text", "text": value}
-                        if run.get("marks"):
-                            item["marks"] = run["marks"]
-                        out.append(item)
-                else:
-                    out.append(run)
-            block["content"] = out
-        _blocks_walk(blocks, fill)
+        if not _repeat_rows(blocks, records[:2000]):
+            raise ValueError("A list merge needs a table row marked to repeat. Put the cursor in the row and run merge.repeatRow.")
+        _blocks_walk(blocks, _filler(records[0]))
+        _reid(blocks)
+        merged.extend(blocks)
+    for n, record in enumerate(records[:1000] if mode == "pages" else []):
+        blocks = copy.deepcopy(tab.get("body") or [])
+        _blocks_walk(blocks, _filler(record))
         _reid(blocks)
         if n:
             merged.append({"type": "pageBreak", "id": new_id("p_")})

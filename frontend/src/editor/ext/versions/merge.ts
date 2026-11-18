@@ -123,16 +123,31 @@ export function previewRecord(): number {
   return preview;
 }
 
-export async function finishMerge(ed: DocEditor, title = ''): Promise<{ id: string; title: string; records: number }> {
+export function toggleRepeatRow(ed: DocEditor): { repeat: boolean } {
+  requireView(ed);
+  const view = ed.view!;
+  const { $from } = view.state.selection;
+  for (let d = $from.depth; d > 0; d--) {
+    const node = $from.node(d);
+    if (node.type.name !== 'table_row') continue;
+    const repeat = !node.attrs.repeat;
+    view.dispatch(view.state.tr.setNodeMarkup($from.before(d), undefined, { ...node.attrs, repeat }));
+    return { repeat };
+  }
+  throw new Error('Put the cursor in a table row first.');
+}
+
+export async function finishMerge(ed: DocEditor, title = '', mode = 'pages'): Promise<{ id: string; title: string; records: number; mode: string }> {
   requireView(ed);
   const data = mergeData(ed);
   if (!data || !data.rows.length) throw new Error('Choose a data file with at least one record first.');
+  if (mode !== 'pages' && mode !== 'list') throw new Error('mode is pages (a page per record) or list (one document, a table row per record).');
   const doc = ed.current()!;
   const records = data.rows.map((r) => Object.fromEntries(data.columns.map((c, i) => [c, r[i] ?? ''])));
-  const made = await vx.merge({ source: doc.id, doc, tab: ed.activeTab, records, title: title || `${doc.title} (merged)` });
+  const made = await vx.merge({ source: doc.id, doc, tab: ed.activeTab, records, title: title || `${doc.title} (merged)`, mode });
   await commands.run('file.open', { id: made.id });
-  toast(`Created ${made.title} with ${records.length} page${records.length === 1 ? '' : 's'}.`);
-  return { id: made.id, title: made.title, records: records.length };
+  toast(mode === 'list' ? `Created ${made.title} listing ${records.length} record${records.length === 1 ? '' : 's'}.` : `Created ${made.title} with ${records.length} page${records.length === 1 ? '' : 's'}.`);
+  return { id: made.id, title: made.title, records: records.length, mode };
 }
 
 export function mergePanel(ed: DocEditor): HTMLElement {
