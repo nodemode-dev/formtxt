@@ -7,7 +7,8 @@ import type { DocEditor } from '../../editor';
 import { parseData, vx } from './api';
 import { docSettings, parseCsv, requireView, setSetting } from './core';
 
-interface Data { source: string; columns: string[]; rows: string[][] }
+interface Query { path: string; sql: string }
+interface Data { source: string; columns: string[]; rows: string[][]; query?: Query }
 
 const key = new PluginKey('ftxt-merge');
 let editor: DocEditor | null = null;
@@ -53,7 +54,7 @@ export function setData(ed: DocEditor, d: Data): Data {
   const columns = d.columns.map((c) => c.trim()).filter(Boolean).slice(0, 60);
   if (!columns.length) throw new Error('The data needs a header row with column names.');
   const rows = d.rows.slice(0, 2000).map((r) => columns.map((_, i) => String(r[i] ?? '').slice(0, 500)));
-  const data: Data = { source: d.source.slice(0, 120), columns, rows };
+  const data: Data = { source: d.source.slice(0, 120), columns, rows, ...(d.query ? { query: { path: d.query.path.slice(0, 4096), sql: d.query.sql.slice(0, 20000) } } : {}) };
   setSetting(ed, 'mailMerge', data);
   preview = Math.min(preview, rows.length);
   paint();
@@ -66,6 +67,29 @@ export async function loadFile(ed: DocEditor, file: File): Promise<Data> {
   const [head, ...rows] = out.rows;
   if (!head) throw new Error('That file has no rows.');
   return setData(ed, { source: file.name, columns: head, rows });
+}
+
+export async function listTables(path: string): Promise<string[]> {
+  if (!path.trim()) return [];
+  return (await vx.sqlite(path.trim(), '')).sheets;
+}
+
+export async function setQuery(ed: DocEditor, path: string, sql: string): Promise<Data> {
+  requireView(ed);
+  const p = path.trim();
+  const q = sql.trim();
+  if (!p) throw new Error('path needs the full path of a SQLite database file.');
+  if (!q) throw new Error('sql needs a SELECT statement.');
+  const out = await vx.sqlite(p, q);
+  const [head, ...rows] = out.rows;
+  if (!head) throw new Error('The query returned no columns.');
+  return setData(ed, { source: p.split(/[\\/]/).pop() || p, columns: head, rows, query: { path: p, sql: q } });
+}
+
+export async function refreshQuery(ed: DocEditor): Promise<Data> {
+  const d = mergeData(ed);
+  if (!d?.query) throw new Error('The mail merge data does not come from a database file. Set a query with merge.setQuery first.');
+  return setQuery(ed, d.query.path, d.query.sql);
 }
 
 export function setCsv(ed: DocEditor, text: string, source = 'pasted data'): Data {
@@ -115,8 +139,12 @@ export function mergePanel(ed: DocEditor): HTMLElement {
   editor = ed;
   if (root) return root;
   root = el(`<div class="ft-vx-merge">
-<p class="ft-note">Choose a CSV or Excel file, insert its columns as merge fields, preview each record, then finish to one new document with a page per record.</p>
+<p class="ft-note">Choose a CSV or Excel file, or query a database file, insert its columns as merge fields, preview each record, then finish to one new document with a page per record.</p>
 <div class="ft-vx-merge-src"><button type="button" class="ft-btn" data-a="load">Choose data file</button><span class="ft-vx-merge-name"></span><input type="file" accept=".csv,.tsv,.txt,.xlsx" hidden></div>
+<label class="ft-field"><span class="ft-field-label">Database file</span><input class="ft-input" data-k="dbpath" spellcheck="false" autocomplete="off" placeholder="Full path to a SQLite file"></label>
+<label class="ft-field"><span class="ft-field-label">Table</span><select class="ft-input" data-k="table"><option value="">Choose a table</option></select></label>
+<label class="ft-field"><span class="ft-field-label">SQL</span><textarea class="ft-input" data-k="sql" rows="3" spellcheck="false" placeholder="select * from orders"></textarea></label>
+<div class="ft-vx-merge-src"><button type="button" class="ft-btn" data-a="query">Run query</button><button type="button" class="ft-btn" data-a="refresh">Refresh data</button></div>
 <label class="ft-field"><span class="ft-field-label">Merge field</span><select class="ft-input" data-k="field"></select></label>
 <button type="button" class="ft-btn" data-a="insert">Insert merge field</button>
 <div class="ft-vx-pager"><button type="button" class="ft-btn sm" data-a="prev" aria-label="Previous record">Previous</button><span class="ft-vx-pager-count" aria-live="polite"></span><button type="button" class="ft-btn sm" data-a="next" aria-label="Next record">Next</button></div>
@@ -127,6 +155,15 @@ export function mergePanel(ed: DocEditor): HTMLElement {
     const f = file.files?.[0];
     file.value = '';
     if (f) void loadFile(ed, f).then((d) => toast(`Loaded ${d.rows.length} record${d.rows.length === 1 ? '' : 's'} from ${d.source}.`)).catch((e: Error) => toast(e.message, 'error'));
+  });
+  const dbpath = root.querySelector('[data-k="dbpath"]') as HTMLInputElement;
+  const table = root.querySelector('[data-k="table"]') as HTMLSelectElement;
+  const sqlBox = root.querySelector('[data-k="sql"]') as HTMLTextAreaElement;
+  dbpath.addEventListener('change', () => {
+    void listTables(dbpath.value).then((names) => fillTables(table, names)).catch((e: Error) => { fillTables(table, []); toast(e.message, 'error'); });
+  });
+  table.addEventListener('change', () => {
+    if (table.value) sqlBox.value = `select * from "${table.value.replace(/"/g, '""')}"`;
   });
   root.addEventListener('click', (e) => {
     const a = (e.target as HTMLElement).closest<HTMLElement>('[data-a]')?.dataset.a;
@@ -139,6 +176,10 @@ export function mergePanel(ed: DocEditor): HTMLElement {
       else if (a === 'prev') setPreview(ed, Math.max(1, preview - 1));
       else if (a === 'next') setPreview(ed, Math.min(data?.rows.length ?? 0, (preview || 0) + 1));
       else if (a === 'finish') await finishMerge(ed);
+      else if (a === 'query' || a === 'refresh') {
+        const d = a === 'query' ? await setQuery(ed, dbpath.value, sqlBox.value) : await refreshQuery(ed);
+        toast(`Loaded ${d.rows.length} record${d.rows.length === 1 ? '' : 's'} from ${d.source}.`);
+      }
     };
     void run().catch((err: Error) => toast(err.message, 'error'));
   });
@@ -146,9 +187,25 @@ export function mergePanel(ed: DocEditor): HTMLElement {
   return root;
 }
 
+function fillTables(sel: HTMLSelectElement, names: string[]): void {
+  const want = names.join('\u0001');
+  if (sel.dataset.tables === want) return;
+  sel.dataset.tables = want;
+  const first = document.createElement('option');
+  first.value = '';
+  first.textContent = names.length ? 'Choose a table' : 'No tables';
+  sel.replaceChildren(first, ...names.map((n) => { const o = document.createElement('option'); o.value = n; o.textContent = n; return o; }));
+}
+
 export function paint(): void {
   if (!root || !editor?.doc) return;
   const data = mergeData(editor);
+  if (data?.query) {
+    setValue(root.querySelector('[data-k="dbpath"]') as HTMLInputElement, data.query.path);
+    const box = root.querySelector('[data-k="sql"]') as HTMLTextAreaElement;
+    if (box.value !== data.query.sql && document.activeElement !== box) box.value = data.query.sql;
+  }
+  setDisabled(root.querySelector('[data-a="refresh"]') as HTMLButtonElement, !data?.query);
   setText(root.querySelector('.ft-vx-merge-name'), data ? `${data.source}: ${data.rows.length} record${data.rows.length === 1 ? '' : 's'}` : 'No data file chosen');
   const sel = root.querySelector('[data-k="field"]') as HTMLSelectElement;
   const want = (data?.columns ?? []).join('\u0001');

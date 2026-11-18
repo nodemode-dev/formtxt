@@ -10,7 +10,7 @@ import { type Loose, ask, requireView } from './versions/core';
 import { bindFieldClicks, fieldDialog, infoPlugin, insertInfoField, listInfoFields, updateInfoFields } from './versions/fields';
 import { activityDialog, bindHistory, historyElement, nameDialog, refreshHistory, restoreVersion, saveNamed, versionRows } from './versions/history';
 import { envelopeDialog, labelsDialog, makeEnvelope, makeLabels } from './versions/mail';
-import { bindMerge, finishMerge, insertMergeField, mergeData, mergePanel, mergePlugin, paint as paintMerge, previewRecord, setCsv, setPreview } from './versions/merge';
+import { bindMerge, finishMerge, insertMergeField, mergeData, mergePanel, mergePlugin, paint as paintMerge, previewRecord, refreshQuery, setCsv, setPreview, setQuery } from './versions/merge';
 import { type Mode, MODES, applyProtection, approvalDialog, approvalOf, approvalStatus, bannerText, cancelApproval, mountBanner, passwordPrompt, protectDialog, protectPlugin, protectionOf, refreshProtection, removeProtection, requestApproval, respondApproval } from './versions/protect';
 import { bindRecovery, offerRecovery, propertiesDialog, propertiesOf, recoveryPlugin, setProperties, setSealed } from './versions/props';
 import { insertSignatureLine, requestSignature, signatureDialog } from './versions/sign';
@@ -155,6 +155,8 @@ export function register(reg: CommandRegistry, ed: DocEditor): void {
     return open;
   });
   add('merge.setData', 'Set mail merge data', 'Tools', 'Use CSV text (first row is the column names) as the mail merge data.', (p) => { const d = setCsv(ed, String(p.csv ?? ''), String(p.source ?? 'pasted data')); return { columns: d.columns, records: d.rows.length }; }, [{ name: 'csv', type: 'string', description: 'CSV or tab separated text with a header row' }, { name: 'source', type: 'string', description: 'Label for the data' }]);
+  add('merge.setQuery', 'Set mail merge database query', 'Tools', 'Use the rows of one SELECT on a SQLite database file as the mail merge data; the query is kept with the document so merge.refresh can read it again.', async (p) => { const d = await setQuery(ed, String(p.path ?? ''), String(p.sql ?? '')); return { source: d.source, columns: d.columns, records: d.rows.length }; }, [{ name: 'path', type: 'string', description: 'Full path of the SQLite database file' }, { name: 'sql', type: 'string', description: 'One SELECT statement' }]);
+  add('merge.refresh', 'Refresh mail merge data', 'Tools', 'Run the mail merge database query again and replace the records with its rows.', async () => { const d = await refreshQuery(ed); return { source: d.source, columns: d.columns, records: d.rows.length }; });
   add('merge.loadFile', 'Choose mail merge data file', 'Tools', 'Open the Mail merge panel and choose a CSV or Excel data file.', () => { togglePanel('merge', 'Mail merge', () => mergePanel(ed)); const input = document.querySelector<HTMLInputElement>('.ft-vx-merge input[type="file"]'); input?.click(); return true; });
   add('merge.insertField', 'Insert merge field', 'Tools', 'Insert a merge field for a data column at the cursor.', (p) => insertMergeField(ed, String(p.name ?? '')), [{ name: 'name', type: 'string', description: 'Column name' }]);
   add('merge.preview', 'Preview merge results', 'Tools', 'Show the values of one record in place of the merge fields; 0 turns the preview off.', (p) => setPreview(ed, Number(p.record ?? 1)), [{ name: 'record', type: 'number', description: 'Record number from 1, or 0 for none' }]);

@@ -34,6 +34,7 @@ export const vx = {
   envelope: (body: Record<string, unknown>) => api.post<{ id: string; title: string }>('/versions/envelope', body),
   labels: (body: Record<string, unknown>) => api.post<{ id: string; title: string }>('/versions/labels', body),
   merge: (body: Record<string, unknown>) => api.post<{ id: string; title: string }>('/versions/merge', body),
+  sqlite: (path: string, sql: string) => api.post<Sheet>('/data/sqlite', { path, sql }),
 };
 
 export async function parseData(file: File, sheet = ''): Promise<Sheet> {

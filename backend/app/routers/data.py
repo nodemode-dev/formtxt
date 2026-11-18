@@ -1,6 +1,7 @@
 import asyncio
 
 from fastapi import APIRouter, File, Form, HTTPException, UploadFile
+from pydantic import BaseModel, Field
 
 from app.core import config
 from app.services import tabular
@@ -18,3 +19,16 @@ async def parse(files: list[UploadFile] = File(...), sheet: str = Form("")) -> d
         return await asyncio.to_thread(tabular.parse, file.filename or "", data, sheet)
     except tabular.Unreadable as exc:
         raise HTTPException(415, str(exc))
+
+
+class Query(BaseModel):
+    path: str = Field(..., max_length=4096)
+    sql: str = Field("", max_length=20000)
+
+
+@router.post("/sqlite")
+async def sqlite(body: Query) -> dict:
+    try:
+        return await asyncio.to_thread(tabular.sqlite_rows, body.path, body.sql)
+    except tabular.Unreadable as exc:
+        raise HTTPException(422, str(exc))

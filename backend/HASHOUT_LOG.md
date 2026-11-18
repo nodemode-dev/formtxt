@@ -7,6 +7,10 @@ Last updated: 2026-11-17 · v0.33.0 has no change in the engine; the AMOLED Blac
 
 ---
 
+## v0.34.0, not released yet · database merge data, list reports and report run (2026-11-18)
+
+- services/tabular.py :: `sqlite_rows`, `_sql_open`, `_cell`, `SQL_ROWS`, `SQL_SECONDS`; routers/data.py :: `Query`, `POST /api/data/sqlite` · reads one SELECT (or `WITH ... SELECT`) from a SQLite file for mail merge. The file opens as `file:...?mode=ro` with `PRAGMA query_only = ON`, so nothing can write even when the text check is passed; the path must be absolute and an existing file, and nothing is ever created. More than one statement is refused through the driver's own one-statement rule. A progress handler stops a query after 10 s. The reply has the shape of `/api/data/parse` (`rows` with the header first, `sheets`), with `sheets` holding the tables and views; at most 2000 records and 60 columns, the caps of `settings.mailMerge`. Whole reals come back without `.0` and NULL as empty text. A body with no SQL returns only the table list. Errors are 422 with a sentence. Checked with a live engine and `/tmp/orders-txt.db`; tests in `tests/test_merge_reports.py`.
+
 ## v0.32.1 · the macOS freeze keeps the Python library loadable in the app (2026-11-14)
 
 - Fault (FormTxt 0.32.0 for macOS, the first build formcompiler made): the app showed "The FormTxt engine failed to start" on every launch. Run by hand, the engine printed `Failed to load Python shared library '.../Contents/Resources/engine/_internal/Python'` with `code signature invalid`, and `codesign -vvv` on that file said `invalid Info.plist (plist or signature have been modified)`.

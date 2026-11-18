@@ -147,7 +147,7 @@ Versions, activity and recovery copies live beside the library, never inside the
 | --- | --- |
 | `protection` | `{mode, salt, hash}`. `mode` is `readonly`, `comments`, `tracked` or `forms`; `salt` and `hash` (PBKDF2 with SHA-256, 100000 rounds, as hex) are present only when a password is needed to turn the restriction off. This is a restriction the editor enforces, not encryption |
 | `approval` | `{status, note, due, requestedAt, people}`. `people` is a list of `{name, status, comment, at}` with `status` of `pending`, `approved` or `rejected`; `status` overall is `rejected` when anyone rejected, `approved` when everyone approved, else `pending`. An approved document is read only until the `approval` key is removed |
-| `mailMerge` | `{source, columns, rows}`: the data file name, the column names (up to 60) and the records (up to 2000, each a list of text in column order) used by `mergefield` runs |
+| `mailMerge` | `{source, columns, rows}`: the data file name, the column names (up to 60) and the records (up to 2000, each a list of text in column order) used by `mergefield` runs. Optional `query` (`{path, sql}`: the full path of a SQLite database file and one SELECT statement) says the records came from that query, read only, and lets a writer read them again; `rows` still holds the records as last read, so readers that ignore `query` merge the same data |
 
 ### Inline runs
 
