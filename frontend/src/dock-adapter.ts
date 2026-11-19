@@ -54,7 +54,7 @@ export const outsideAgents = {
   },
 };
 
-const isDockChord = (e: KeyboardEvent): boolean => (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.code === 'KeyJ' && !e.repeat;
+const isDockChord = (e: KeyboardEvent): boolean => (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.code === 'KeyJ';
 const passKey = (e: KeyboardEvent): boolean => (e.metaKey || e.ctrlKey) && !e.altKey && ((!e.shiftKey && e.key === ',') || (e.shiftKey && e.code === 'KeyP'));
 
 function socketChannel(socket: WebSocket): DockChannel {
