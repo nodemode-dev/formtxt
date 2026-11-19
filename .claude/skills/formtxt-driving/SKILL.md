@@ -15,7 +15,7 @@ FormTxt runs on this computer as an engine (127.0.0.1:8210) with a window. The e
 | `describe_command` | One command with its parameters |
 | `run_command` | Runs `id` with `params` in the open window, on the open document. The person sees it happen and Undo reverses it |
 
-Commands with `"windowOnly": true` (the terminal, Claude Code and chat commands such as `view.terminal` and `agent.chat`) are the person's own: `run_command` refuses them. Do not retry them.
+Commands with `"windowOnly": true` (the terminal, Claude Code and chat commands such as `view.terminal` and `agent.chat`, and `cloud.set`) are the person's own: `run_command` refuses them. Do not retry them.
 
 ## The loop
 
@@ -26,6 +26,8 @@ Commands with `"windowOnly": true` (the terminal, Claude Code and chat commands 
 5. A result with `isError` holds a plain sentence. Say it to the person and change course; do not repeat the same call.
 
 Useful starting points: `file.list` (documents and their ids), `file.open` with `id`, `file.new` with `title`, `templates.list` then `file.newFromTemplate`, `print.exportPdf`, `exchange.download` (a .docx or other copy), `tools.thesaurus` with `word`.
+
+Mail merge and reports: `merge.setQuery` with `path` (a full path to a SQLite file) and `sql` (one SELECT) makes the query the merge data, `merge.refresh` reads it again and `merge.info` reports the columns and record count. `merge.repeatRow` marks the table row at the cursor to repeat once per record; `merge.insertField` with `name` and optional `agg` (`sum`, `count`, `avg`, `min`, `max`) inserts a field or a total; `merge.finish` with `mode` (`pages` or `list`) and `groupBy` makes the merged document. `report.run` with `mode`, `groupBy` and `format` (`pdf`, `docx`, `ftxt`) does the merge and saves the result as a download. With no window, `./formtxt report run template=<id> db=<path> sql=<select> out=<file>` writes the file from the engine; it asks the same consent.
 
 ## Consent
 

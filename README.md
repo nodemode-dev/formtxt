@@ -109,6 +109,18 @@ The editor's commands live in one catalogue, and the window and the terminal cal
 ./formtxt agents install                                            # register that server and the formtxt-driving skill for this user
 ```
 
+### Mail merge and list reports
+
+- **Mail merge** fills merge fields from a CSV file, an Excel sheet, pasted rows or a **database file**: in Mailings > Mail merge, pick a SQLite file, a table and one SELECT. The file is opened read-only and the query is kept with the document, so `merge.refresh` reads it again.
+- **List reports**: mark a table row to repeat (`merge.repeatRow`) and finish the merge as a list (`merge.finish mode=list`) to get one document with a row per record. Group it by a column (`groupBy=order_id`) for a page per group, and give a merge field a total (sum, count, average, minimum or maximum) from the Total menu.
+- **`report run`** merges a template with a database query in the engine and writes a PDF, .docx or .ftxt, with no window open:
+
+```sh
+./formtxt report run template=<id> db=/path/orders.db sql="select * from order_items" out=/path/invoice.pdf
+```
+
+It asks the same Allow outside agents question as the agents below, because it saves a file where it is told; an existing file is kept unless you add `overwrite=true`.
+
 The commands need the window open, and the first one an outside agent runs asks you once in the window. `.mcp.json`, `.codex/config.toml` and `.cursor/mcp.json` are already wired in this repo. See [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md).
 
 ## Under the hood
