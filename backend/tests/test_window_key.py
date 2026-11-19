@@ -93,3 +93,9 @@ def test_in_app_tokens_are_issued_one_by_one_and_die_when_revoked():
     assert not agents.is_inapp(one) and agents.is_inapp(two)
     agents.revoke(two)
     assert not agents.is_inapp("") and not agents.is_inapp(None)
+
+
+def test_cloud_storage_is_a_window_only_command():
+    from app.routers import mcp
+
+    assert mcp.window_only("cloud.set") and not mcp.window_only("cloud.get")

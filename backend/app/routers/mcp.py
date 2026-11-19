@@ -12,7 +12,7 @@ from app.services import agents, bridge
 router = APIRouter()
 
 SUPPORTED = ("2025-11-25", "2025-06-18", "2025-03-26", "2024-11-05")
-WINDOW_ONLY = ("view.terminal", "view.newterminal", "agent.claudecode", "agent.chat", "terminal.", "claudecode.", "chat.")
+WINDOW_ONLY = ("view.terminal", "view.newterminal", "agent.claudecode", "agent.chat", "terminal.", "claudecode.", "chat.", "cloud.set")
 CONSENT_SECONDS = 180
 DECLINE_SECONDS = 600
 MAX_BODY = 8 * 1024 * 1024
@@ -25,7 +25,7 @@ TOOLS = [
      "inputSchema": {"type": "object", "properties": {"text": {"type": "string"}, "group": {"type": "string"}}}},
     {"name": "describe_command", "description": "Describe one command and its parameters.", "inputSchema": ID_SCHEMA},
     {"name": "run_command",
-     "description": "Run one command by id with params in the open FormTxt window, on the document the person has open; they see it happen and Undo reverses it. The first run asks the person, in the window, to allow outside agents. The terminal, Claude Code and chat commands are the person's own and are refused.",
+     "description": "Run one command by id with params in the open FormTxt window, on the document the person has open; they see it happen and Undo reverses it. The first run asks the person, in the window, to allow outside agents. The terminal, Claude Code and chat commands, and the cloud storage setting, are the person's own and are refused.",
      "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}, "params": {"type": "object"}}, "required": ["id"]}},
 ]
 
