@@ -51,6 +51,27 @@ if [ "$mode" = --onedir ]; then
   if [ -n "${APPLE_SIGNING_IDENTITY:-}" ]; then
     ents="$FORMTXT_ROOT/src-tauri/entitlements.plist"
     sign=(codesign --force --options runtime --timestamp --entitlements "$ents" -s "$APPLE_SIGNING_IDENTITY")
+    plain_framework_libraries() {
+      local root link dest fw gone=()
+      root="$(cd "$1" && pwd -P)"
+      while IFS= read -r link; do
+        case "$link" in *.framework/*) continue ;; esac
+        dest="$( { cd "$(dirname "$link")" && cd "$(dirname "$(readlink "$link")")" && pwd -P; } 2>/dev/null || true)/$(basename "$(readlink "$link")")"
+        case "$dest" in "$root"/*.framework/*) ;; *) continue ;; esac
+        file -b "$dest" | grep -Eq 'Mach-O.*(executable|shared library|bundle)' || continue
+        cp -p "$dest" "$link.plain"
+        rm -f "$link"
+        mv "$link.plain" "$link"
+        codesign --remove-signature "$link"
+        fw="${dest%%.framework/*}.framework"
+        gone+=("$fw")
+      done < <(find "$root" -type l)
+      for fw in ${gone[@]+"${gone[@]}"}; do
+        case "$fw" in "$root"/*.framework) rm -rf "$fw" ;; esac
+      done
+      [ "${#gone[@]}" = 0 ] || ft_say "engine: framework libraries kept as plain files, their framework folders removed: ${#gone[@]}"
+    }
+    plain_framework_libraries "$out"
     work="$(mktemp -d)"
     needs_sign() {
       local info
@@ -73,6 +94,10 @@ if [ "$mode" = --onedir ]; then
     done < <(find "$out" -type f ! -path "$out/formtxt-engine" -print0)
     "${sign[@]}" "$out/formtxt-engine"
     codesign --verify --strict "$out/formtxt-engine"
+    while IFS= read -r -d '' f; do
+      file -b "$f" | grep -q 'Mach-O' || continue
+      codesign --verify --strict "$f" || ft_die "this library sits in a framework folder that nothing links to from outside, and its signature does not hold there; Apple's notary would refuse the app: $f"
+    done < <(find "$out" -type f -path '*.framework/*' -print0)
     while IFS= read -r -d '' l; do
       file -bL "$l" | grep -q 'Mach-O' || continue
       cp -L "$l" "$work/${l##*/}"
