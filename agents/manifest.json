@@ -37,12 +37,15 @@
   "dock": {
     "present": true,
     "positions": [
-      "bottom"
+      "bottom",
+      "right"
     ],
     "tabs": [
+      "chat",
       "terminal",
       "claude-code",
-      "chat",
+      "codex",
+      "cursor",
       "activity"
     ]
   },

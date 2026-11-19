@@ -16,7 +16,8 @@ FormTxt's terminal dock follows the Form family standard set by formvis: the eng
 | `backend/app/services/agents.py` | `INAPP_TOKEN` (fresh per engine run, only in the tab's environment as `FORMTXT_INAPP_TOKEN`, never in argv), `is_inapp`, and the `agentsAllowed` setting (read and set through `/api/settings`) |
 | `backend/app/routers/mcp.py` | `/mcp` with `list_commands`, `describe_command`, `run_command` over the mirrored catalogue and `bridge.call`. `WINDOW_ONLY` refuses the dock's commands to every agent; outside agents are asked once through the bridge (`__consent__`, three minutes) unless `agentsAllowed`; a refusal holds ten minutes. `GET /api/mcp/status` |
 | `backend/app/main.py` | binds the PTY loop at start; stops the chat and closes every PTY at shutdown |
-| `frontend/src/ui/terminal-dock.ts`, `ui/chat-pane.ts`, `styles/terminal.css` | the dock and the Chat tab (window side) |
+| `frontend/src/dock/` (the family's shared module, copied whole from FormVis, never edited here; `./formtxt agents check` fails when a file differs from its `MANIFEST.json`), `dock-adapter.ts`, `styles/dock-tokens.css`, `styles/terminal.css` | the dock and the Chat tab (window side), at the bottom or in a right column, state under `formtxt.dock` |
+| `backend/app/services/agent_programs.py` | Codex (`codex`) and Cursor (`cursor-agent`) found on the PATH or by the login shell, reported as `agents` in `/api/claude-code/status`; `POST /api/terminal/agent` opens one in a tab with its own in-app token in `FORMTXT_INAPP_TOKEN` and `FORMTXT_MCP_URL` in the child's environment, revoked when the tab closes |
 | `setup/mcp_stdio.py` | `./formtxt mcp`; starts `./formtxt backend` detached (log `formtxt-engine.log` in the temporary folder) when no engine answers; `FORMTXT_MCP_AUTOSTART=0` turns it off |
 
 ## Rules

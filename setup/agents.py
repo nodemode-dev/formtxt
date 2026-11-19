@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import ast
+import hashlib
 import json
 import os
 import re
@@ -24,7 +25,10 @@ MANIFEST = os.path.join(ROOT, "agents", "manifest.json")
 MANIFEST_REL = "agents/manifest.json"
 MCP_ROUTER = os.path.join(ROOT, "backend", "app", "routers", "mcp.py")
 MCP_BRIDGE = os.path.join(ROOT, "setup", "mcp_stdio.py")
-DOCK = {"present": True, "positions": ["bottom"], "tabs": ["terminal", "claude-code", "chat", "activity"]}
+DOCK = {"present": True, "positions": ["bottom", "right"], "tabs": ["chat", "terminal", "claude-code", "codex", "cursor", "activity"]}
+DOCK_DIR = os.path.join(ROOT, "frontend", "src", "dock")
+DOCK_DIR_REL = "frontend/src/dock"
+DOCK_MANIFEST = os.path.join(DOCK_DIR, "MANIFEST.json")
 EXTENSIONS = None
 LAUNCH = os.path.join(ROOT, LAUNCHER)
 ARGS = ["mcp"]
@@ -161,6 +165,19 @@ def check_manifest(problems):
         problems.append(f"{MANIFEST_REL} is not what the engine's tools and the skills folder say; run ./{LAUNCHER} agents sync")
 
 
+def check_dock(problems):
+    try:
+        with open(DOCK_MANIFEST, encoding="utf-8") as f:
+            kept = json.load(f).get("files", {})
+    except (OSError, ValueError, AttributeError):
+        problems.append(f"{DOCK_DIR_REL}/MANIFEST.json: missing or not JSON")
+        return
+    now = {} if not os.path.isdir(DOCK_DIR) else {n: hashlib.sha256(read_bytes(os.path.join(DOCK_DIR, n))).hexdigest() for n in sorted(os.listdir(DOCK_DIR)) if n != "MANIFEST.json" and os.path.isfile(os.path.join(DOCK_DIR, n))}
+    for name in sorted(set(kept) | set(now)):
+        if kept.get(name) != now.get(name):
+            problems.append(f"{DOCK_DIR_REL}/{name}: does not match MANIFEST.json (the shared dock module changes only as a whole new version, copied from FormVis)")
+
+
 def sync():
     if not os.path.isdir(SOURCE):
         print("[agents] .claude/skills is missing", file=sys.stderr)
@@ -190,7 +207,11 @@ def sync():
     except (OSError, ValueError, SyntaxError) as exc:
         print(f"[agents] {MANIFEST_REL} cannot be written: {exc}", file=sys.stderr)
         return 1
-    return 0
+    dock = []
+    check_dock(dock)
+    for line in dock:
+        print(f"[agents] {line}", file=sys.stderr)
+    return 1 if dock else 0
 
 
 def check_drift(problems):
@@ -327,6 +348,7 @@ def check():
     check_skill_format(problems)
     check_agent_files(problems)
     check_manifest(problems)
+    check_dock(problems)
     if problems:
         for line in problems:
             print(f"[agents] {line}", file=sys.stderr)
