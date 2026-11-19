@@ -2,11 +2,14 @@
 """Build the three demo documents Home > Demos opens, as .ftxt packages in frontend/public/demos.
 
   backend/venv/bin/python -B scripts/demo-docs.py                                   the three .ftxt files
-  backend/venv/bin/python -B scripts/demo-docs.py --covers http://localhost:5210    and the Home card pictures
+  FORMTXT_ENGINE_PORT=8310 backend/venv/bin/python -B scripts/demo-docs.py --covers http://localhost:5210    and the Home card pictures
 
-With --covers, a running window (./formtxt) opens each demo and headless Chrome photographs the top of its first page:
-the cover is the app's own drawing of the document, saved as <id>.webp at 640 by 360. The copies it imported are
-deleted again. Every name, company, figure and source is invented; pictures are drawn here with Pillow. The documents are made with
+With --covers, the script runs its own engine on FORMTXT_ENGINE_PORT (default 8210) with a scratch data folder and puts each demo
+into that folder itself, in process, so nothing is sent to any engine of yours and no window key is involved. The address given is
+a Vite dev server started with the same FORMTXT_ENGINE_PORT (cd frontend; FORMTXT_ENGINE_PORT=8310 npx vite): the page is the
+window and takes its own key from the script's engine. Headless Chrome photographs the top of each demo's first page: the cover is
+the app's own drawing of the document, saved as <id>.webp at 640 by 360. The scratch folder and the engine are removed at the end,
+and the script stops if something already answers on that port. Every name, company, figure and source is invented; pictures are drawn here with Pillow. The documents are made with
 the engine's own model (app.services.model) and packed with app.services.package, so they follow docs/FORMAT.md.
 """
 
@@ -16,11 +19,13 @@ import hashlib
 import io
 import math
 import json
+import os
 import random
 import shutil
 import subprocess
 import sys
 import tempfile
+import time
 import urllib.request
 from pathlib import Path
 
@@ -30,7 +35,7 @@ sys.dont_write_bytecode = True
 
 from PIL import Image, ImageDraw, ImageFilter  # noqa: E402
 
-from app.services import model, package  # noqa: E402
+from app.services import model, package, store  # noqa: E402
 
 OUT = ROOT / "frontend" / "public" / "demos"
 WHEN = 1793000000.0
@@ -461,16 +466,33 @@ def newsletter() -> Doc:
 DEMOS = (("review", review, "harbour-trust-annual-report.ftxt"), ("paper", paper, "tidal-flats-paper.ftxt"), ("newsletter", newsletter, "riverside-newsletter.ftxt"))
 
 
-def request(url: str, method: str = "GET", data: bytes | None = None, ctype: str = "") -> dict:
-    req = urllib.request.Request(url, data=data, method=method, headers={"content-type": ctype} if ctype else {})
-    with urllib.request.urlopen(req, timeout=60) as r:
+def request(url: str) -> dict:
+    with urllib.request.urlopen(urllib.request.Request(url), timeout=60) as r:
         return json.loads(r.read().decode("utf-8") or "{}")
 
 
+def start_engine(port: int, data: Path) -> subprocess.Popen:
+    try:
+        request(f"http://127.0.0.1:{port}/api/settings")
+    except OSError:
+        pass
+    else:
+        raise SystemExit(f"Something already answers on port {port}. Set FORMTXT_ENGINE_PORT to a free port; this script never uses an engine that is already running.")
+    proc = subprocess.Popen([sys.executable, "-B", "-m", "uvicorn", "app.main:app", "--host", "127.0.0.1", "--port", str(port)], cwd=ROOT / "backend",
+                            env={**os.environ, "FORMTXT_DATA_DIR": str(data), "PYTHONDONTWRITEBYTECODE": "1"}, stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+    for _ in range(150):
+        try:
+            request(f"http://127.0.0.1:{port}/api/settings")
+            return proc
+        except OSError:
+            time.sleep(0.2)
+    proc.terminate()
+    raise SystemExit("The scratch engine did not start.")
+
+
 def cover(window: str, demo_id: str, path: Path) -> Path:
-    boundary = "ftxtdemo" + hashlib.sha1(path.name.encode()).hexdigest()[:16]
-    body = (f"--{boundary}\r\ncontent-disposition: form-data; name=\"files\"; filename=\"{path.name}\"\r\ncontent-type: application/x-formtxt\r\n\r\n").encode() + path.read_bytes() + f"\r\n--{boundary}--\r\n".encode()
-    doc_id = request(f"{window}/api/documents/import", "POST", body, f"multipart/form-data; boundary={boundary}")["documents"][0]["id"]
+    doc, media = package.unpack(path.read_bytes())
+    doc_id = store.adopt(doc, media)["id"]
     tmp = Path(tempfile.mkdtemp(prefix="ftxt-cover-"))
     try:
         shot = tmp / "shot.png"
@@ -483,21 +505,31 @@ def cover(window: str, demo_id: str, path: Path) -> Path:
         return out
     finally:
         shutil.rmtree(tmp, ignore_errors=True)
-        request(f"{window}/api/documents/{doc_id}", "DELETE")
-        request(f"{window}/api/documents/trash/{doc_id}", "DELETE")
 
 
 def main() -> int:
     window = sys.argv[sys.argv.index("--covers") + 1].rstrip("/") if "--covers" in sys.argv[1:-1] else ""
     made = []
-    for demo_id, build, name in DEMOS:
-        doc = build()
-        model.validate(doc.doc)
-        path = doc.save(name)
-        made.append(f"{path.relative_to(ROOT)}  {path.stat().st_size:,} bytes")
-        if window:
-            pic = cover(window, demo_id, path)
-            made.append(f"{pic.relative_to(ROOT)}  {pic.stat().st_size:,} bytes")
+    scratch = Path(tempfile.mkdtemp(prefix="ftxt-demo-data-")) if window else None
+    engine = None
+    try:
+        if scratch:
+            os.environ["FORMTXT_DATA_DIR"] = str(scratch)
+            engine = start_engine(int(os.environ.get("FORMTXT_ENGINE_PORT", "8210")), scratch)
+        for demo_id, build, name in DEMOS:
+            doc = build()
+            model.validate(doc.doc)
+            path = doc.save(name)
+            made.append(f"{path.relative_to(ROOT)}  {path.stat().st_size:,} bytes")
+            if window:
+                pic = cover(window, demo_id, path)
+                made.append(f"{pic.relative_to(ROOT)}  {pic.stat().st_size:,} bytes")
+    finally:
+        if engine:
+            engine.terminate()
+            engine.wait(timeout=20)
+        if scratch:
+            shutil.rmtree(scratch, ignore_errors=True)
     print("\n".join(made))
     return 0
 
