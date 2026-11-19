@@ -119,7 +119,9 @@ def _run(body: Report) -> dict:
 
 @router.post("/run")
 async def run(body: Report, request: Request) -> dict:
-    refusal = await mcp.consent(agents.is_inapp(request.headers.get(agents.INAPP_HEADER)))
+    out = body.out.strip()[:200]
+    asked = mcp.question("report", f"make a report from a template and save it as {out}" if out else "make a report from a template", file=out)
+    refusal = await mcp.consent(agents.is_inapp(request.headers.get(agents.INAPP_HEADER)), asked)
     if refusal:
         raise HTTPException(403, refusal)
     return await asyncio.to_thread(_run, body)

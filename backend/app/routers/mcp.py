@@ -1,4 +1,6 @@
+import contextvars
 import json
+import secrets
 import time
 from typing import Any
 
@@ -16,7 +18,13 @@ WINDOW_ONLY = ("view.terminal", "view.newterminal", "agent.claudecode", "agent.c
 CONSENT_SECONDS = 180
 DECLINE_SECONDS = 600
 MAX_BODY = 8 * 1024 * 1024
+ANSWERS = ("deny", "once", "always")
+ALWAYS = "all"
+SESSION_HEADER = "Mcp-Session-Id"
+SESSIONS_KEPT = 200
 _state: dict = {"declined_until": 0.0, "client": "", "at": 0.0}
+_sessions: dict[str, str] = {}
+_caller: contextvars.ContextVar[str] = contextvars.ContextVar("formtxt_mcp_caller", default="")
 
 ID_SCHEMA = {"type": "object", "properties": {"id": {"type": "string", "description": "A command id from list_commands, such as format.bold"}}, "required": ["id"]}
 TOOLS = [
@@ -45,16 +53,30 @@ def window_only(cid: str) -> bool:
     return cid.strip().lower().startswith(WINDOW_ONLY)
 
 
-async def consent(inapp: bool) -> str | None:
+def remember(client: str) -> str:
+    sid = secrets.token_urlsafe(18)
+    _sessions[sid] = "" if client in ("unknown agent", agents.INAPP_CLIENT) else client
+    for old in list(_sessions)[:-SESSIONS_KEPT]:
+        _sessions.pop(old, None)
+    return sid
+
+
+def question(tool: str, what: str, **more: Any) -> dict:
+    return {"agent": _caller.get(), "tool": tool, "what": what[:300], **more}
+
+
+async def consent(inapp: bool, ask: dict | None = None) -> str | None:
     if inapp or agents.allowed():
         return None
     if time.monotonic() < _state["declined_until"]:
         return "The person chose not to allow outside agents in FormTxt just now. Ask them to turn on Allow outside agents in Preferences, then retry."
     if not bridge.connected():
         return "No FormTxt window is open. Start it with ./formtxt and open the app, then retry."
-    answer = await bridge.call("__consent__", {}, CONSENT_SECONDS)
+    asked = {"agent": "", "tool": "", "what": "", **(ask or {}), "answers": list(ANSWERS), "always": ALWAYS, "seconds": CONSENT_SECONDS, "expiresAt": round(time.time() + CONSENT_SECONDS, 3)}
+    answer = await bridge.call("__consent__", asked, CONSENT_SECONDS, withdraw=True)
     if answer.get("ok") and isinstance(answer.get("result"), dict) and answer["result"].get("allowed") is True:
-        agents.set_allowed(True)
+        if answer["result"].get("once") is not True:
+            agents.set_allowed(True)
         return None
     _state["declined_until"] = time.monotonic() + DECLINE_SECONDS
     return "The person did not allow outside agents in FormTxt. Ask them to allow it (the question in the FormTxt window, or Allow outside agents in Preferences), then retry."
@@ -76,7 +98,8 @@ async def call_tool(name: str, args: dict, inapp: bool) -> dict:
         return text_result({**found, **({"windowOnly": True} if window_only(cid) else {})})
     if window_only(cid):
         return text_result(f"{cid} is only available in the FormTxt window, so a person runs it. Do not retry.", True)
-    refusal = await consent(inapp)
+    label = str((commands.find(cid) or {}).get("label") or "").strip()
+    refusal = await consent(inapp, question("run_command", f"run the command {label[:120]} ({cid[:120]})" if label else f"run the command {cid[:120]}", command=cid[:120]))
     if refusal:
         return text_result(refusal, True)
     params = args.get("params")
@@ -139,7 +162,8 @@ def describe_endpoint(request: Request) -> Response:
 
 
 @router.delete("/mcp")
-def end_session() -> Response:
+def end_session(request: Request) -> Response:
+    _sessions.pop(request.headers.get(SESSION_HEADER) or "", None)
     return Response(status_code=204)
 
 
@@ -155,11 +179,15 @@ async def rpc(request: Request) -> Response:
     except ValueError:
         return JSONResponse(rpc_error(None, -32700, "parse error"), status_code=400)
     inapp = agents.is_inapp(request.headers.get(agents.INAPP_HEADER))
+    _caller.set("" if inapp else _sessions.get(request.headers.get(SESSION_HEADER) or "", ""))
     if isinstance(body, list):
         replies = [reply for reply in [await dispatch(item, inapp) for item in body] if reply is not None]
         return JSONResponse(replies) if replies else Response(status_code=202)
     reply = await dispatch(body, inapp)
-    return JSONResponse(reply) if reply is not None else Response(status_code=202)
+    if reply is None:
+        return Response(status_code=202)
+    opened = isinstance(body, dict) and body.get("method") == "initialize" and "result" in reply
+    return JSONResponse(reply, headers={SESSION_HEADER: remember(_state["client"])} if opened else None)
 
 
 @router.get("/api/mcp/status")
