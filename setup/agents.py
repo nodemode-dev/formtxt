@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 import argparse
+import ast
 import json
 import os
 import re
@@ -18,6 +19,13 @@ RESERVED = ("anthropic", "claude")
 TAG = re.compile(r"</?[A-Za-z][^>]*>")
 LAUNCHER = "formtxt"
 USE_SKILLS = ("formtxt-driving",)
+APP = "formtxt"
+MANIFEST = os.path.join(ROOT, "agents", "manifest.json")
+MANIFEST_REL = "agents/manifest.json"
+MCP_ROUTER = os.path.join(ROOT, "backend", "app", "routers", "mcp.py")
+MCP_BRIDGE = os.path.join(ROOT, "setup", "mcp_stdio.py")
+DOCK = {"present": True, "positions": ["bottom"], "tabs": ["terminal", "claude-code", "chat", "activity"]}
+EXTENSIONS = None
 LAUNCH = os.path.join(ROOT, LAUNCHER)
 ARGS = ["mcp"]
 if os.name == "nt":
@@ -64,6 +72,95 @@ def frontmatter(text):
     return None
 
 
+def engine_tools():
+    with open(MCP_ROUTER, encoding="utf-8") as f:
+        tree = ast.parse(f.read())
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(isinstance(t, ast.Name) and t.id == "TOOLS" for t in node.targets):
+            listed = node.value
+            break
+    else:
+        raise ValueError("backend/app/routers/mcp.py has no TOOLS list")
+    if not isinstance(listed, ast.List):
+        raise ValueError("TOOLS in backend/app/routers/mcp.py is not a list")
+    tools = []
+    for entry in listed.elts:
+        if not isinstance(entry, ast.Dict):
+            raise ValueError("a TOOLS entry in backend/app/routers/mcp.py is not a dict")
+        fields = {}
+        for key, value in zip(entry.keys, entry.values):
+            if isinstance(key, ast.Constant) and key.value in ("name", "annotations"):
+                fields[key.value] = ast.literal_eval(value)
+        if not isinstance(fields.get("name"), str):
+            raise ValueError("a TOOLS entry in backend/app/routers/mcp.py has no name")
+        tools.append(fields)
+    return tools
+
+
+def skill_list():
+    found = []
+    if not os.path.isdir(SOURCE):
+        return found
+    for skill in sorted(d for d in os.listdir(SOURCE) if os.path.isdir(os.path.join(SOURCE, d))):
+        inner = os.path.join(SOURCE, skill, "sub-skills")
+        subs = []
+        if os.path.isdir(inner):
+            subs = sorted(d for d in os.listdir(inner) if os.path.isfile(os.path.join(inner, d, "SUB-SKILL.md")))
+        found.append({"name": skill, "sub_skills": subs})
+    return found
+
+
+def build_manifest():
+    tools = engine_tools()
+    names = [t["name"] for t in tools]
+    read_only = [t["name"] for t in tools if (t.get("annotations") or {}).get("readOnlyHint") is True]
+    with open(MCP_ROUTER, encoding="utf-8") as f:
+        http = '@router.post("/mcp")' in f.read()
+    transports = (["stdio"] if os.path.isfile(MCP_BRIDGE) else []) + (["http"] if http else [])
+    return {
+        "format": "form-agent-manifest",
+        "version": 1,
+        "app": APP,
+        "mcp": {
+            "tools": names,
+            "read_only": read_only,
+            "approval_gated": [n for n in names if n not in read_only],
+            "transports": transports,
+        },
+        "skills": skill_list(),
+        "dock": DOCK,
+        "extensions": EXTENSIONS,
+    }
+
+
+def manifest_text():
+    return json.dumps(build_manifest(), indent=2, ensure_ascii=False) + "\n"
+
+
+def write_manifest():
+    text = manifest_text()
+    current = read_bytes(MANIFEST).decode("utf-8") if os.path.isfile(MANIFEST) else None
+    if current == text:
+        return 0
+    os.makedirs(os.path.dirname(MANIFEST), exist_ok=True)
+    with open(MANIFEST, "w", encoding="utf-8", newline="\n") as f:
+        f.write(text)
+    print(f"[agents] wrote {MANIFEST_REL}")
+    return 1
+
+
+def check_manifest(problems):
+    try:
+        text = manifest_text()
+    except (OSError, ValueError, SyntaxError) as exc:
+        problems.append(f"{MANIFEST_REL} cannot be built: {exc}")
+        return
+    if not os.path.isfile(MANIFEST):
+        problems.append(f"{MANIFEST_REL} is missing; run ./{LAUNCHER} agents sync")
+    elif read_bytes(MANIFEST).decode("utf-8", errors="replace") != text:
+        problems.append(f"{MANIFEST_REL} is not what the engine's tools and the skills folder say; run ./{LAUNCHER} agents sync")
+
+
 def sync():
     if not os.path.isdir(SOURCE):
         print("[agents] .claude/skills is missing", file=sys.stderr)
@@ -88,6 +185,11 @@ def sync():
         if folder != MIRROR and not os.listdir(folder):
             os.rmdir(folder)
     print(f"[agents] .agents/skills mirrors .claude/skills ({len(source)} files, {changed} changed)")
+    try:
+        write_manifest()
+    except (OSError, ValueError, SyntaxError) as exc:
+        print(f"[agents] {MANIFEST_REL} cannot be written: {exc}", file=sys.stderr)
+        return 1
     return 0
 
 
@@ -224,12 +326,13 @@ def check():
     check_drift(problems)
     check_skill_format(problems)
     check_agent_files(problems)
+    check_manifest(problems)
     if problems:
         for line in problems:
             print(f"[agents] {line}", file=sys.stderr)
         print(f"[agents] {len(problems)} problem(s)", file=sys.stderr)
         return 1
-    print("[agents] clean: mirror matches, skills pass the format gate, MCP configs name the launcher")
+    print("[agents] clean: mirror matches, skills pass the format gate, MCP configs name the launcher, agents/manifest.json is current")
     return 0
 
 
@@ -326,9 +429,9 @@ def install(clients, dry):
 def main():
     parser = argparse.ArgumentParser(prog=f"{LAUNCHER} agents", description="the agents kit")
     sub = parser.add_subparsers(dest="action", required=True)
-    sync_parser = sub.add_parser("sync", help="mirror .claude/skills into .agents/skills")
+    sync_parser = sub.add_parser("sync", help="mirror .claude/skills into .agents/skills and write agents/manifest.json")
     sync_parser.add_argument("--check", action="store_true", help="only check, as agents check does")
-    sub.add_parser("check", help="check the mirror, the skills and the MCP configs")
+    sub.add_parser("check", help="check the mirror, the skills, the MCP configs and the manifest")
     inst = sub.add_parser("install", help="register FormTxt's MCP server and skill with Claude Code, Codex and Cursor for this user")
     inst.add_argument("clients", nargs="*", choices=["claude", "codex", "cursor"], help="which clients (default all three)")
     inst.add_argument("--dry-run", action="store_true", help="say what would change and change nothing")

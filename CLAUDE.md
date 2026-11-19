@@ -37,7 +37,7 @@ Documents in the form family: an open, local-first Word and Google Docs alternat
 - Editing documents through FormTxt: the MCP server `formtxt` (`./formtxt mcp`, already in `.mcp.json`) offers `list_commands`, `describe_command` and `run_command` over the same catalogue; load the `formtxt-driving` skill. The window must be open; the first `run_command` from an outside agent asks the person once, and their answer is the `agentsAllowed` setting.
 - Changing FormTxt's code: load the `formtxt-harness` skill; its `terminal-operator` sub-skill covers the dock, PTYs and Claude Code.
 - Inside the app, the terminal dock runs shells and the person's own Claude Code in engine-owned PTYs (`backend/app/services/terminal.py`, `claude_code.py`, routes under `/api/terminal` and `/api/agent/claude`). A Claude Code tab gets this engine's `/mcp` with a per-run token in its environment, so it is not asked for consent. `view.terminal`, `view.newTerminal`, `agent.claudeCode`, `agent.chat` and `cloud.set` are window-only: `run_command` refuses them (`WINDOW_ONLY` in `backend/app/routers/mcp.py`).
-- Skills live in `.claude/skills` and are mirrored to `.agents/skills` by `./formtxt agents sync`; `./formtxt agents check` and `./formtxt mcpb check` must pass. `./formtxt agents install` registers the server with Claude Code, Codex and Cursor for this user.
+- Skills live in `.claude/skills` and are mirrored to `.agents/skills` by `./formtxt agents sync`, which also writes `agents/manifest.json` (tools, skills and dock for the family spec; the dock part is declared in `setup/agents.py`); `./formtxt agents check` and `./formtxt mcpb check` must pass. `./formtxt agents install` registers the server with Claude Code, Codex and Cursor for this user.
 
 ## Commits
 

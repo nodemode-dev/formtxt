@@ -22,11 +22,14 @@ ID_SCHEMA = {"type": "object", "properties": {"id": {"type": "string", "descript
 TOOLS = [
     {"name": "list_commands",
      "description": "List the commands the FormTxt window can run: id, label, group, description, keys and parameters. Filter with text (words that must all appear) or group. The list comes from the open window; when it is empty, ask the person to open FormTxt (./formtxt).",
-     "inputSchema": {"type": "object", "properties": {"text": {"type": "string"}, "group": {"type": "string"}}}},
-    {"name": "describe_command", "description": "Describe one command and its parameters.", "inputSchema": ID_SCHEMA},
+     "inputSchema": {"type": "object", "properties": {"text": {"type": "string"}, "group": {"type": "string"}}},
+     "annotations": {"readOnlyHint": True}},
+    {"name": "describe_command", "description": "Describe one command and its parameters.", "inputSchema": ID_SCHEMA,
+     "annotations": {"readOnlyHint": True}},
     {"name": "run_command",
      "description": "Run one command by id with params in the open FormTxt window, on the document the person has open; they see it happen and Undo reverses it. The first run asks the person, in the window, to allow outside agents. The terminal, Claude Code and chat commands, and the cloud storage setting, are the person's own and are refused.",
-     "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}, "params": {"type": "object"}}, "required": ["id"]}},
+     "inputSchema": {"type": "object", "properties": {"id": {"type": "string"}, "params": {"type": "object"}}, "required": ["id"]},
+     "annotations": {"readOnlyHint": False}},
 ]
 
 
