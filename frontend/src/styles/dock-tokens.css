@@ -25,6 +25,7 @@
   --dock-head-h: var(--ctl-lg);
   --dock-fs-xs: var(--ft-11);
   --dock-fs-sm: var(--ft-12);
+  --dock-fs-md: var(--ft-14);
   --dock-font-mono: var(--font-mono);
   --dock-term-bg: var(--bg-primary);
   --dock-term-fg: var(--text-primary);
