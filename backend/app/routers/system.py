@@ -1,9 +1,9 @@
 import platform
 import sys
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
-from app.core import config
+from app.core import config, window_key
 from app.services import secrets, stock
 
 router = APIRouter()
@@ -34,12 +34,22 @@ def capabilities() -> dict:
             "dataDir": str(config.data_dir()), "port": config.port()}
 
 
+@router.post("/window/key")
+def claim_window_key() -> dict:
+    if window_key.stdout_mode():
+        raise HTTPException(404, "Not Found")
+    key = window_key.claim()
+    if key is None:
+        raise HTTPException(409, "Another window already holds this engine's window key; use that window, or restart FormTxt")
+    return {"key": key}
+
+
 @router.get("/settings")
 def get_settings() -> dict:
     s = config.read_settings()
     s.pop("pexelsKey", None)
     key = stock._pexels_key()
-    return {**s, "pexelsKeySet": bool(key), "pexelsLast4": key[-4:] if len(key) >= 8 else "", "secretStore": secrets.where()}
+    return {**s, "pexelsKeySet": bool(key), "pexelsLast4": key[-4:] if len(key) >= 8 else "", "secretStore": secrets.where(), "secondWindowClaim": window_key.STATE["secondClaim"]}
 
 
 @router.post("/settings")

@@ -2,6 +2,7 @@ import type { CommandRegistry } from '../engine/registry';
 import { asAgent } from './actor';
 import { mirrorCatalogue } from './catalogue';
 import { askAgents } from '../ui/agent-confirm';
+import { keyedSocket } from '../io/window-key';
 
 function safe(value: unknown): unknown {
   if (value === undefined) return null;
@@ -16,7 +17,7 @@ export function connectBridge(reg: CommandRegistry): void {
   let delay = 500;
   const open = (): void => {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(`${proto}://${location.host}/api/live`);
+    const ws = keyedSocket(`${proto}://${location.host}/api/live`);
     ws.onopen = () => { delay = 500; void mirrorCatalogue(reg).catch(() => undefined); };
     ws.onmessage = async (ev) => {
       let msg: { t?: string; id?: string; command?: string; params?: Record<string, unknown> };

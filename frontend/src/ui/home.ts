@@ -1,5 +1,6 @@
 import type { DocSummary } from '../engine/model';
 import { api, type TemplateSummary } from '../io/api';
+import { keyHeaders } from '../io/window-key';
 import { DEMOS, demoCommand, demoCover } from '../demos';
 import { Backstage, backstageMarkup, hicon } from './backstage';
 import { brandMark } from './brand';
@@ -389,7 +390,7 @@ ${backstageMarkup()}
       try {
         const form = new FormData();
         form.append('file', f, f.name);
-        const res = await fetch('/api/print/open-pdf', { method: 'POST', body: form });
+        const res = await fetch('/api/print/open-pdf', { method: 'POST', headers: keyHeaders(), body: form });
         if (!res.ok) {
           let detail = res.statusText;
           try { detail = (await res.json()).detail ?? detail; } catch { void 0; }

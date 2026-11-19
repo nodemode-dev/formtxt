@@ -4,6 +4,7 @@ import json
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
+from app.core import window_key
 from app.routers.terminal import document_folder, origin_ok, release_socket, require_local, server_port, take_socket
 from app.services import claude_code, terminal
 
@@ -86,6 +87,9 @@ async def stream(ws: WebSocket) -> None:
         await ws.close(code=4429)
         return
     await ws.accept()
+    if not await window_key.socket_window(ws):
+        release_socket()
+        return
     queue: asyncio.Queue = asyncio.Queue()
     claude_code.AGENT.subscribers.add(queue)
 

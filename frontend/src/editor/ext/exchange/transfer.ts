@@ -1,4 +1,5 @@
 import { EngineError } from '../../../io/api';
+import { keyHeaders } from '../../../io/window-key';
 import type { DocSummary } from '../../../engine/model';
 
 export const FORMATS: Array<{ id: string; label: string; ext: string }> = [
@@ -32,7 +33,7 @@ export async function fetchExport(id: string, format: string, live: unknown): Pr
   const url = `/api/documents/${encodeURIComponent(id)}/export?format=${encodeURIComponent(format)}`;
   const res = live === undefined
     ? await fetch(url)
-    : await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify(live) });
+    : await fetch(url, { method: 'POST', headers: { 'content-type': 'application/json', ...keyHeaders() }, body: JSON.stringify(live) });
   if (!res.ok) throw await failure(res);
   return { blob: await res.blob(), name: fileName(res, `document.${format}`) };
 }
@@ -53,7 +54,7 @@ export function saveBlob(blob: Blob, name: string): void {
 export async function sendFiles(files: File[]): Promise<{ documents: DocSummary[]; errors: string[] }> {
   const form = new FormData();
   for (const f of files) form.append('files', f, f.name);
-  const res = await fetch('/api/exchange/import', { method: 'POST', body: form });
+  const res = await fetch('/api/exchange/import', { method: 'POST', headers: keyHeaders(), body: form });
   if (!res.ok) throw await failure(res);
   return (await res.json()) as { documents: DocSummary[]; errors: string[] };
 }

@@ -30,7 +30,7 @@ Documents in the form family: an open, local-first Word and Google Docs alternat
 
 ## Commands
 
-`./build_app` at the root builds the desktop app start to finish (tools check, installs, window, frozen engine with its fonts, dictionaries and WordNet data, `tauri build`, bundle) and logs to `build_app.log`; it is the one command for a desktop build (`build_app.bat` on Windows). `./formtxt_oc_install`, then `./formtxt` boots both sides. With the window open, `./formtxt cli list` reads the command catalogue and `./formtxt cli run <id> key=value` runs a command in the window through the `/api/live` bridge (`POST /api/commands/<id>` and `/api/commands/batch` do the same over HTTP).
+`./build_app` at the root builds the desktop app start to finish (tools check, installs, window, frozen engine with its fonts, dictionaries and WordNet data, `tauri build`, bundle) and logs to `build_app.log`; it is the one command for a desktop build (`build_app.bat` on Windows). `./formtxt_oc_install`, then `./formtxt` boots both sides. With the window open, `./formtxt cli list` reads the command catalogue and `./formtxt cli run <id> key=value` runs a command in the window as an outside agent, through `/mcp` and its consent. `POST /api/commands/<id>`, `/api/commands/batch` and every other write route answer only the window: the engine refuses any request that is not GET, HEAD or OPTIONS without the per-launch window key (`X-Formtxt-Window-Key`, `backend/app/core/window_key.py`), except `/mcp`, `POST /api/window/key` (the one-time bootstrap when run from source) and `POST /api/reports/run` (FormCel's engine and `./formtxt report run`, behind the same consent). Sockets take the key as their first message.
 
 ## Claude Code
 

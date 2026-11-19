@@ -1,3 +1,5 @@
+import { keyHeaders } from './window-key';
+
 export class EngineError extends Error {
   constructor(message: string, readonly status: number) {
     super(message);
@@ -16,7 +18,7 @@ function readable(detail: unknown): string {
 async function call<T>(method: string, path: string, body?: unknown): Promise<T> {
   const res = await fetch(`/api${path}`, {
     method,
-    headers: body === undefined ? undefined : { 'content-type': 'application/json' },
+    headers: body === undefined ? keyHeaders() : { 'content-type': 'application/json', ...keyHeaders() },
     body: body === undefined ? undefined : JSON.stringify(body),
   });
   if (!res.ok) {
@@ -30,7 +32,7 @@ async function call<T>(method: string, path: string, body?: unknown): Promise<T>
 async function upload<T>(path: string, files: File[]): Promise<T> {
   const form = new FormData();
   for (const f of files) form.append('files', f, f.name);
-  const res = await fetch(`/api${path}`, { method: 'POST', body: form });
+  const res = await fetch(`/api${path}`, { method: 'POST', headers: keyHeaders(), body: form });
   if (!res.ok) {
     let detail = res.statusText;
     try { detail = (await res.json()).detail ?? detail; } catch { void 0; }

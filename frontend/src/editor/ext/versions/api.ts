@@ -1,4 +1,5 @@
 import { api } from '../../../io/api';
+import { keyHeaders } from '../../../io/window-key';
 
 export interface VersionRow { id: string; ts: number; name: string; auto: boolean; author: string; editors?: string[]; words: number; bytes: number; reason: string }
 export interface CompareSegment { kind: 'same' | 'ins' | 'del'; text: string }
@@ -41,7 +42,7 @@ export async function parseData(file: File, sheet = ''): Promise<Sheet> {
   const form = new FormData();
   form.append('files', file, file.name);
   form.append('sheet', sheet);
-  const res = await fetch('/api/data/parse', { method: 'POST', body: form });
+  const res = await fetch('/api/data/parse', { method: 'POST', headers: keyHeaders(), body: form });
   if (!res.ok) {
     let detail = res.statusText;
     try { detail = (await res.json()).detail ?? detail; } catch { void 0; }

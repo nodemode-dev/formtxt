@@ -3,6 +3,7 @@ import { registerDemoCommands } from './demos';
 import type { DocSummary, FtxtDocument } from './engine/model';
 import { commands } from './engine/registry';
 import { api, type TemplateSummary } from './io/api';
+import { keyHeaders, loadWindowKey } from './io/window-key';
 import { delayedIndicator, mountOnce, q, revealApp, setHidden } from './ui/dom';
 import { Home } from './ui/home';
 import { icon } from './ui/icons';
@@ -53,6 +54,7 @@ async function fontsReady(timeout = 1500): Promise<void> {
 export async function startApp(): Promise<void> {
   const root = q<HTMLElement>(document, '#app');
   mountOnce(root, SHELL);
+  await loadWindowKey();
 
   commands.register({
     id: 'view.toggleTheme',
@@ -79,7 +81,7 @@ export async function startApp(): Promise<void> {
     const path = `/documents/${encodeURIComponent(doc.id)}${by ? `?by=${by}` : ''}`;
     const body = keep ? JSON.stringify(doc) : '';
     const put = (): Promise<DocSummary> => (body && new Blob([body]).size < 60000
-      ? fetch(`/api${path}`, { method: 'PUT', keepalive: true, headers: { 'content-type': 'application/json' }, body }).then(async (r) => { if (!r.ok) throw new Error(r.statusText); return (await r.json()) as DocSummary; })
+      ? fetch(`/api${path}`, { method: 'PUT', keepalive: true, headers: { 'content-type': 'application/json', ...keyHeaders() }, body }).then(async (r) => { if (!r.ok) throw new Error(r.statusText); return (await r.json()) as DocSummary; })
       : api.put<DocSummary>(path, doc));
     inFlight++;
     saving = saving.then(put).then((s) => {

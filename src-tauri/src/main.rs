@@ -75,7 +75,7 @@ fn dev_url(handle: &tauri::AppHandle) -> Option<tauri::Url> {
     }
 }
 
-fn open_main(handle: &tauri::AppHandle, url: tauri::Url) {
+fn open_main(handle: &tauri::AppHandle, url: tauri::Url, key: Option<String>) {
     let place = window_state::load(handle);
     let (width, height) = if place.width > 0.0 {
         (place.width, place.height)
@@ -90,13 +90,20 @@ fn open_main(handle: &tauri::AppHandle, url: tauri::Url) {
             })
             .unwrap_or(FALLBACK_SIZE)
     };
-    let builder = WebviewWindowBuilder::new(handle, "main", WebviewUrl::External(url))
+    let builder = WebviewWindowBuilder::new(handle, "main", WebviewUrl::External(url.clone()))
         .title("FormTxt")
         .visible(reveal::BUILD_VISIBLE)
         .background_color(reveal::BACKGROUND)
         .inner_size(width, height)
         .min_inner_size(MIN_SIZE.0, MIN_SIZE.1)
         .disable_drag_drop_handler();
+    let origin = url.origin().ascii_serialization();
+    let builder = match &key {
+        Some(value) => builder.initialization_script(format!(
+            "if (window.location.origin === {origin:?}) {{ window.__FORMTXT_WINDOW_KEY = {value:?}; }}"
+        )),
+        None => builder,
+    };
     let builder = if place.width > 0.0 {
         builder.position(place.x, place.y)
     } else {
@@ -149,7 +156,7 @@ fn main() {
             let handle = app.handle().clone();
             reveal::round_splash(&handle);
             if let Some(url) = dev_url(&handle) {
-                open_main(&handle, url);
+                open_main(&handle, url, None);
                 return Ok(());
             }
             let engine = match packaged::engine_folder() {
@@ -162,19 +169,25 @@ fn main() {
             let sidecar = engine
                 .env("FORMTXT_PORT", "0")
                 .env("FORMTXT_ENGINE_PORT", "0")
-                .env("FORMTXT_PARENT_PID", std::process::id().to_string());
+                .env("FORMTXT_PARENT_PID", std::process::id().to_string())
+                .env("FORMTXT_WINDOW_KEY_STDOUT", "1");
             let (mut rx, child) = sidecar.spawn().expect("the FormTxt engine failed to spawn");
             *app.state::<Backend>().0.lock().unwrap() = Some(child);
 
             tauri::async_runtime::spawn(async move {
                 let pattern = regex::Regex::new(r"http://127\.0\.0\.1:(\d+)").unwrap();
+                let key_pattern = regex::Regex::new(r"formtxt-window-key: ([A-Za-z0-9_-]{32,})").unwrap();
                 let mut port: Option<u16> = None;
+                let mut key: Option<String> = None;
                 while let Some(event) = rx.recv().await {
                     let text = match event {
                         CommandEvent::Stdout(bytes) | CommandEvent::Stderr(bytes) => String::from_utf8_lossy(&bytes).into_owned(),
                         CommandEvent::Terminated(_) => break,
                         _ => continue,
                     };
+                    if key.is_none() {
+                        key = key_pattern.captures(&text).map(|c| c[1].to_string());
+                    }
                     if let Some(found) = pattern.captures(&text).and_then(|c| c[1].parse::<u16>().ok()) {
                         port = Some(found);
                         break;
@@ -183,7 +196,7 @@ fn main() {
                 match port {
                     Some(port) => {
                         let url: tauri::Url = format!("http://127.0.0.1:{port}").parse().unwrap();
-                        open_main(&handle, url);
+                        open_main(&handle, url, key);
                     }
                     None => {
                         close_splash(&handle);

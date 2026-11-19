@@ -175,7 +175,7 @@ def test_the_in_app_token_runs_a_report_without_asking(client, tmp_path):
     from app.services import agents
 
     db = orders_db(tmp_path)
-    r = client.post("/api/reports/run", headers={agents.INAPP_HEADER: agents.INAPP_TOKEN},
+    r = client.post("/api/reports/run", headers={agents.INAPP_HEADER: agents.issue()},
                     json={"template": invoice(client)["id"], "data": {"path": str(db), "sql": "select * from order_items"}, "out": str(tmp_path / "a.pdf")})
     assert r.status_code == 200, r.text
     assert (tmp_path / "a.pdf").read_bytes()[:4] == b"%PDF"

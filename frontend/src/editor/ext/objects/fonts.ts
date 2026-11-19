@@ -1,6 +1,7 @@
 import { Plugin } from 'prosemirror-state';
 import type { CommandRegistry } from '../../../engine/registry';
 import { api } from '../../../io/api';
+import { keyHeaders } from '../../../io/window-key';
 import { Dialog } from '../../../ui/dialog';
 import { el, patchList, setText } from '../../../ui/dom';
 import { toast } from '../../../ui/toast';
@@ -150,7 +151,7 @@ export async function addFonts(ed: DocEditor, files: File[], familyName = ''): P
   const form = new FormData();
   for (const f of files) form.append('files', f, f.name);
   if (familyName && files.length === 1) form.append('family', familyName);
-  const res = await fetch('/api/objects/fonts', { method: 'POST', body: form });
+  const res = await fetch('/api/objects/fonts', { method: 'POST', headers: keyHeaders(), body: form });
   const body = (await res.json().catch(() => ({}))) as { fonts?: LibraryFont[]; errors?: string[]; detail?: string };
   if (!res.ok) throw new Error(body.detail ?? res.statusText);
   for (const e of body.errors ?? []) toast(e, 'error');
