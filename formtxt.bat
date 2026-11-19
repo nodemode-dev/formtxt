@@ -14,13 +14,14 @@ if /i "%CMD%"=="backend" ( call backend\boot_backend.bat %REST% & goto :eof )
 if /i "%CMD%"=="frontend" ( call frontend\boot_frontend.bat %REST% & goto :eof )
 if /i "%CMD%"=="build" ( pushd frontend & call npm run build & popd & goto :eof )
 if /i "%CMD%"=="cli" ( python setup\catalogue.py %REST% & goto :eof )
+if /i "%CMD%"=="report" ( python setup\report.py %REST% & goto :eof )
 if /i "%CMD%"=="mcp" ( python setup\mcp_stdio.py %REST% & goto :eof )
 if /i "%CMD%"=="agents" ( python setup\agents.py %REST% & goto :eof )
 if /i "%CMD%"=="mcpb" goto :mcpb
 if /i "%CMD%"=="install-desktop" ( call setup\install_desktop.bat %REST% & goto :eof )
 if /i "%CMD%"=="freeze" ( call setup\freeze_backend.bat %REST% & goto :eof )
 if /i "%CMD%"=="desktop" goto :desktop
-echo usage: formtxt.bat [boot^|install^|backend^|frontend^|build^|cli^|mcp^|agents^|mcpb^|install-desktop^|freeze^|desktop build]
+echo usage: formtxt.bat [boot^|install^|backend^|frontend^|build^|cli^|report^|mcp^|agents^|mcpb^|install-desktop^|freeze^|desktop build]
 exit /b 2
 :mcpb
 set "SUB=check"
