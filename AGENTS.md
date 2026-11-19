@@ -2,7 +2,7 @@
 
 Read `CLAUDE.md` first; its rules apply to every agent. The `.ftxt` contract is `docs/FORMAT.md`. The engine answers on `http://127.0.0.1:8210/api`, and the editor's commands are listed at `/api/commands` once a window is open.
 
-To edit documents, use the MCP server `formtxt` (`./formtxt mcp`, a stdio bridge to the engine's `/mcp`; `.mcp.json`, `.cursor/mcp.json` and `.codex/config.toml` already run it) and the skill `formtxt-driving`: `list_commands`, `describe_command`, then `run_command` on the document open in the window. The first command an outside agent runs asks the person once in the window. The terminal, Claude Code and chat commands are the person's own and are refused to agents. `./formtxt agents install` registers the server and skill with Claude Code, Codex and Cursor for this user.
+To edit documents, use the MCP server `formtxt` (`./formtxt mcp`, a stdio bridge to the engine's `/mcp`; `.mcp.json`, `.cursor/mcp.json` and `.codex/config.toml` already run it) and the skill `formtxt-driving`: `list_commands`, `describe_command`, then `run_command` on the document open in the window. The first command an outside agent runs asks the person once in the window (Allow outside agents?); only the window can change that answer, and `./formtxt cli run` and `./formtxt report run` count as outside agents. The terminal, Claude Code, chat and cloud storage commands are the person's own and are refused to agents. `./formtxt agents install` registers the server and skill with Claude Code, Codex and Cursor for this user.
 
 To change FormTxt's code, use the skill `formtxt-harness`. Skills are edited in `.claude/skills` and mirrored to `.agents/skills` with `./formtxt agents sync`; `./formtxt agents check` and `./formtxt mcpb check` run in CI.
 

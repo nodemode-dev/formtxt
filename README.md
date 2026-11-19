@@ -121,7 +121,9 @@ The editor's commands live in one catalogue, and the window and the terminal cal
 
 It asks the same Allow outside agents question as the agents below, because it saves a file where it is told; an existing file is kept unless you add `overwrite=true`.
 
-The commands need the window open, and the first one an outside agent runs asks you once in the window. `.mcp.json`, `.codex/config.toml` and `.cursor/mcp.json` are already wired in this repo. See [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md).
+The commands need the window open, and the first one an outside agent runs asks you in the window: **Allow outside agents?** **Allow** lets outside agents run commands from then on; **Don't Allow** refuses. Only the FormTxt window can change that choice, with the question or with **Allow outside agents** in Preferences, under Privacy. Agents and other programs follow it, and `./formtxt cli run` and `./formtxt report run` count as outside agents. If the saved choice is changed outside the app, FormTxt asks again (the check uses your system password store; without one it is skipped). The terminal, Claude Code, chat and cloud storage commands stay yours and are refused to agents. A script that drives FormTxt uses `./formtxt cli run`, `./formtxt report run` or the MCP server, because every other route that changes something answers only the window. Details in [`SECURITY.md`](SECURITY.md).
+
+`.mcp.json`, `.codex/config.toml` and `.cursor/mcp.json` are already wired in this repo. See [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md).
 
 ## Under the hood
 
