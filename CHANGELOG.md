@@ -14,6 +14,7 @@
 - The desktop app waits at most 10 seconds for its engine to start and otherwise says that it did not start.
 - For agents: `agents/manifest.json` says what FormTxt offers them, the MCP tools say which of them only read, and `./formtxt agents check` fails when a file of the terminal panel differs from its record.
 - The README says who can change agent access and names the themes.
+- macOS: the app is built so that Apple's notary accepts it. The engine carries its Python library once, as a plain file; a second copy inside a framework folder carried a signature that was wrong where it sat, and the notary refuses an app with one.
 
 ## 0.33.0 · 2026-11-17
 
