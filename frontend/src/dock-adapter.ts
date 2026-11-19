@@ -1,5 +1,5 @@
 import type { ConsentChoice, ConsentRequest, DockAdapter, DockAgentStatus, DockChannel, DockChatEvent, DockTerminal, StoredChoice, StoredChoiceState } from './dock/adapter';
-import { ownsEvent } from './dock/keys';
+import { jsonLegacy } from './dock/state';
 import { api, EngineError } from './io/api';
 import { socketTo, term } from './io/terminal-api';
 import { keyHeaders } from './io/window-key';
@@ -54,12 +54,8 @@ export const outsideAgents = {
   },
 };
 
-const isDockChord = (e: KeyboardEvent): boolean => (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.code === 'KeyJ';
+const isDockChord = (e: KeyboardEvent): boolean => (e.metaKey || e.ctrlKey) && !e.shiftKey && !e.altKey && e.code === 'KeyJ' && !e.repeat;
 const passKey = (e: KeyboardEvent): boolean => (e.metaKey || e.ctrlKey) && !e.altKey && ((!e.shiftKey && e.key === ',') || (e.shiftKey && e.code === 'KeyP'));
-
-export function dockKeeps(e: KeyboardEvent): boolean {
-  return ownsEvent(e) && !isDockChord(e) && !passKey(e);
-}
 
 function socketChannel(socket: WebSocket): DockChannel {
   let data = (_chunk: string | Uint8Array): void => undefined;
@@ -91,7 +87,7 @@ export function formtxtDock(openSettings: () => void): DockAdapter {
     strings: { consentChanged: 'The Allow outside agents setting was changed outside {app}, so {app} asks again.' },
     placement: {
       mode: 'own',
-      storage: { key: 'formtxt.dock', legacy: ['formtxt.terminal'] },
+      storage: { key: 'formtxt.dock', legacy: jsonLegacy(['formtxt.terminal'], true) },
       sizes: { minHeight: 120, maxHeightShare: 0.7, defaultHeight: 280, minWidth: 320, maxWidthShare: 0.6, defaultWidth: 440 },
     },
     isDockChord,

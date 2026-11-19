@@ -271,6 +271,7 @@ export async function startApp(): Promise<void> {
     run: async () => (await api.get<{ documents: DocSummary[] }>('/documents')).documents,
   });
   const dock = new Dock(formtxtDock(() => openPreferences('Privacy')));
+  shortcuts.dockKeeps = (e) => dock.keeps(e);
   commands.register({ id: 'view.terminal', label: 'Terminal', group: 'View', description: 'Show or hide the terminal dock, at the bottom of the window or in a column at its right. Shells and Claude Code keep running while it is hidden.', keys: ['Ctrl+J'], run: () => { dock.toggle(); return dock.isOpen(); } });
   commands.register({ id: 'view.newTerminal', label: 'New Terminal', group: 'View', description: 'Open a new shell tab in the terminal dock.', run: async () => { await dock.newTerminal(); return true; } });
   commands.register({ id: 'agent.claudeCode', label: 'Claude Code', group: 'Agent', description: 'Open Claude Code in a tab of the terminal dock, with FormTxt\'s commands attached, or hide the dock while it shows Claude Code.', run: async () => { await dock.toggleKind('claude'); return dock.isShowing('claude'); } });

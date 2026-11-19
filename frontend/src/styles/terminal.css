@@ -15,5 +15,5 @@ body.ft-focus .ft-dock { display: none; }
 body.ft-focus #app { --ft-dock-w: 0px; }
 
 .ft-dock { grid-row: 4; }
-.ft-dock-ask-input.ft-input { width: auto; min-height: 28px; padding: 0 var(--space-2); }
+.ft-dock-ask .ft-input { width: auto; min-height: 0; padding: 0 var(--space-2); }
 .ft-chat-status.ft-note { font-size: var(--ft-12); }

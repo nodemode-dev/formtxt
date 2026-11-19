@@ -55,8 +55,9 @@ const m = await import(process.argv[1]);
 const s = new Map([['formtxt.terminal', JSON.stringify({ open: true, h: 300 })]]);
 const store = { getItem: (k) => (s.has(k) ? s.get(k) : null), setItem: (k, v) => s.set(k, v), removeItem: (k) => s.delete(k) };
 const d = { h: 280, w: 440 };
-const first = m.moveLegacy(store, 'formtxt.dock', ['formtxt.terminal'], d);
-const second = m.moveLegacy(store, 'formtxt.dock', ['formtxt.terminal'], d);
+const old = m.jsonLegacy(['formtxt.terminal'], true);
+const first = m.moveLegacy(store, 'formtxt.dock', old, d);
+const second = m.moveLegacy(store, 'formtxt.dock', old, d);
 const right = m.readState({ getItem: () => JSON.stringify({ open: true, side: 'right', h: 300, w: 520 }) }, 'formtxt.dock', [], d);
 console.log(JSON.stringify({ first, second, keys: [...s.keys()], moved: JSON.parse(s.get('formtxt.dock')), right }));
 """
@@ -68,5 +69,5 @@ console.log(JSON.stringify({ first, second, keys: [...s.keys()], moved: JSON.par
     out = json.loads(done.stdout)
     assert out["first"] is True and out["second"] is False
     assert out["keys"] == ["formtxt.dock"]
-    assert out["moved"] == {"open": True, "side": "bottom", "h": 300, "w": 440, "tab": ""}
+    assert out["moved"] == {"open": True, "side": "bottom", "h": 300, "w": 440, "tab": "", "seen": True}
     assert out["right"] == {"open": True, "side": "right", "h": 300, "w": 520, "tab": ""}
