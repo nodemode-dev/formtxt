@@ -392,8 +392,11 @@ def program() -> str | None:
     return path if path and os.path.isfile(path) and os.access(path, os.X_OK) else None
 
 
+TAB_SERVER = "formtxt_tab"
+
+
 def inapp_mcp_config(port: int) -> str:
-    return json.dumps({"mcpServers": {"formtxt": {"type": "http", "url": f"http://127.0.0.1:{port}/mcp", "headers": {agents.INAPP_HEADER: "${" + INAPP_VAR + "}"}}}})
+    return json.dumps({"mcpServers": {TAB_SERVER: {"type": "http", "url": f"http://127.0.0.1:{port}/mcp", "headers": {agents.INAPP_HEADER: "${" + INAPP_VAR + "}"}}}})
 
 
 def terminal_env(token: str) -> dict:
@@ -401,7 +404,7 @@ def terminal_env(token: str) -> dict:
 
 
 def terminal_argv(path: str, port: int, prompt: str | None, resume: str | None) -> list[str]:
-    cmd = [path, "--mcp-config", inapp_mcp_config(port), "--allowedTools", "mcp__formtxt", "--append-system-prompt", TERMINAL_NOTE]
+    cmd = [path, "--mcp-config", inapp_mcp_config(port), "--allowedTools", f"mcp__{TAB_SERVER}", "--append-system-prompt", TERMINAL_NOTE]
     if resume:
         cmd += ["--strict-mcp-config", "--resume", resume]
     if prompt:

@@ -1,3 +1,4 @@
+import asyncio
 import contextvars
 import json
 import secrets
@@ -22,6 +23,7 @@ ANSWERS = ("deny", "once", "always")
 ALWAYS = "all"
 SESSION_HEADER = "Mcp-Session-Id"
 SESSIONS_KEPT = 200
+HUNG_UP = object()
 _state: dict = {"declined_until": 0.0, "client": "", "at": 0.0}
 _sessions: dict[str, str] = {}
 _caller: contextvars.ContextVar[str] = contextvars.ContextVar("formtxt_mcp_caller", default="")
@@ -65,7 +67,21 @@ def question(tool: str, what: str, **more: Any) -> dict:
     return {"agent": _caller.get(), "tool": tool, "what": what[:300], **more}
 
 
+async def attended(request: Request, work: Any) -> Any:
+    task = asyncio.ensure_future(work)
+    while True:
+        done, _ = await asyncio.wait({task}, timeout=1.0)
+        if done:
+            return task.result()
+        if await request.is_disconnected():
+            task.cancel()
+            await asyncio.wait({task})
+            return HUNG_UP
+
+
 async def consent(inapp: bool, ask: dict | None = None) -> str | None:
+    if agents.blocked():
+        return agents.BLOCKED_REPLY
     if inapp or agents.allowed():
         return None
     if time.monotonic() < _state["declined_until"]:
@@ -83,6 +99,8 @@ async def consent(inapp: bool, ask: dict | None = None) -> str | None:
 
 
 async def call_tool(name: str, args: dict, inapp: bool) -> dict:
+    if agents.blocked():
+        return text_result(agents.BLOCKED_REPLY, True)
     if name == "list_commands":
         rows = commands.search(str(args.get("group") or ""), str(args.get("text") or ""))
         listing = [{**c, "windowOnly": True} if window_only(str(c.get("id", ""))) else c for c in rows]
@@ -179,12 +197,14 @@ async def rpc(request: Request) -> Response:
     except ValueError:
         return JSONResponse(rpc_error(None, -32700, "parse error"), status_code=400)
     inapp = agents.is_inapp(request.headers.get(agents.INAPP_HEADER))
+    if request.headers.get(agents.INAPP_HEADER) and not inapp:
+        return JSONResponse(rpc_error(body.get("id") if isinstance(body, dict) else None, -32001, agents.CLOSED_REPLY), status_code=401)
     _caller.set("" if inapp else _sessions.get(request.headers.get(SESSION_HEADER) or "", ""))
     if isinstance(body, list):
         replies = [reply for reply in [await dispatch(item, inapp) for item in body] if reply is not None]
         return JSONResponse(replies) if replies else Response(status_code=202)
-    reply = await dispatch(body, inapp)
-    if reply is None:
+    reply = await attended(request, dispatch(body, inapp))
+    if reply is None or reply is HUNG_UP:
         return Response(status_code=202)
     opened = isinstance(body, dict) and body.get("method") == "initialize" and "result" in reply
     return JSONResponse(reply, headers={SESSION_HEADER: remember(_state["client"])} if opened else None)

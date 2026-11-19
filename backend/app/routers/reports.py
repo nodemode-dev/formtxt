@@ -120,8 +120,12 @@ def _run(body: Report) -> dict:
 @router.post("/run")
 async def run(body: Report, request: Request) -> dict:
     out = body.out.strip()[:200]
+    if request.headers.get(agents.INAPP_HEADER) and not agents.is_inapp(request.headers.get(agents.INAPP_HEADER)):
+        raise HTTPException(401, agents.CLOSED_REPLY)
     asked = mcp.question("report", f"make a report from a template and save it as {out}" if out else "make a report from a template", file=out)
-    refusal = await mcp.consent(agents.is_inapp(request.headers.get(agents.INAPP_HEADER)), asked)
+    refusal = await mcp.attended(request, mcp.consent(agents.is_inapp(request.headers.get(agents.INAPP_HEADER)), asked))
+    if refusal is mcp.HUNG_UP:
+        raise HTTPException(499, "The caller went away before the person answered.")
     if refusal:
         raise HTTPException(403, refusal)
     return await asyncio.to_thread(_run, body)

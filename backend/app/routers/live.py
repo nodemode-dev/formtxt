@@ -17,6 +17,7 @@ async def live(ws: WebSocket) -> None:
         return
     key = bridge.attach(ws)
     try:
+        await bridge.adopt(key)
         while True:
             message = await ws.receive_json()
             if isinstance(message, dict) and message.get("t") == "result":
