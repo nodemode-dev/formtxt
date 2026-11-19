@@ -1,5 +1,6 @@
 import copy
 import json
+import math
 import re
 import urllib.error
 import urllib.request
@@ -16,6 +17,7 @@ LABEL_SHEETS = {
     "5161": {"name": "Avery 5161", "cols": 2, "rows": 10, "pitch": 288.0, "height": 72.0, "left": 11.25, "top": 36.0},
 }
 LABEL_FILL = {"line": 12.1, "frame": 9.6}
+AGGREGATES = ("sum", "count", "avg", "min", "max")
 
 
 def _text(value: str, size: float | None = None, bold: bool = False) -> dict:
@@ -121,34 +123,106 @@ def _reid(blocks: list) -> None:
                     _reid(cell.get("body") or [])
 
 
-def merge(source_id: str, doc: dict, tab_id: str, records: list[dict], title: str) -> dict:
+def _number(value) -> float | None:
+    try:
+        number = float(str(value).strip().replace(",", ""))
+    except ValueError:
+        return None
+    return number if math.isfinite(number) else None
+
+
+def _aggregate(kind: str, name: str, records: list[dict]) -> str:
+    values = [str(record.get(name, "")).strip() for record in records]
+    if kind == "count":
+        return str(sum(1 for v in values if v))
+    numbers = [n for n in (_number(v) for v in values if v) if n is not None]
+    if not numbers:
+        return ""
+    total = {"sum": sum(numbers), "avg": sum(numbers) / len(numbers), "min": min(numbers), "max": max(numbers)}[kind]
+    total = round(total, 6)
+    return str(int(total)) if total.is_integer() else repr(total)
+
+
+def _filler(record: dict, group: list[dict] | None = None):
+    def fill(block: dict) -> None:
+        runs = block.get("content")
+        if not isinstance(runs, list):
+            return
+        out = []
+        for run in runs:
+            if isinstance(run, dict) and run.get("type") == "mergefield":
+                name = str(run.get("name", ""))
+                kind = run.get("agg")
+                value = _aggregate(kind, name, group or [record]) if kind in AGGREGATES else str(record.get(name, ""))
+                if value:
+                    item = {"type": "text", "text": value}
+                    if run.get("marks"):
+                        item["marks"] = run["marks"]
+                    out.append(item)
+            else:
+                out.append(run)
+        block["content"] = out
+    return fill
+
+
+def _repeat_rows(blocks: list, records: list[dict]) -> int:
+    found = 0
+    for block in blocks:
+        if not isinstance(block, dict) or block.get("type") != "table":
+            continue
+        rows: list = []
+        for row in block.get("rows") or []:
+            if isinstance(row, dict) and row.get("repeat") is True:
+                found += 1
+                for record in records:
+                    clone = copy.deepcopy(row)
+                    clone.pop("repeat", None)
+                    for cell in clone.get("cells") or []:
+                        _blocks_walk(cell.get("body") or [], _filler(record))
+                    rows.append(clone)
+            else:
+                for cell in (row or {}).get("cells") or []:
+                    found += _repeat_rows(cell.get("body") or [], records)
+                rows.append(row)
+        block["rows"] = rows
+    return found
+
+
+def _groups(records: list[dict], column: str) -> list[list[dict]]:
+    if not column:
+        return [records]
+    if column not in records[0]:
+        raise ValueError(f"The data has no column {column} to group by. Columns: {', '.join(records[0])}.")
+    found: dict[str, list[dict]] = {}
+    for record in records:
+        found.setdefault(str(record.get(column, "")), []).append(record)
+    return list(found.values())
+
+
+def merge(source_id: str, doc: dict, tab_id: str, records: list[dict], title: str, mode: str = "pages", group_by: str = "") -> dict:
     tab = next((t for t in doc.get("tabs", []) if t.get("id") == tab_id), (doc.get("tabs") or [None])[0])
     if not tab:
         raise ValueError("The document has no text to merge.")
     if not records:
         raise ValueError("The data file has no records.")
+    if mode not in ("pages", "list"):
+        raise ValueError("mode is pages (a copy per record) or list (one copy, a table row per record).")
+    if group_by and mode != "list":
+        raise ValueError("groupBy works with mode list.")
     _, media = store.load(source_id)
     merged: list[dict] = []
-    for n, record in enumerate(records[:1000]):
+    for n, group in enumerate(_groups(records[:2000], group_by) if mode == "list" else []):
         blocks = copy.deepcopy(tab.get("body") or [])
-
-        def fill(block: dict, record=record) -> None:
-            runs = block.get("content")
-            if not isinstance(runs, list):
-                return
-            out = []
-            for run in runs:
-                if isinstance(run, dict) and run.get("type") == "mergefield":
-                    value = str(record.get(str(run.get("name", "")), ""))
-                    if value:
-                        item = {"type": "text", "text": value}
-                        if run.get("marks"):
-                            item["marks"] = run["marks"]
-                        out.append(item)
-                else:
-                    out.append(run)
-            block["content"] = out
-        _blocks_walk(blocks, fill)
+        if not _repeat_rows(blocks, group):
+            raise ValueError("A list merge needs a table row marked to repeat. Put the cursor in the row and run merge.repeatRow.")
+        _blocks_walk(blocks, _filler(group[0], group))
+        _reid(blocks)
+        if n:
+            merged.append({"type": "pageBreak", "id": new_id("p_")})
+        merged.extend(blocks)
+    for n, record in enumerate(records[:1000] if mode == "pages" else []):
+        blocks = copy.deepcopy(tab.get("body") or [])
+        _blocks_walk(blocks, _filler(record, records[:1000]))
         _reid(blocks)
         if n:
             merged.append({"type": "pageBreak", "id": new_id("p_")})

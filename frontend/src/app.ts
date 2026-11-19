@@ -3,6 +3,7 @@ import { registerDemoCommands } from './demos';
 import type { DocSummary, FtxtDocument } from './engine/model';
 import { commands } from './engine/registry';
 import { api, type TemplateSummary } from './io/api';
+import { keyHeaders, loadWindowKey } from './io/window-key';
 import { delayedIndicator, mountOnce, q, revealApp, setHidden } from './ui/dom';
 import { Home } from './ui/home';
 import { icon } from './ui/icons';
@@ -17,7 +18,8 @@ import { unlockDocument } from './editor/ext/versions';
 import { connectBridge } from './automation/bridge';
 import { noteEdit, takeEditor } from './automation/actor';
 import { CommandPalette } from './ui/palette';
-import { TerminalDock } from './ui/terminal-dock';
+import { Dock } from './dock/dock';
+import { formtxtDock } from './dock-adapter';
 import { cmdStateChanged, setCmdState } from './ui/shell/cmd';
 import { Shortcuts } from './ui/shortcuts';
 import { toast } from './ui/toast';
@@ -53,6 +55,7 @@ async function fontsReady(timeout = 1500): Promise<void> {
 export async function startApp(): Promise<void> {
   const root = q<HTMLElement>(document, '#app');
   mountOnce(root, SHELL);
+  await loadWindowKey();
 
   commands.register({
     id: 'view.toggleTheme',
@@ -79,7 +82,7 @@ export async function startApp(): Promise<void> {
     const path = `/documents/${encodeURIComponent(doc.id)}${by ? `?by=${by}` : ''}`;
     const body = keep ? JSON.stringify(doc) : '';
     const put = (): Promise<DocSummary> => (body && new Blob([body]).size < 60000
-      ? fetch(`/api${path}`, { method: 'PUT', keepalive: true, headers: { 'content-type': 'application/json' }, body }).then(async (r) => { if (!r.ok) throw new Error(r.statusText); return (await r.json()) as DocSummary; })
+      ? fetch(`/api${path}`, { method: 'PUT', keepalive: true, headers: { 'content-type': 'application/json', ...keyHeaders() }, body }).then(async (r) => { if (!r.ok) throw new Error(r.statusText); return (await r.json()) as DocSummary; })
       : api.put<DocSummary>(path, doc));
     inFlight++;
     saving = saving.then(put).then((s) => {
@@ -267,8 +270,9 @@ export async function startApp(): Promise<void> {
     description: 'List the documents in your library, newest first.',
     run: async () => (await api.get<{ documents: DocSummary[] }>('/documents')).documents,
   });
-  const dock = new TerminalDock();
-  commands.register({ id: 'view.terminal', label: 'Terminal', group: 'View', description: 'Show or hide the terminal dock at the bottom of the window. Shells and Claude Code keep running while it is hidden.', keys: ['Ctrl+J'], run: () => { dock.toggle(); return dock.isOpen(); } });
+  const dock = new Dock(formtxtDock(() => openPreferences('Privacy')));
+  shortcuts.dockKeeps = (e) => dock.keeps(e);
+  commands.register({ id: 'view.terminal', label: 'Terminal', group: 'View', description: 'Show or hide the terminal dock, at the bottom of the window or in a column at its right. Shells and Claude Code keep running while it is hidden.', keys: ['Ctrl+J'], run: () => { dock.toggle(); return dock.isOpen(); } });
   commands.register({ id: 'view.newTerminal', label: 'New Terminal', group: 'View', description: 'Open a new shell tab in the terminal dock.', run: async () => { await dock.newTerminal(); return true; } });
   commands.register({ id: 'agent.claudeCode', label: 'Claude Code', group: 'Agent', description: 'Open Claude Code in a tab of the terminal dock, with FormTxt\'s commands attached, or hide the dock while it shows Claude Code.', run: async () => { await dock.toggleKind('claude'); return dock.isShowing('claude'); } });
   commands.register({ id: 'agent.chat', label: 'Chat with Claude', group: 'Agent', description: 'Open the Chat tab of the terminal dock and talk with Claude about your document, or hide the dock while it shows the chat.', run: async () => { await dock.toggleKind('chat'); return dock.isShowing('chat'); } });
@@ -285,9 +289,9 @@ export async function startApp(): Promise<void> {
   });
   root.prepend(shell.titlebar.root);
   shell.titlebar.root.after(shell.ribbonHost);
-  root.insertBefore(dock.root, shell.status.root);
   shell.titlebar.dock = (kind) => { void dock.toggleKind(kind); };
   dock.onTab = () => { shell?.titlebar.syncDock(dock.isOpen(), dock.activeKind()); cmdStateChanged(); };
+  dock.mount(root, shell.status.root);
   dock.onTab();
 
   root.addEventListener('click', (e) => {

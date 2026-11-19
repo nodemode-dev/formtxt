@@ -1,4 +1,5 @@
 import { api, EngineError } from './api';
+import { keyedSocket } from './window-key';
 
 export interface TerminalInfo { id: string; title: string; cwd?: string; alive: boolean; kind: 'shell' | 'claude' | 'agent' }
 export interface ClaudeCodeStatus { installed: boolean; version: string | null; install: string; signedIn: boolean | null }
@@ -18,7 +19,7 @@ export type AgentEvent =
   | { type: 'notice'; text: string };
 
 export function socketTo(path: string): WebSocket {
-  return new WebSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/api${path}`);
+  return keyedSocket(`${location.protocol === 'https:' ? 'wss:' : 'ws:'}//${location.host}/api${path}`);
 }
 
 export const term = {

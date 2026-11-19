@@ -1,7 +1,10 @@
 import csv
 import io
 import re
+import sqlite3
+import time
 import zipfile
+from pathlib import Path
 from xml.etree import ElementTree
 
 from app.services import intake
@@ -12,6 +15,8 @@ REL = "{http://schemas.openxmlformats.org/package/2006/relationships}"
 MAX_ROWS = 5000
 MAX_COLS = 60
 MAX_UNPACKED = 256 * 1024 * 1024
+SQL_ROWS = 2000
+SQL_SECONDS = 10.0
 
 
 class Unreadable(ValueError):
@@ -100,3 +105,61 @@ def parse(name: str, data: bytes, sheet: str = "") -> dict:
         raise Unreadable(f"{name}: charts read .csv, .tsv and .xlsx data")
     rows = [r for r in rows if any(c.strip() for c in r)]
     return {"rows": rows, "sheets": sheets}
+
+
+def _cell(value) -> str:
+    if value is None or isinstance(value, bytes):
+        return ""
+    if isinstance(value, float):
+        return str(int(value)) if value.is_integer() and abs(value) < 1e15 else repr(round(value, 6))
+    return str(value)
+
+
+def _sql_open(path: str) -> sqlite3.Connection:
+    raw = (path or "").strip()
+    p = Path(raw).expanduser()
+    if not raw or not p.is_absolute():
+        raise Unreadable("Give the database file as a full path, such as /Users/me/orders.db.")
+    if not p.is_file():
+        raise Unreadable(f"{p.name}: there is no database file at that path")
+    try:
+        con = sqlite3.connect(f"{p.resolve().as_uri()}?mode=ro", uri=True, timeout=2.0)
+    except sqlite3.Error as exc:
+        raise Unreadable(f"{p.name}: the database did not open ({exc})") from exc
+    try:
+        con.execute("PRAGMA query_only = ON")
+        con.execute("select count(*) from sqlite_master").fetchone()
+    except sqlite3.Error as exc:
+        con.close()
+        raise Unreadable(f"{p.name}: not a SQLite database ({exc})") from exc
+    return con
+
+
+def sqlite_rows(path: str, sql: str = "") -> dict:
+    con = _sql_open(path)
+    try:
+        tables = [r[0] for r in con.execute("select name from sqlite_master where type in ('table', 'view') and name not like 'sqlite_%' order by name")]
+        text = (sql or "").strip()
+        while text.endswith(";"):
+            text = text[:-1].rstrip()
+        if not text:
+            return {"rows": [], "sheets": tables}
+        if not re.match(r"(?is)^(select|with)\b", text):
+            raise Unreadable("Merge data reads one SELECT statement.")
+        deadline = time.monotonic() + SQL_SECONDS
+        con.set_progress_handler(lambda: int(time.monotonic() > deadline), 10000)
+        try:
+            cur = con.execute(text)
+            if cur.description is None:
+                raise Unreadable("Merge data reads one SELECT statement.")
+            head = [str(d[0]) for d in cur.description][:MAX_COLS]
+            body = [[_cell(v) for v in row[:MAX_COLS]] for row in cur.fetchmany(SQL_ROWS)]
+        except sqlite3.ProgrammingError as exc:
+            raise Unreadable("Merge data reads one SELECT statement.") from exc
+        except sqlite3.Error as exc:
+            if "interrupted" in str(exc):
+                raise Unreadable(f"The query ran longer than {int(SQL_SECONDS)} seconds.") from exc
+            raise Unreadable(f"The query did not run: {exc}") from exc
+        return {"rows": [head, *body], "sheets": tables}
+    finally:
+        con.close()

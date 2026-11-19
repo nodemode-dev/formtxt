@@ -1,6 +1,6 @@
 import type { Mark, Node as PMNode, Schema } from 'prosemirror-model';
 import { type AreaCodec, emptyCodec } from './types';
-import { CONTROL_KINDS, defaultPlaceholder } from './versions-spec';
+import { CONTROL_KINDS, MERGE_AGGS, defaultPlaceholder } from './versions-spec';
 
 const FLAGS = ['bold', 'italic', 'strike', 'superscript', 'subscript', 'smallCaps', 'allCaps', 'code'];
 
@@ -70,11 +70,12 @@ export const CODEC: AreaCodec = {
       toPM(run, schema) {
         const name = str(run.name, 80);
         if (!name) return null;
-        return schema.nodes.merge_field.create({ name }, null, marksIn(run.marks as Record<string, unknown> | undefined, schema));
+        const agg = MERGE_AGGS.includes(String(run.agg)) ? String(run.agg) : '';
+        return schema.nodes.merge_field.create({ name, agg }, null, marksIn(run.marks as Record<string, unknown> | undefined, schema));
       },
       fromPM(node) {
         const marks = marksOut(node.marks);
-        return marks ? { name: node.attrs.name, marks } : { name: node.attrs.name };
+        return { name: node.attrs.name, ...(node.attrs.agg ? { agg: node.attrs.agg } : {}), ...(marks ? { marks } : {}) };
       },
     },
   },

@@ -6,6 +6,8 @@ from fastapi import WebSocket
 _windows: dict[int, WebSocket] = {}
 _pending: dict[str, asyncio.Future] = {}
 _owner: dict[str, int] = {}
+_asks: dict[str, dict] = {}
+RETURN_SECONDS = 20
 _ids = itertools.count(1)
 
 
@@ -15,12 +17,43 @@ def attach(ws: WebSocket) -> int:
     return key
 
 
+def _closed(rid: str) -> None:
+    fut = _pending.get(rid)
+    if fut and not fut.done():
+        fut.set_result({"ok": False, "error": "The FormTxt window closed before it answered."})
+
+
+def _unclaimed(rid: str) -> None:
+    if _owner.get(rid) == 0:
+        _closed(rid)
+
+
 def detach(key: int) -> None:
     _windows.pop(key, None)
     for rid, owner in list(_owner.items()):
-        fut = _pending.get(rid)
-        if owner == key and fut and not fut.done():
-            fut.set_result({"ok": False, "error": "The FormTxt window closed before it answered."})
+        if owner != key:
+            continue
+        if rid not in _asks:
+            _closed(rid)
+            continue
+        _owner[rid] = 0
+        try:
+            asyncio.get_running_loop().call_later(RETURN_SECONDS, _unclaimed, rid)
+        except RuntimeError:
+            _closed(rid)
+
+
+async def adopt(key: int) -> None:
+    ws = _windows.get(key)
+    for rid, message in list(_asks.items()):
+        if ws is None or _owner.get(rid) != 0:
+            continue
+        _owner[rid] = key
+        try:
+            await ws.send_json(message)
+        except Exception:
+            detach(key)
+            return
 
 
 def connected() -> bool:
@@ -33,7 +66,15 @@ def resolve(message: dict) -> None:
         fut.set_result(message)
 
 
-async def call(command: str, params: dict, timeout: float = 60) -> dict:
+async def tell(message: dict) -> None:
+    for key, ws in sorted(_windows.items()):
+        try:
+            await ws.send_json(message)
+        except Exception:
+            detach(key)
+
+
+async def call(command: str, params: dict, timeout: float = 60, withdraw: bool = False) -> dict:
     from app.services import versions
     versions.agent_mark()
     for key, ws in sorted(_windows.items(), reverse=True):
@@ -41,19 +82,29 @@ async def call(command: str, params: dict, timeout: float = 60) -> dict:
         fut = asyncio.get_running_loop().create_future()
         _pending[rid] = fut
         _owner[rid] = key
+        reason = ""
         try:
+            message = {"t": "run", "id": rid, "command": command, "params": params}
             try:
-                await ws.send_json({"t": "run", "id": rid, "command": command, "params": params})
+                await ws.send_json(message)
             except Exception:
                 detach(key)
                 continue
+            if withdraw:
+                _asks[rid] = message
+            reason = "gone"
             try:
                 out = await asyncio.wait_for(fut, timeout)
             except asyncio.TimeoutError:
+                reason = "expired"
                 return {"ok": False, "error": f"The FormTxt window did not answer {command} within {int(timeout)} seconds."}
+            reason = "answered" if out.get("t") == "result" else "closed"
             return {"ok": bool(out.get("ok")), **({"result": out.get("result")} if out.get("ok") else {"error": str(out.get("error") or "The command failed.")})}
         finally:
             _pending.pop(rid, None)
             _owner.pop(rid, None)
+            _asks.pop(rid, None)
             versions.agent_mark()
+            if withdraw and reason:
+                await tell({"t": "withdrawn", "id": rid, "command": command, "reason": reason})
     return {"ok": False, "error": "No FormTxt window is open. Start it with ./formtxt and open the app, then retry."}

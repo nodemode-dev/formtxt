@@ -4,6 +4,7 @@ import { Plugin, PluginKey, Selection, type EditorState, type Transaction } from
 import { Step } from 'prosemirror-transform';
 import { Decoration, DecorationSet, type EditorView } from 'prosemirror-view';
 import { commands } from '../../../engine/registry';
+import { keyedSocket } from '../../../io/window-key';
 import { toast } from '../../../ui/toast';
 import type { DocEditor } from '../../editor';
 import { schema } from '../../schema';
@@ -124,7 +125,8 @@ async function connect(): Promise<void> {
   if (id !== docId || !id) return;
   const q = new URLSearchParams({ cid: CLIENT_ID, name, color: colorFor(CLIENT_ID).slice(1) });
   if (token && tokenDoc === id) q.set('token', token);
-  const sock = new WebSocket(`${wsUrl(`/collab/${encodeURIComponent(id)}`)}?${q.toString()}`);
+  const at = `${wsUrl(`/collab/${encodeURIComponent(id)}`)}?${q.toString()}`;
+  const sock = q.has('token') ? new WebSocket(at) : keyedSocket(at);
   ws = sock;
   sock.onopen = () => { retry = 0; join(!sid || stateIdChanged()); };
   sock.onmessage = (e) => { try { handle(JSON.parse(String(e.data)) as Record<string, unknown>); } catch { void 0; } };

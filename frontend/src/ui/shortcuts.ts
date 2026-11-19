@@ -44,6 +44,7 @@ function codeCombo(e: KeyboardEvent): string {
 export class Shortcuts {
   private custom: Record<string, string[]> = {};
   private readonly globals: Record<string, string> = {};
+  dockKeeps: (e: KeyboardEvent) => boolean = () => false;
 
   private declaredMatch(e: KeyboardEvent): string | undefined {
     if (e.defaultPrevented || e.isComposing) return undefined;
@@ -72,8 +73,8 @@ export class Shortcuts {
     });
     document.addEventListener('keydown', (e) => {
       const combo = comboOf(e);
-      if (!combo || document.querySelector('.ft-scrim:not([hidden]) .is-recording')) return;
-      const field = !!(e.target as HTMLElement | null)?.closest?.('input, textarea, select') && !/^(Shift\+)?F\d/.test(combo.replace(/^(Mod\+|Alt\+)+/, ''));
+      if (!combo || this.dockKeeps(e) || document.querySelector('.ft-scrim:not([hidden]) .is-recording')) return;
+      const field =!!(e.target as HTMLElement | null)?.closest?.('input, textarea, select') && !/^(Shift\+)?F\d/.test(combo.replace(/^(Mod\+|Alt\+)+/, ''));
       const quiet = field || !bindable(combo) || !!document.querySelector('.ft-scrim:not([hidden]), .ft-dialog-scrim:not([hidden])');
       const id = (quiet ? undefined : Object.keys(this.custom).find((cid) => this.custom[cid].includes(combo))) ?? this.globals[combo];
       if (!id || !this.reg.has(id)) return;

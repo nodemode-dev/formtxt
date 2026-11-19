@@ -1,7 +1,8 @@
 import type { CommandRegistry } from '../engine/registry';
 import { asAgent } from './actor';
 import { mirrorCatalogue } from './catalogue';
-import { askAgents } from '../ui/agent-confirm';
+import { outsideAgents } from '../dock-adapter';
+import { keyedSocket } from '../io/window-key';
 
 function safe(value: unknown): unknown {
   if (value === undefined) return null;
@@ -16,15 +17,16 @@ export function connectBridge(reg: CommandRegistry): void {
   let delay = 500;
   const open = (): void => {
     const proto = location.protocol === 'https:' ? 'wss' : 'ws';
-    const ws = new WebSocket(`${proto}://${location.host}/api/live`);
+    const ws = keyedSocket(`${proto}://${location.host}/api/live`);
     ws.onopen = () => { delay = 500; void mirrorCatalogue(reg).catch(() => undefined); };
     ws.onmessage = async (ev) => {
       let msg: { t?: string; id?: string; command?: string; params?: Record<string, unknown> };
       try { msg = JSON.parse(String(ev.data)); } catch { return; }
+      if (msg.t === 'withdrawn' && msg.id && msg.command === '__consent__') { outsideAgents.gone(msg.id); return; }
       if (msg.t !== 'run' || !msg.id || !msg.command) return;
       if (msg.command === '__consent__') {
-        const allowed = await askAgents();
-        ws.send(JSON.stringify({ t: 'result', id: msg.id, ok: true, result: { allowed } }));
+        const id = msg.id;
+        outsideAgents.arrive(id, msg.params ?? {}, (result) => { if (ws.readyState === WebSocket.OPEN) ws.send(JSON.stringify({ t: 'result', id, ok: true, result })); });
         return;
       }
       try {
@@ -34,7 +36,7 @@ export function connectBridge(reg: CommandRegistry): void {
         ws.send(JSON.stringify({ t: 'result', id: msg.id, ok: false, error: (e as Error).message }));
       }
     };
-    ws.onclose = () => { window.setTimeout(open, delay); delay = Math.min(delay * 2, 10000); };
+    ws.onclose = () => { outsideAgents.lost(); window.setTimeout(open, delay); delay = Math.min(delay * 2, 10000); };
   };
   open();
 }

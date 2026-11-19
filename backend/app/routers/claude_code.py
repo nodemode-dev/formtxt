@@ -4,11 +4,13 @@ import json
 from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from pydantic import BaseModel, Field
 
+from app.core import window_key
 from app.routers.terminal import document_folder, origin_ok, release_socket, require_local, server_port, take_socket
-from app.services import claude_code, terminal
+from app.services import agent_programs, claude_code, terminal
 
 router = APIRouter(prefix="/api/agent/claude", tags=["agent"])
 window_router = APIRouter(prefix="/api/claude-code", tags=["agent"])
+programs_router = APIRouter(prefix="/api/agents", tags=["agent"])
 
 
 class StartBody(BaseModel):
@@ -35,7 +37,13 @@ def status(request: Request, fresh: bool = False) -> dict:
 def window_status(request: Request, fresh: bool = False) -> dict:
     require_local(request)
     tab = next((s.describe() for s in terminal.SESSIONS.values() if s.kind == "claude"), None)
-    return claude_code.info(fresh=fresh) | {"folder": claude_code.workdir(document_folder()), "terminal": tab}
+    return claude_code.info(fresh=fresh) | {"folder": claude_code.workdir(document_folder()), "terminal": tab, "agents": agent_programs.status()}
+
+
+@programs_router.get("/status")
+def programs_status(request: Request, fresh: bool = False) -> dict:
+    require_local(request)
+    return agent_programs.report(fresh=fresh)
 
 
 @router.post("/start")
@@ -86,6 +94,9 @@ async def stream(ws: WebSocket) -> None:
         await ws.close(code=4429)
         return
     await ws.accept()
+    if not await window_key.socket_window(ws):
+        release_socket()
+        return
     queue: asyncio.Queue = asyncio.Queue()
     claude_code.AGENT.subscribers.add(queue)
 

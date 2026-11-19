@@ -140,7 +140,7 @@ export function mountShell(d: ShellDeps): Shell {
     },
     qatHost: () => titlebar.qatHost,
   });
-  new KeyTips(ribbon.tipHost(), () => !document.querySelector('.ft-dialog-scrim:not([hidden]), .ft-scrim:not([hidden])') && !document.activeElement?.closest('input, textarea, select'));
+  new KeyTips(ribbon.tipHost(), () => !document.querySelector('.ft-dialog-scrim:not([hidden]), .ft-scrim:not([hidden])') && !document.activeElement?.closest('input, textarea, select, .ft-dock, .ft-consent, .ft-tour'));
 
   const menus = wordMenus(d.recent);
   new MenuBar(titlebar.menubar, shellCommands, menus);

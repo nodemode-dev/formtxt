@@ -2,6 +2,7 @@ import threading
 
 import pytest
 
+from app.core import window_key
 from app.routers import commands as commands_router
 
 WINDOW_COMMANDS = [
@@ -66,6 +67,7 @@ def run_through_window(client, path, payload, answer):
         sent["reply"] = client.post(path, json=payload).json()
 
     with client.websocket_connect("/api/live", headers=LOOPBACK) as ws:
+        ws.send_json({"type": "key", "key": window_key.KEY})
         worker = threading.Thread(target=call)
         worker.start()
         request = ws.receive_json()

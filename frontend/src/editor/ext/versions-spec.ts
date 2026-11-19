@@ -2,6 +2,7 @@ import type { Node as PMNode } from 'prosemirror-model';
 import { type AreaSpec, emptySpec } from './types';
 
 export const CONTROL_KINDS = ['text', 'richtext', 'checkbox', 'date', 'dropdown'] as const;
+export const MERGE_AGGS: readonly string[] = ['sum', 'count', 'avg', 'min', 'max'];
 export type ControlKind = (typeof CONTROL_KINDS)[number];
 
 const controlDom = (n: PMNode): readonly unknown[] => {
@@ -41,9 +42,9 @@ export const SPEC: AreaSpec = {
       group: 'inline',
       atom: true,
       selectable: true,
-      attrs: { name: { default: '' } },
-      parseDOM: [{ tag: 'span.ft-mf', getAttrs: (dom: HTMLElement) => ({ name: dom.dataset.name || '' }) }],
-      toDOM: (n) => ['span', { class: 'ft-mf', contenteditable: 'false', 'data-name': String(n.attrs.name), title: `Merge field ${String(n.attrs.name)}` }, ['span', { class: 'ft-mf-name' }, `«${String(n.attrs.name)}»`]],
+      attrs: { name: { default: '' }, agg: { default: '' } },
+      parseDOM: [{ tag: 'span.ft-mf', getAttrs: (dom: HTMLElement) => ({ name: dom.dataset.name || '', agg: dom.dataset.agg || '' }) }],
+      toDOM: (n) => ['span', { class: 'ft-mf', contenteditable: 'false', 'data-name': String(n.attrs.name), ...(n.attrs.agg ? { 'data-agg': String(n.attrs.agg) } : {}), title: n.attrs.agg ? `Total (${String(n.attrs.agg)}) of merge field ${String(n.attrs.name)}` : `Merge field ${String(n.attrs.name)}` }, ['span', { class: 'ft-mf-name' }, n.attrs.agg ? `«${String(n.attrs.agg)} of ${String(n.attrs.name)}»` : `«${String(n.attrs.name)}»`]],
     },
     signature_line: {
       group: 'block',

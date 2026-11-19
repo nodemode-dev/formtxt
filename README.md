@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img alt="version 0.33.0" src="https://img.shields.io/badge/version-0.33.0-eef0f4?style=flat-square">
+  <img alt="version 0.34.0" src="https://img.shields.io/badge/version-0.34.0-eef0f4?style=flat-square">
   <img alt="TypeScript and Vite" src="https://img.shields.io/badge/TypeScript%20%2B%20Vite-3178c6?style=flat-square&logo=typescript&logoColor=white">
   <img alt="Python and FastAPI" src="https://img.shields.io/badge/Python%20%2B%20FastAPI-009688?style=flat-square">
   <img alt="macOS, Windows, Linux" src="https://img.shields.io/badge/macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-native-2f7bf5?style=flat-square">
@@ -24,7 +24,7 @@
   <a href="#run-it-from-source">Run it from source</a>
 </p>
 
-Version 0.33.0 · Apache-2.0 · macOS, Windows, Linux (browser, or the desktop app built with ./build_app)
+Version 0.34.0 · Apache-2.0 · macOS, Windows, Linux (browser, or the desktop app built with ./build_app)
 
 <br>
 
@@ -97,6 +97,8 @@ Version 0.33.0 · Apache-2.0 · macOS, Windows, Linux (browser, or the desktop a
   </tr>
 </table>
 
+**Themes:** dark and light themes for the window, among them High Contrast and AMOLED Black, which is true black for OLED screens. Pick one in Preferences, under Interface, or turn on Match System Appearance to follow the computer's light or dark setting. Dark Page on the View tab darkens the page itself.
+
 ## Built for agents
 
 The editor's commands live in one catalogue, and the window and the terminal call the same ones.
@@ -104,12 +106,26 @@ The editor's commands live in one catalogue, and the window and the terminal cal
 ```sh
 ./formtxt cli list                                                  # the command catalogue
 ./formtxt cli describe tools.stats                                  # one command and its arguments
-./formtxt cli run edit.replaceAll find=draft replace=final          # run a command in the open window
+./formtxt cli run edit.replaceAll find=draft replace=final          # run a command in the open window, as an outside agent
 ./formtxt mcp                                                       # MCP server on stdio for Claude Code, Codex and Cursor
 ./formtxt agents install                                            # register that server and the formtxt-driving skill for this user
 ```
 
-The commands need the window open, and the first one an outside agent runs asks you once in the window. `.mcp.json`, `.codex/config.toml` and `.cursor/mcp.json` are already wired in this repo. See [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md).
+### Mail merge and list reports
+
+- **Mail merge** fills merge fields from a CSV file, an Excel sheet, pasted rows or a **database file**: in Mailings > Mail merge, pick a SQLite file, a table and one SELECT. The file is opened read-only and the query is kept with the document, so `merge.refresh` reads it again.
+- **List reports**: mark a table row to repeat (`merge.repeatRow`) and finish the merge as a list (`merge.finish mode=list`) to get one document with a row per record. Group it by a column (`groupBy=order_id`) for a page per group, and give a merge field a total (sum, count, average, minimum or maximum) from the Total menu.
+- **`report run`** merges a template with a database query in the engine and writes a PDF, .docx or .ftxt, with no window open:
+
+```sh
+./formtxt report run template=<id> db=/path/orders.db sql="select * from order_items" out=/path/invoice.pdf
+```
+
+It asks the same Allow outside agents question as the agents below, because it saves a file where it is told; an existing file is kept unless you add `overwrite=true`.
+
+The commands need the window open, and the first one an outside agent runs asks you in the window: **Allow outside agents?** **Allow** lets outside agents run commands from then on; **Don't Allow** refuses. Only the FormTxt window can change that choice, with the question or with **Allow outside agents** in Preferences, under Privacy. Agents and other programs follow it, and `./formtxt cli run` and `./formtxt report run` count as outside agents. If the saved choice is changed outside the app, FormTxt asks again (the check uses your system password store; without one it is skipped). The terminal, Claude Code, chat and cloud storage commands stay yours and are refused to agents. A script that drives FormTxt uses `./formtxt cli run`, `./formtxt report run` or the MCP server, because every other route that changes something answers only the window. Details in [`SECURITY.md`](SECURITY.md).
+
+`.mcp.json`, `.codex/config.toml` and `.cursor/mcp.json` are already wired in this repo. See [`AGENTS.md`](AGENTS.md) and [`CLAUDE.md`](CLAUDE.md).
 
 ## Under the hood
 

@@ -101,6 +101,7 @@ class Agent:
         self.streamed: set[str] = set()
         self.message_id = ""
         self.stderr_tail: list[str] = []
+        self.token = ""
 
     def describe(self) -> dict:
         return {"running": self.proc is not None and self.proc.poll() is None, "state": self.state, "mode": self.mode, "session": self.session}
@@ -329,9 +330,13 @@ def start(mode: str = "ask", fresh: bool = False, port: int | None = None) -> di
     AGENT.streamed.clear()
     AGENT.names.clear()
     set_state("starting")
+    agents.revoke(AGENT.token)
+    AGENT.token = agents.issue() if port else ""
     try:
-        proc = subprocess.Popen(args, cwd=str(config.REPO_DIR), env=child_env() | ({INAPP_VAR: agents.INAPP_TOKEN} if port else {}), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
+        proc = subprocess.Popen(args, cwd=str(config.REPO_DIR), env=child_env() | ({INAPP_VAR: AGENT.token} if port else {}), stdin=subprocess.PIPE, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, bufsize=1)
     except OSError as exc:
+        agents.revoke(AGENT.token)
+        AGENT.token = ""
         set_state("exited")
         raise RuntimeError(f"Claude Code could not start: {exc}")
     AGENT.proc = proc
@@ -355,6 +360,8 @@ def stop(quiet: bool = False) -> dict:
     proc = AGENT.proc
     AGENT.gen += 1
     AGENT.proc = None
+    agents.revoke(AGENT.token)
+    AGENT.token = ""
     for gate in list(AGENT.waiting.values()):
         gate["allow"] = False
         gate["event"].set()
@@ -385,16 +392,19 @@ def program() -> str | None:
     return path if path and os.path.isfile(path) and os.access(path, os.X_OK) else None
 
 
+TAB_SERVER = "formtxt_tab"
+
+
 def inapp_mcp_config(port: int) -> str:
-    return json.dumps({"mcpServers": {"formtxt": {"type": "http", "url": f"http://127.0.0.1:{port}/mcp", "headers": {agents.INAPP_HEADER: "${" + INAPP_VAR + "}"}}}})
+    return json.dumps({"mcpServers": {TAB_SERVER: {"type": "http", "url": f"http://127.0.0.1:{port}/mcp", "headers": {agents.INAPP_HEADER: "${" + INAPP_VAR + "}"}}}})
 
 
-def terminal_env() -> dict:
-    return {k: v for k, v in terminal.base_env().items() if not k.startswith("CLAUDE") or k in KEEP_ENV} | {INAPP_VAR: agents.INAPP_TOKEN}
+def terminal_env(token: str) -> dict:
+    return {k: v for k, v in terminal.base_env().items() if not k.startswith("CLAUDE") or k in KEEP_ENV} | {INAPP_VAR: token}
 
 
 def terminal_argv(path: str, port: int, prompt: str | None, resume: str | None) -> list[str]:
-    cmd = [path, "--mcp-config", inapp_mcp_config(port), "--allowedTools", "mcp__formtxt", "--append-system-prompt", TERMINAL_NOTE]
+    cmd = [path, "--mcp-config", inapp_mcp_config(port), "--allowedTools", f"mcp__{TAB_SERVER}", "--append-system-prompt", TERMINAL_NOTE]
     if resume:
         cmd += ["--strict-mcp-config", "--resume", resume]
     if prompt:
@@ -421,4 +431,11 @@ def open_terminal(port: int, prompt: str | None = None, resume: str | None = Non
             raise LookupError(MISSING)
         title = "Claude Code (from Chat)" if resume else "Claude Code"
         folder = str(config.REPO_DIR) if resume else workdir(document_folder)
-        return terminal.open_session(folder, cols, rows, title, terminal_argv(path, port, prompt, resume), terminal_env(), "claude").describe()
+        token = agents.issue()
+        try:
+            session = terminal.open_session(folder, cols, rows, title, terminal_argv(path, port, prompt, resume), terminal_env(token), "claude")
+        except BaseException:
+            agents.revoke(token)
+            raise
+        session.on_close.append(lambda: agents.revoke(token))
+        return session.describe()

@@ -1,5 +1,6 @@
 import { commands } from '../../../engine/registry';
 import { EngineError } from '../../../io/api';
+import { keyHeaders } from '../../../io/window-key';
 import { toast } from '../../../ui/toast';
 import type { DocEditor } from '../../editor';
 import { drawings } from './raster';
@@ -31,7 +32,7 @@ export async function exportPdf(ed: DocEditor, tagged: boolean, id: string): Pro
   const flag = `tagged=${tagged ? 'true' : 'false'}`;
   const res = id
     ? await fetch(`/api/documents/${encodeURIComponent(id)}/export.pdf?${flag}`)
-    : await fetch(`/api/print/export.pdf?${flag}`, { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ ...doc, _drawings: await drawings(ed).catch(() => ({ blocks: {}, shapes: {} })) }) });
+    : await fetch(`/api/print/export.pdf?${flag}`, { method: 'POST', headers: { 'content-type': 'application/json', ...keyHeaders() }, body: JSON.stringify({ ...doc, _drawings: await drawings(ed).catch(() => ({ blocks: {}, shapes: {} })) }) });
   if (!res.ok) return fail(res);
   const blob = await res.blob();
   const title = (doc?.title ?? ed.current()?.title ?? 'document').replace(/[^\w .-]+/g, '').trim() || 'document';
@@ -70,7 +71,7 @@ async function finishOpen(res: Response): Promise<PdfOpen> {
 
 export async function openPdf(path: string): Promise<PdfOpen> {
   if (path) {
-    return finishOpen(await fetch('/api/print/open-pdf-path', { method: 'POST', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ path }) }));
+    return finishOpen(await fetch('/api/print/open-pdf-path', { method: 'POST', headers: { 'content-type': 'application/json', ...keyHeaders() }, body: JSON.stringify({ path }) }));
   }
   const input = filePicker();
   input.value = '';
@@ -82,5 +83,5 @@ export async function openPdf(path: string): Promise<PdfOpen> {
   if (!file) throw new Error('No PDF was chosen.');
   const form = new FormData();
   form.append('file', file, file.name);
-  return finishOpen(await fetch('/api/print/open-pdf', { method: 'POST', body: form }));
+  return finishOpen(await fetch('/api/print/open-pdf', { method: 'POST', headers: keyHeaders(), body: form }));
 }

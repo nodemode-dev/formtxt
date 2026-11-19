@@ -53,7 +53,7 @@ const EFFORT_CHOICES: ReadonlyArray<readonly [string, string]> = [['fast', 'Fast
 const PROVIDER_CHOICES: ReadonlyArray<readonly [string, string]> = [['anthropic', 'Anthropic (Claude)'], ['openai', 'OpenAI-compatible (OpenAI, Ollama, LM Studio)']];
 const DEFAULT_MODEL: Record<string, string> = { anthropic: 'claude-sonnet-4-5', openai: 'gpt-4o-mini' };
 
-interface EngineSettings { author?: string; agentsAllowed?: boolean; stockImages?: boolean; linkPreviews?: boolean; pexelsKeySet?: boolean; pexelsLast4?: string; secretStore?: { store: string; backend: string } }
+interface EngineSettings { author?: string; agentsAllowed?: boolean; agentsBlocked?: boolean; stockImages?: boolean; linkPreviews?: boolean; pexelsKeySet?: boolean; pexelsLast4?: string; secretStore?: { store: string; backend: string } }
 interface CloudState { folder: string; user?: string; passwordSet?: boolean }
 interface AddinRow { id: string; name: string; enabled: boolean; permissions: string[] }
 
@@ -191,6 +191,7 @@ class PrefsDialog {
   private readonly stockRow = toggleRow('Search stock pictures online', (v) => this.saveEngine({ stockImages: v }));
   private readonly previewRow = toggleRow('Fetch link previews', (v) => this.saveEngine({ linkPreviews: v }));
   private readonly agentsRow = toggleRow('Allow outside agents', (v) => this.saveEngine({ agentsAllowed: v }));
+  private readonly blockRow = toggleRow('Block all agents', (v) => this.saveEngine({ agentsBlocked: v }));
   private readonly pexelsRow = textRow('Pexels API key', { type: 'password', onCommit: (v) => { if (v.trim()) this.saveEngine({ pexelsKey: v.trim() }, true); } });
   private readonly pexelsForget = buttonRow('Saved Pexels key', 'Forget the key', () => this.saveEngine({ pexelsKey: '' }));
   private readonly privacyNote = nt('', true);
@@ -284,7 +285,7 @@ class PrefsDialog {
     this.add('Privacy',
       grp('Online features', this.stockRow.el, this.previewRow.el, nt('Stock pictures contact Openverse and, with a key, Pexels, through the engine. Link previews fetch the title of a page you link to. Nothing else leaves this computer unless you turn on AI or cloud storage.')),
       grp('Pexels', this.pexelsRow.el, this.pexelsForget.el, this.privacyNote),
-      grp('Outside agents', this.agentsRow.el, nt('Agents you run outside FormTxt, such as Claude Code in your own terminal, reach the open window through FormTxt\'s MCP server on this computer. While this is off, the first command such an agent runs asks you in the window. Claude Code in the terminal dock is always allowed.')));
+      grp('Outside agents', this.agentsRow.el, this.blockRow.el, nt('Agents you run outside FormTxt, such as Claude Code in your own terminal, reach the open window through FormTxt\'s MCP server on this computer. While Allow outside agents is off, each command such an agent runs asks you in the window. Claude Code, Codex, Cursor and Chat in the terminal dock are allowed without asking. Block all agents refuses every agent, the ones in the terminal dock included; the dock and its plain shell still open.')));
 
     const wrap = el('<div class="ft-prefs"></div>');
     wrap.append(this.pages);
@@ -577,6 +578,7 @@ class PrefsDialog {
     this.stockRow.set(e.stockImages !== false);
     this.previewRow.set(e.linkPreviews !== false);
     this.agentsRow.set(e.agentsAllowed === true);
+    this.blockRow.set(e.agentsBlocked === true);
     const hint = e.pexelsKeySet ? (e.pexelsLast4 ? `Saved, ends in ${e.pexelsLast4}` : 'A key is saved; paste a new one to replace it') : 'Paste a free key from pexels.com/api';
     if (this.pexelsRow.input.placeholder !== hint) this.pexelsRow.input.placeholder = hint;
     this.pexelsForget.setEnabled(!!e.pexelsKeySet);

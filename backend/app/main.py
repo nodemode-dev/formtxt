@@ -11,8 +11,9 @@ from fastapi.staticfiles import StaticFiles
 
 from app.core import config
 from app.core.local_guard import LocalGuard
+from app.core.window_key import WindowKeyGuard
 from app.routers import blocks, commands, data, documents, formula, live, mcp, stock, system, templates
-from app.routers import ai, collab, exchange, objects, printing, proofing, refs, review, versions
+from app.routers import ai, collab, exchange, objects, printing, proofing, refs, reports, review, versions
 from app.routers import claude_code, terminal
 from app.services import claude_code as _claude_service, terminal as _terminal_service
 
@@ -50,6 +51,7 @@ async def lifespan(_: FastAPI):
 
 app = FastAPI(title=config.APP_TITLE, version=config.VERSION, lifespan=lifespan)
 app.add_middleware(CORSMiddleware, allow_origins=config.cors_origins(), allow_methods=["*"], allow_headers=["*"])
+app.add_middleware(WindowKeyGuard)
 app.add_middleware(LocalGuard, origins=config.cors_origins())
 app.include_router(system.router, prefix="/api")
 app.include_router(documents.router, prefix="/api")
@@ -58,7 +60,7 @@ app.include_router(data.router, prefix="/api")
 app.include_router(formula.router, prefix="/api")
 app.include_router(blocks.router, prefix="/api")
 app.include_router(stock.router, prefix="/api")
-for _area in (refs, review, versions, exchange, printing, proofing, ai, objects, collab):
+for _area in (refs, review, versions, exchange, printing, proofing, ai, objects, collab, reports):
     app.include_router(_area.router, prefix="/api")
 app.include_router(commands.router)
 app.include_router(live.router)
@@ -66,6 +68,7 @@ app.include_router(mcp.router)
 app.include_router(terminal.router)
 app.include_router(claude_code.router)
 app.include_router(claude_code.window_router)
+app.include_router(claude_code.programs_router)
 
 _dist = config.dist_dir()
 if _dist is not None:

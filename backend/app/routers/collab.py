@@ -1,11 +1,11 @@
 import json
 from urllib.parse import quote
 
-from fastapi import APIRouter, HTTPException, WebSocket, WebSocketDisconnect
+from fastapi import APIRouter, HTTPException, Request, WebSocket, WebSocketDisconnect
 from fastapi.responses import HTMLResponse, Response
 from pydantic import BaseModel
 
-from app.core import config
+from app.core import config, window_key
 from app.core.ids import is_id
 from app.services import store
 from app.services.collab import addins, hub, library, links, publish
@@ -58,6 +58,8 @@ async def collab_socket(ws: WebSocket, doc_id: str) -> None:
         await ws.close(code=4403)
         return
     await ws.accept()
+    if not link and not await window_key.socket_window(ws):
+        return
     q = ws.query_params
     peer = await hub.attach(doc_id, ws, q.get("cid", ""), q.get("name", ""), "#" + q.get("color", "2563eb"), access)
     try:
@@ -98,7 +100,8 @@ class NewLink(BaseModel):
 
 
 @router.get("/collab/links")
-def list_links(doc: str = "") -> dict:
+def list_links(request: Request, doc: str = "") -> dict:
+    window_key.require(request)
     return {"links": links.listing(doc or None), "network": links.network_info()}
 
 

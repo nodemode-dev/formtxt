@@ -33,7 +33,11 @@ something outside it could get in:
   more access than a link's mode gives, or reaching a document without a link.
 - **Outside agents**: the engine's MCP endpoint runs commands in the open window only
   after the person allows outside agents. Getting past that consent, or running the
-  window-only terminal, Claude Code and chat commands from an agent.
+  window-only terminal, Claude Code, chat and cloud storage commands from an agent.
+  Every other change through the engine needs a key that only the app's own window
+  holds for that launch; `POST /api/reports/run` is the one other route open to
+  outside callers, and it asks for the same consent. Run from source, the first page
+  to open takes the key, so open the window before anything else.
 - **The terminal dock**: anything that lets a web page, a document or another machine
   reach the shells the engine runs.
 - **Keys and passwords** kept in the system password store, and **password-protected

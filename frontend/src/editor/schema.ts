@@ -424,9 +424,9 @@ const nodes: Record<string, NodeSpec> = {
   },
   table_row: {
     ...tables.table_row,
-    attrs: { height: { default: 0 } },
-    parseDOM: [{ tag: 'tr', getAttrs: (dom: HTMLElement) => ({ height: Number(dom.dataset.height) || 0 }) }],
-    toDOM: (n) => ['tr', n.attrs.height ? { 'data-height': String(n.attrs.height), style: `height:${Math.round(Number(n.attrs.height) * 96 / 72)}px` } : {}, 0],
+    attrs: { height: { default: 0 }, repeat: { default: false } },
+    parseDOM: [{ tag: 'tr', getAttrs: (dom: HTMLElement) => ({ height: Number(dom.dataset.height) || 0, repeat: dom.dataset.repeat === 'true' }) }],
+    toDOM: (n) => ['tr', { ...(n.attrs.height ? { 'data-height': String(n.attrs.height), style: `height:${Math.round(Number(n.attrs.height) * 96 / 72)}px` } : {}), ...(n.attrs.repeat ? { 'data-repeat': 'true', title: 'This row repeats once per merge record' } : {}) }, 0],
   },
   table_cell: tables.table_cell,
   table_header: tables.table_header,
