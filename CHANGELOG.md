@@ -1,5 +1,20 @@
 # Changelog
 
+## 0.34.0 · 2026-11-19
+
+- Mail merge data can come from a SQLite database file: pick a table or write one SELECT. The file is opened read-only and the query is kept with the document.
+- List reports: a table row can repeat once per record, a merge can finish as one list, a list can be grouped by a column with a page per group, and merge fields can total a column (sum, count, average, minimum, maximum).
+- `./formtxt report run` (and `formtxt.bat report`) merges a template with a database query and writes a PDF, .docx or .ftxt with no window open. Another program on this computer, FormCel for one, can ask FormTxt for a report in the same way, and is asked about first like any outside agent.
+- The terminal panel can sit at the bottom of the window or in a column at its right; its height and its width are remembered apart. It has Codex and Cursor tabs when those programs are found on this computer, and it shows a short guide the first time it is opened.
+- The question about an outside agent names the agent and what it asked, and can be answered Deny, Allow once or Always allow all outside agents. It says that a report run saves a file on this computer. It is shown again after a reload and goes away when the agent stops waiting.
+- Preferences, under Privacy, has Block all agents, which refuses every agent, the ones in the terminal panel included.
+- Changes from outside FormTxt's window are refused: only the window can change settings, use the terminals, Claude Code and Chat, set cloud storage, or change documents directly. Outside agents come in through MCP and are asked about first, and `./formtxt cli run` is now treated as one of them.
+- When the saved choice for outside agents was changed outside FormTxt, it no longer counts, and the question says so when it asks again.
+- Keys typed in the terminal panel stay there. Two still reach FormTxt: Ctrl or Cmd with comma for Preferences, and Ctrl or Cmd with Shift+P for the command palette. Holding Ctrl+J or Cmd+J shows or hides the panel once.
+- The desktop app waits at most 10 seconds for its engine to start and otherwise says that it did not start.
+- For agents: `agents/manifest.json` says what FormTxt offers them, the MCP tools say which of them only read, and `./formtxt agents check` fails when a file of the terminal panel differs from its record.
+- The README says who can change agent access and names the themes.
+
 ## 0.33.0 · 2026-11-17
 
 - AMOLED Black, a theme for OLED screens: the window, panels, ribbon and canvas are true black, with thin grey borders between them. Pick it in Preferences, under Interface, in the theme grid after High Contrast, or as the Dark theme for Match System Appearance.
