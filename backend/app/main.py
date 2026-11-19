@@ -68,6 +68,7 @@ app.include_router(mcp.router)
 app.include_router(terminal.router)
 app.include_router(claude_code.router)
 app.include_router(claude_code.window_router)
+app.include_router(claude_code.programs_router)
 
 _dist = config.dist_dir()
 if _dist is not None:

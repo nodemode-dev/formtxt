@@ -10,6 +10,7 @@ from app.services import agent_programs, claude_code, terminal
 
 router = APIRouter(prefix="/api/agent/claude", tags=["agent"])
 window_router = APIRouter(prefix="/api/claude-code", tags=["agent"])
+programs_router = APIRouter(prefix="/api/agents", tags=["agent"])
 
 
 class StartBody(BaseModel):
@@ -37,6 +38,12 @@ def window_status(request: Request, fresh: bool = False) -> dict:
     require_local(request)
     tab = next((s.describe() for s in terminal.SESSIONS.values() if s.kind == "claude"), None)
     return claude_code.info(fresh=fresh) | {"folder": claude_code.workdir(document_folder()), "terminal": tab, "agents": agent_programs.status()}
+
+
+@programs_router.get("/status")
+def programs_status(request: Request, fresh: bool = False) -> dict:
+    require_local(request)
+    return agent_programs.report(fresh=fresh)
 
 
 @router.post("/start")
