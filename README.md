@@ -97,6 +97,8 @@ Version 0.33.0 · Apache-2.0 · macOS, Windows, Linux (browser, or the desktop a
   </tr>
 </table>
 
+**Themes:** dark and light themes for the window, among them High Contrast and AMOLED Black, which is true black for OLED screens. Pick one in Preferences, under Interface, or turn on Match System Appearance to follow the computer's light or dark setting. Dark Page on the View tab darkens the page itself.
+
 ## Built for agents
 
 The editor's commands live in one catalogue, and the window and the terminal call the same ones.
