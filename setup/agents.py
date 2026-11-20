@@ -26,7 +26,7 @@ MANIFEST = os.path.join(ROOT, "agents", "manifest.json")
 MANIFEST_REL = "agents/manifest.json"
 MCP_ROUTER = os.path.join(ROOT, "backend", "app", "routers", "mcp.py")
 MCP_BRIDGE = os.path.join(ROOT, "setup", "mcp_stdio.py")
-DOCK = {"present": True, "positions": ["bottom", "right"], "tabs": ["chat", "terminal", "claude-code", "codex", "cursor", "activity"]}
+DOCK = {"present": True, "positions": ["bottom", "right"], "tabs": ["chat", "terminal", "claude-code", "codex", "cursor", "antigravity", "activity"]}
 DOCK_DIR = os.path.join(ROOT, "frontend", "src", "dock")
 DOCK_DIR_REL = "frontend/src/dock"
 DOCK_MANIFEST = os.path.join(DOCK_DIR, "MANIFEST.json")
@@ -471,11 +471,45 @@ def install_cursor(home, dry, said):
     copy_skills(home / ".agents" / "skills", dry, said)
 
 
+def ours(entry):
+    return isinstance(entry, dict) and entry.get("args") == ARGS and Path(str(entry.get("command", ""))).name == Path(LAUNCH).name
+
+
+def install_antigravity(home, dry, said):
+    said.append("Antigravity:")
+    cfg = home / ".gemini" / "config" / "mcp_config.json"
+    older = home / ".gemini" / "antigravity-cli" / "mcp_config.json"
+    if older.exists() and not cfg.exists():
+        said.append(f"  an older file was seen at {older} and left alone; the documented file is {cfg}")
+    try:
+        data = json.loads(cfg.read_text(encoding="utf-8") or "{}") if cfg.exists() else {}
+    except ValueError:
+        data = None
+    if not isinstance(data, dict) or not isinstance(data.get("mcpServers", {}), dict):
+        said.append(f"  {cfg} is not an MCP servers file FormTxt can read; left alone")
+        return
+    entry = {"command": LAUNCH, "args": ARGS}
+    have = data.get("mcpServers", {}).get(LAUNCHER)
+    if have == entry:
+        said.append(f"  MCP server {LAUNCHER} already in {cfg}")
+    elif have is not None and not ours(have):
+        said.append(f"  {cfg} has a server named {LAUNCHER} that FormTxt did not write; left alone")
+    else:
+        said.append(f"  MCP server {LAUNCHER} -> {cfg}")
+        if not dry:
+            backup(cfg, dry)
+            data.setdefault("mcpServers", {})[LAUNCHER] = entry
+            cfg.parent.mkdir(parents=True, exist_ok=True)
+            part = cfg.with_name(cfg.name + f".part-{os.getpid()}")
+            part.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+            os.replace(part, cfg)
+
+
 def install(clients, dry):
     home = Path(os.environ.get("HOME", str(Path.home())))
     said = []
-    for client in clients or ["claude", "codex", "cursor"]:
-        {"claude": install_claude, "codex": install_codex, "cursor": install_cursor}[client](home, dry, said)
+    for client in clients or ["claude", "codex", "cursor", "antigravity"]:
+        {"claude": install_claude, "codex": install_codex, "cursor": install_cursor, "antigravity": install_antigravity}[client](home, dry, said)
     print(("Would do (dry run):\n" if dry else "") + "\n".join(said))
     if not dry:
         print("\nRestart the clients. The first command an agent runs asks you once, in the FormTxt window, to allow outside agents.")
@@ -488,8 +522,8 @@ def main():
     sync_parser = sub.add_parser("sync", help="mirror .claude/skills into .agents/skills and write agents/manifest.json")
     sync_parser.add_argument("--check", action="store_true", help="only check, as agents check does")
     sub.add_parser("check", help="check the mirror, the skills, the MCP configs and the manifest")
-    inst = sub.add_parser("install", help="register FormTxt's MCP server and skill with Claude Code, Codex and Cursor for this user")
-    inst.add_argument("clients", nargs="*", choices=["claude", "codex", "cursor"], help="which clients (default all three)")
+    inst = sub.add_parser("install", help="register FormTxt's MCP server with Claude Code, Codex, Cursor and Antigravity for this user, and its skill with the first three")
+    inst.add_argument("clients", nargs="*", choices=["claude", "codex", "cursor", "antigravity"], help="which clients (default all four)")
     inst.add_argument("--dry-run", action="store_true", help="say what would change and change nothing")
     args = parser.parse_args()
     if args.action == "install":
