@@ -141,3 +141,49 @@ def engine():
         proc.wait(timeout=10)
     except subprocess.TimeoutExpired:
         proc.kill()
+
+
+STAND_IN_SHELL = """#!/bin/sh
+script=""
+while [ $# -gt 0 ]; do
+  if [ "$1" = "-c" ]; then shift; script="$1"; fi
+  shift
+done
+if [ -f "$HOME/.shell-path" ]; then PATH="$(cat "$HOME/.shell-path"):$PATH"; export PATH; fi
+exec /bin/sh -c "$script"
+"""
+STAND_IN = """#!/bin/sh
+if [ "$1" = "--version" ]; then echo "9.9.9 (stand-in)"; exit 0; fi
+echo "stand-in started"
+read line
+"""
+SYSTEM_PATH = "/usr/bin:/bin:/usr/sbin:/sbin"
+FOLDER_VARS = ("NPM_CONFIG_PREFIX", "npm_config_prefix", "PNPM_HOME", "VOLTA_HOME", "BUN_INSTALL", "NVM_SYMLINK")
+
+
+def stand_in(path, text=STAND_IN):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+    path.chmod(0o755)
+    return path
+
+
+@pytest.fixture
+def dock_start(tmp_path, monkeypatch):
+    from app.services import agent_lookup, agent_programs, claude_code
+
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("SHELL", str(stand_in(tmp_path / "zsh", STAND_IN_SHELL)))
+    monkeypatch.setenv("PATH", SYSTEM_PATH)
+    for name in [n for names in claude_code.OVERRIDES.values() for n in names] + list(FOLDER_VARS):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(agent_lookup, "system_folders", lambda platform=None: [])
+    claude_code._cache.update(at=0.0, value=None)
+    agent_programs._cache.update(at=0.0, value=None)
+    agent_lookup.forget()
+    yield home
+    claude_code._cache.update(at=0.0, value=None)
+    agent_programs._cache.update(at=0.0, value=None)
+    agent_lookup.forget()

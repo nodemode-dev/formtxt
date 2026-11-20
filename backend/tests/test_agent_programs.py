@@ -4,32 +4,27 @@ import time
 import pytest
 
 from app.core import window_key
+from conftest import SYSTEM_PATH, stand_in
 
 
 @pytest.fixture
-def stand_ins(tmp_path, monkeypatch):
+def stand_ins(tmp_path, dock_start, monkeypatch):
     folder = tmp_path / "bin"
-    folder.mkdir()
     for name in ("codex", "cursor-agent"):
-        script = folder / name
-        script.write_text('#!/bin/sh\necho "stand-in started"\nread line\n')
-        script.chmod(0o755)
-    monkeypatch.setenv("PATH", f"{folder}{os.pathsep}{os.environ.get('PATH', '')}")
+        stand_in(folder / name)
+    monkeypatch.setenv("PATH", f"{folder}{os.pathsep}{SYSTEM_PATH}")
     return folder
 
 
 @pytest.fixture
-def no_login_shell(monkeypatch):
-    from app.services import agent_programs
-
-    monkeypatch.setattr(agent_programs.terminal, "login_shell", lambda: ["/bin/sh", "-c", "exit 1", "--"])
+def no_login_shell(dock_start):
+    return dock_start
 
 
-def test_the_status_says_codex_and_cursor_are_missing_with_how_to_get_them(client, no_login_shell, monkeypatch):
-    monkeypatch.setenv("PATH", "/usr/bin:/bin")
+def test_the_status_says_codex_and_cursor_are_missing_with_how_to_get_them(client, no_login_shell):
     agents = client.get("/api/claude-code/status").json()["agents"]
-    assert set(agents) == {"codex", "cursor"}
-    for kind in ("codex", "cursor"):
+    assert set(agents) == {"codex", "cursor", "antigravity"}
+    for kind in ("codex", "cursor", "antigravity"):
         assert agents[kind]["installed"] is False and agents[kind]["path"] is None and agents[kind]["install"]
 
 
@@ -55,8 +50,7 @@ def test_a_program_tab_gets_its_own_token_in_its_environment_never_on_its_comman
     assert not agents.is_inapp(token)
 
 
-def test_a_missing_program_or_an_unknown_kind_is_refused(client, no_login_shell, monkeypatch):
-    monkeypatch.setenv("PATH", "/usr/bin:/bin")
+def test_a_missing_program_or_an_unknown_kind_is_refused(client, no_login_shell):
     assert client.post("/api/terminal/agent", json={"kind": "codex"}).status_code == 404
     assert client.post("/api/terminal/agent", json={"kind": "vim"}).status_code == 422
 

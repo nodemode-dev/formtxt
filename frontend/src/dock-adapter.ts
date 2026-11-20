@@ -105,7 +105,7 @@ export function formtxtDock(openSettings: () => void): DockAdapter {
         if (!(err instanceof EngineError)) return null;
         if (err.status === 403) return 'refused';
         if ((err.status === 404 || err.status === 405) && /^(Not Found|Method Not Allowed)$/i.test(err.message)) return 'oldEngine';
-        if (/not installed/i.test(err.message)) return 'notInstalled';
+        if (/not installed|was not found\. Looked in|but does not start/i.test(err.message)) return 'notInstalled';
         if (err.status === 409) return 'busy';
         return err.status === 502 || err.status === 503 || err.status === 504 ? 'unreachable' : null;
       },
