@@ -7,6 +7,12 @@ Last updated: 2026-11-19 · v0.34.0: database merge data, list reports and repor
 
 ---
 
+## after v0.34.0 · the family's finder at version 1.0.1 (2026-11-19)
+
+- services/agent_lookup.py · replaced whole by the copy from FormVis ddc893ae, VERSION 1.0.1, SHA-256 `62667f9b68b7d101e1896ce617240424e33b7e498c560bc79d45f0ab26c77d51`. Against 1.0.0 two lines differ: the version, and `_last_line`, which no longer takes env's hint line "use -[v]S to pass options" as a program's error line. Nothing in it is edited here.
+- setup/agents.py :: `LOOKUP_HASHES` · holds both versions, 1.0.0 and 1.0.1, so the check accepts either file whole and names any other.
+- tests/test_dock_manifest.py :: `test_the_check_names_the_shared_finder_edited_in_place_or_missing` · read the version from the file; it had 1.0.0 written in its sentence. `tests/conftest.py` `dock_start` already removes `NPM_CONFIG_PREFIX`, `npm_config_prefix`, `PNPM_HOME`, `VOLTA_HOME`, `BUN_INSTALL` and `NVM_SYMLINK` (`FOLDER_VARS`).
+
 ## after v0.34.0 · the engine finds and starts Claude Code, Codex and Cursor through the family's finder, and the status reports Antigravity (2026-11-19)
 
 - Fault: FormTxt started from the Dock, the Finder or the Start menu gets the system's short program path, not the one a Terminal has. `claude_code.cli` asked `shutil.which("claude")`, five folders under the home folder and `command -v claude` in a login shell that was not interactive; `agent_programs.find` asked `shutil.which` and the same shell. A program installed by Homebrew, npm or a version manager was then "not installed", and a program that was found could still fail to start, because its tab and Chat ran with the engine's PATH (a `#!/usr/bin/env node` script with no `node` on it). "Found" also counted as "installed" without the program ever being run.
