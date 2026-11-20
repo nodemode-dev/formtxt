@@ -1,5 +1,11 @@
 # Changelog
 
+## 0.38.0 · 2026-11-20
+
+- FormTxt now uses the form family's shared design values, as FormVis does: muted text such as labels, hints and the status bar is the family's grey in Studio Dark, in the light theme and in the 16 other themes that had their own, window shadows match the family's in dark and light, and the interface font is the system's own (San Francisco on macOS, Segoe UI on Windows) with Inter after it. The accent, the text size, the document page and its fonts are unchanged.
+- The README's status now says released: FormTxt is built and bundled for macOS, Windows and Linux.
+- The browser demos show this version.
+
 ## 0.37.0 · 2026-11-20
 
 - On Windows, the engine now ends with FormTxt however FormTxt ends, Task Manager included, and takes everything it started with it.
