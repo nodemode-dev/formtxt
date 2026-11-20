@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.35.0 · 2026-11-19
+
+- Antigravity, Google's `agy` program, is the fourth agent program FormTxt works with, beside Claude Code, Codex and Cursor. The terminal panel has an Antigravity tab when the program is found on this computer.
+- `./formtxt agents install` also adds FormTxt to Antigravity. It keeps everything else in Antigravity's settings file, leaves alone a server named formtxt that it did not write, and a second run changes nothing.
+- FormTxt finds Claude Code, Codex, Cursor and Antigravity however it was started. Started from the Dock, the Finder or the Start menu it used to report a program installed by Homebrew, npm or a version manager as not installed, and a program it did find could still fail to start in a tab or in Chat.
+- When a tab or Chat cannot start because a program is missing, FormTxt says where it looked and how to install it. When the program is there but does not start, it says so and shows the program's own error line.
+- An Antigravity tab runs in a folder of FormTxt's own, not in the folder of the open document.
+- Windows: the engine starts when it is built without a console. An engine with no output to write to could stop at its first line.
+- The terminal panel is brought up to date with the other Form apps.
+- For people who build FormTxt: its tests can no longer start a real agent program on the computer that runs them.
+
 ## 0.34.0 · 2026-11-19
 
 - Mail merge data can come from a SQLite database file: pick a table or write one SELECT. The file is opened read-only and the query is kept with the document.
