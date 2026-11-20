@@ -170,6 +170,7 @@ fn main() {
                 .env("FORMTXT_PORT", "0")
                 .env("FORMTXT_ENGINE_PORT", "0")
                 .env("FORMTXT_PARENT_PID", std::process::id().to_string())
+                .env("FORMTXT_SHELL_PID", std::process::id().to_string())
                 .env("FORMTXT_WINDOW_KEY_STDOUT", "1");
             let (mut rx, child) = sidecar.spawn().expect("the FormTxt engine failed to spawn");
             *app.state::<Backend>().0.lock().unwrap() = Some(child);
@@ -214,11 +215,11 @@ fn main() {
                         open_main(&handle, url, key);
                     }
                     None => {
-                        close_splash(&handle);
                         let _ = handle
                             .dialog()
-                            .message("The FormTxt engine failed to start. Please relaunch the app.")
+                            .message("FormTxt could not start its engine. If FormTxt is already open, use that window: only one copy can use its data folder at a time. Otherwise open FormTxt again. The engine's log is Logs/formtxt-engine.log in the FormTxt data folder.")
                             .blocking_show();
+                        close_splash(&handle);
                         kill_backend(&handle);
                         handle.exit(1);
                     }
