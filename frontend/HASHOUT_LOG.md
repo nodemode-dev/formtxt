@@ -679,6 +679,12 @@ The owner's trademark plan (rename table approved 2026-10-23) takes Microsoft's 
 - logged: v0.33.0 · 2026-11-17
 - `--bg-hover` and `--border-soft` are white at 6% and 8%. Over `#000000` that is `#0f0f0f` and `#141414`, a contrast of 1.10 and 1.14 against the surface, where Studio Dark gets 1.17 and 1.24 from the same tokens, and an OLED panel crushes the darkest greys further. Under `data-oled` they are 10% and 12% (`#1a1a1a` at 1.21, `#1f1f1f` at 1.27), so a hovered control and a soft divider read as they do in Studio Dark. `--rb-body-bg` mixes 6% of the text colour into the ribbon body, which made the 96 px ribbon `#0e0e0e`, 8.6% of a 1440 by 900 window; under `data-oled` it is `--bg-secondary`.
 
+### tokens · the family's names and values (FormVis)
+- refers-to: src/styles/tokens.css :: `:root`, `:root[data-oled]`, src/styles/light-mode.css :: `:root[data-theme="light"]`, src/ui/themes.ts :: THEMES `--text-muted`, index.html :: PROFILES
+- kind: rationale
+- logged: v0.38.0 · 2026-11-20
+- The family's design decision: FormVis's token names are the family's names and its Studio Dark values the family's values, except the accent, the base font size and the z-index values. Every one of FormVis's 154 names now resolves here: the 92 that were missing are added with FormVis's values (FormTxt's own sheets read none of them yet), and under `data-oled` and the light theme the same overrides FormVis has (`--surface-1`, `--line-0`, `--group-head`, `--surface-raised`, `--shadow-window`). Own names that mean the same thing are aliases: `--ft-11` to `--ft-16` read `--fs-*`, `--ft-status-h` reads `--cv-status-h`, `--z-behind` reads `--z-under`, each with the same value as before. `--ft-titlebar-h` stays 44 px (FormVis's bar is 40 px; the bar's layout is not part of this pass) and `--ft-20` has no counterpart. Values that take FormVis's: `--text-muted` (Studio Dark `#717072`, the light layer `#8b887a`, and the muted grey of 16 theme profiles in `THEMES` and the boot table, which must stay equal), `--shadow-window` (dark and light) and `--font-ui` (the system UI font first, Inter after it). The page, the document's fonts and colours, the accent, the z scale and the base size are unchanged.
+
 ## src/ui/themes.ts {#themes}
 
 ### themes · AMOLED Black and the oled flag
