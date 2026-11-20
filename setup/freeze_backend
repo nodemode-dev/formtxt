@@ -22,6 +22,7 @@ if [ "$os" = windows ]; then ext=".exe"; sep=";"; fi
 cd "$FORMTXT_ROOT/backend"
 extra=()
 [ -z "${FORMTXT_PYI_ARCH:-}" ] || extra+=(--target-arch "$FORMTXT_PYI_ARCH")
+if [ "$os" = windows ] && [ "${FORMTXT_ENGINE_WINDOWED:-1}" != 0 ]; then extra+=(--noconsole); fi
 mode=--onefile
 if [ "$os" = macos ]; then
   mode=--onedir

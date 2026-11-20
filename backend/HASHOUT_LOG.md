@@ -7,6 +7,12 @@ Last updated: 2026-11-19 · v0.36.0: one engine per data folder, the engine's lo
 
 ---
 
+## after v0.36.0 · the Windows engine is built with no console window unless FORMTXT_ENGINE_WINDOWED is 0 (2026-11-20)
+
+- setup/freeze_backend :: the line after `FORMTXT_PYI_ARCH`; setup/freeze_backend.bat :: the two lines before the PyInstaller line and `%WINDOWED%` in it · by the owner's decision for every app of the family, a Windows build gives PyInstaller `--noconsole`, as FormWeb's does, unless `FORMTXT_ENGINE_WINDOWED=0`. FormTxt had no switch before; this is the family's name for it, on by default. On macOS and Linux the variable does nothing. The shell reads the engine's address and key from its pipes, which a window program still has when its parent gives them.
+- The engine entry already replaces missing streams with the null device (`formtxt_engine.py`, its first lines, since 0.35.0), so `--selfcheck` and serving still work when `sys.stdout` is None; `--selfcheck` at the end of the build still returns its exit code, and its words are seen only when its output goes to a file or a pipe. For the old console build, to read the engine's words in its window, set `FORMTXT_ENGINE_WINDOWED=0`.
+- Checked with `bash -n` and by reading the batch file. No Windows build has shown it.
+
 ## after v0.36.0 · the shell side: the job object on Windows, the failure text, a limit on the wait for the address (2026-11-20)
 
 - src-tauri/src/win_job.rs (new, Windows only) :: `hold_pid`, `end` · FormVis's file at its main less `hold(&child)`, which takes a `std::process::Child` that FormTxt's shell never has. The job is made on first use with kill-on-close and kept for the life of the shell; nothing closes its handle, so Windows ends the engine and all it started when the shell ends, however it ends. Only the engine goes in, by its process id, right after the start.
