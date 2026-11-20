@@ -21,7 +21,7 @@ usage: ./formtxt [command] [options]
   cli list|describe|run  the editor's command catalogue from a terminal; run <id> [key=value ...] needs the window open
   report run template=<id> db=<path> sql=<select> [out=<file>]  merge a template with a SQLite query in the engine and write a PDF, .docx or .ftxt; no window needed
   mcp [--where] [--version] [--url URL]  FormTxt over MCP's stdio transport, for Claude Code and other MCP clients
-  agents sync|check|install [--dry-run]  mirror .claude/skills into .agents/skills and write agents/manifest.json; check the kit; register FormTxt with Claude Code, Codex and Cursor
+  agents sync|check|install [--dry-run]  mirror .claude/skills into .agents/skills and write agents/manifest.json; check the kit; register FormTxt with Claude Code, Codex, Cursor and Antigravity
   mcpb check | build DIR  validate the Claude Desktop extension manifest; write formtxt-<version>.mcpb into DIR
   clean [--all]       remove build output (--all also venv and node_modules)
   icons --check       fail when interface code, an insertable icon or an emoji draws a sparkle (banned app-wide)

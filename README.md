@@ -107,7 +107,7 @@ The editor's commands live in one catalogue, and the window and the terminal cal
 ./formtxt cli list                                                  # the command catalogue
 ./formtxt cli describe tools.stats                                  # one command and its arguments
 ./formtxt cli run edit.replaceAll find=draft replace=final          # run a command in the open window, as an outside agent
-./formtxt mcp                                                       # MCP server on stdio for Claude Code, Codex and Cursor
+./formtxt mcp                                                       # MCP server on stdio for Claude Code, Codex, Cursor and Antigravity
 ./formtxt agents install                                            # register that server and the formtxt-driving skill for this user
 ```
 

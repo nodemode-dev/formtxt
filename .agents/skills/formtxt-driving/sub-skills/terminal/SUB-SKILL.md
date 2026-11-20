@@ -15,7 +15,7 @@ These run in the formtxt folder. Run them yourself only when you have a shell to
 | --- | --- |
 | Start FormTxt (engine and window) for development | `./formtxt` |
 | Install or update the engine and window dependencies | `./formtxt install` |
-| Connect Claude Code, Codex and Cursor to FormTxt for this user | `./formtxt agents install` (add `--dry-run` first to see the changes) |
+| Connect Claude Code, Codex, Cursor and Antigravity to FormTxt for this user | `./formtxt agents install` (add `--dry-run` first to see the changes) |
 | Run the MCP server as a client would (stdio) | `./formtxt mcp` (starts the engine if none is running) |
 | Run one command from a shell | `./formtxt cli run <id> key=value` (the window must be open) |
 | Windows | the same as `formtxt.bat mcp`, `formtxt.bat agents install` |

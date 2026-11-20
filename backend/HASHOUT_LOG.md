@@ -7,6 +7,11 @@ Last updated: 2026-11-19 · v0.34.0: database merge data, list reports and repor
 
 ---
 
+## after v0.34.0 · the supported agent programs are named as four (2026-11-19)
+
+- `formtxt` (the launcher's usage text, the `agents` line), `README.md` (the `./formtxt mcp` line under Built for agents), `CLAUDE.md` (the agents kit line), `.claude/skills/formtxt-driving/sub-skills/terminal/SUB-SKILL.md` and `.claude/skills/formtxt-harness/sub-skills/terminal-operator/SUB-SKILL.md` (mirrored to `.agents/skills` by `./formtxt agents sync`) · where the list was Claude Code, Codex and Cursor it is now Claude Code, Codex, Cursor and Antigravity. The harness page's line about `agent_programs.py` also says the programs are found by the family's finder and where an Antigravity tab runs.
+- Left alone: the trademark sentence at the foot of `README.md` and in `NOTICE.md` (it names the owners of three marks; adding a fourth owner is the owner's call), `AGENTS.md` (it names the config files the repository ships, not the programs), CHANGELOG and log history, everything in `frontend/src/dock`.
+
 ## after v0.34.0 · the engine starts when it has no output streams (2026-11-19)
 
 - formtxt_engine.py (top of the file, before any import of FormTxt's own) · when `sys.stdin`, `sys.stdout` or `sys.stderr` is `None`, it is replaced by the null device opened as text. A Windows engine built without a console has no streams, and the first `print` or log line then stops it at start; a tester saw that in another Form engine. The way FormWeb's entry does it.
