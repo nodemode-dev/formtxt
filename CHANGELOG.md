@@ -1,5 +1,14 @@
 # Changelog
 
+## 0.36.0 · 2026-11-19
+
+- Only one FormTxt engine uses a data folder at a time. A second copy of FormTxt started on the same folder is told that FormTxt is already running there, and the first copy carries on undisturbed.
+- An engine of this version that is left running after its app is gone is stopped and replaced the next time FormTxt starts. An engine left behind by 0.35.0 or older is not: it holds nothing FormTxt can recognise it by.
+- The engine keeps a log: `Logs/formtxt-engine.log` in the FormTxt folder, with the three files before it. When the engine has nowhere to write its errors, they go to `Logs/formtxt-engine-errors.log` beside it.
+- Opening the engine program by itself, for example with a double click in the install folder, opens FormTxt and leaves no engine running.
+- When FormTxt cannot start its engine, it says so before its loading window closes, and the sentence says that a copy may already be open and where the log is.
+- Not in this release: on Windows, ending FormTxt from Task Manager is not yet made to end everything the engine started, and the sentence for a failed start does not yet carry the engine's own last lines. Nothing in this release was run on Windows or macOS.
+
 ## 0.35.0 · 2026-11-19
 
 - Antigravity, Google's `agy` program, is the fourth agent program FormTxt works with, beside Claude Code, Codex and Cursor. The terminal panel has an Antigravity tab when the program is found on this computer.
