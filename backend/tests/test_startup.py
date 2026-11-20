@@ -89,6 +89,25 @@ def test_a_holder_whose_shell_is_gone_is_ended_and_replaced(tmp_path):
         stop(engine, shell, mine)
 
 
+def test_a_holder_that_has_ended_and_was_not_collected_counts_as_gone_where_there_is_no_proc(tmp_path, monkeypatch):
+    from app.core import startup
+
+    engine, shell, mine = stand_in(), stand_in(), stand_in()
+    try:
+        held = record(startup, engine, shell)
+        stop(shell)
+        assert startup.finished(engine.pid) is False
+        monkeypatch.setattr(startup, "PROC", str(tmp_path / "no-proc"))
+        assert startup.finished(engine.pid) is False
+        (tmp_path / startup.LOCK_NAME).write_text(json.dumps(held))
+        path, replaced = startup.claim(tmp_path, mine.pid)
+        assert replaced == engine.pid
+        assert startup.finished(engine.pid) is True
+        assert json.loads(path.read_text())["pid"] == os.getpid()
+    finally:
+        stop(engine, shell, mine)
+
+
 def test_a_holder_that_recorded_no_shell_is_replaced_only_by_an_engine_with_a_shell(tmp_path):
     from app.core import startup
 

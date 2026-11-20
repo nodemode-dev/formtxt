@@ -7,6 +7,11 @@ Last updated: 2026-11-19 · v0.36.0: one engine per data folder, the engine's lo
 
 ---
 
+## after v0.36.0 · an engine that has ended but was not yet collected counts as gone where there is no /proc (2026-11-20)
+
+- backend/app/core/startup.py :: `finished`, `gone_by` · ending a leftover engine waits until it is gone. `_alive_posix` asks `kill(pid, 0)`, which still answers for a process that has ended and that its parent has not collected, and it tells such a process apart only by reading `/proc`, which macOS does not have. There the wait ran out and the start was refused with "could not stop an engine that was left running" (FormCut's macOS job showed it; this is the same file under FormTxt's names). `finished(pid)` asks `ps -o stat= -p <pid>` where there is no `/proc` (never on Windows, never on Linux) and answers true for a state that starts with `Z`. `gone_by` stops waiting when the process is not alive or is finished. `alive` itself is unchanged, so the two second watch on the app starts no program.
+- backend/tests/test_startup.py :: `test_a_holder_that_has_ended_and_was_not_collected_counts_as_gone_where_there_is_no_proc` · seen on Linux with `PROC` pointed at a folder that does not exist: before the change in `gone_by` the test failed with that sentence, after it the holder is replaced. Not run on macOS.
+
 ## after v0.35.0 · the shell: its process id under the family's name, and the failure sentence before the loading window closes (2026-11-19)
 
 - src-tauri/src/main.rs :: `main` (the engine's start in `setup`) · the engine also gets `FORMTXT_SHELL_PID`, the shell's own process id, beside `FORMTXT_PARENT_PID`, which stays. When no address and key came, the sentence is shown first and the loading window is closed only after it returns; before, the loading window was closed first, and closing the last window before a dialog is the silent end a tester saw in another Form app. The sentence now says what the lock makes the likely cause, a copy that is already open, and where the engine's log is. This entry is in the engine's log because the shell has no log of its own.
