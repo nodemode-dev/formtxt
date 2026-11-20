@@ -46,11 +46,52 @@ os.environ["HOME"] = str(_SANDBOX / "home")
 os.environ["USERPROFILE"] = str(_SANDBOX / "home")
 for _key in [k for k in os.environ if k.startswith(f"{ENV_PREFIX}_") and k not in (DATA_ENV, PORT_ENV)]:
     os.environ.pop(_key)
+AGENT_STAND_INS = ("claude", "codex", "cursor-agent", "agent", "agy")
+AGENT_CALLS = _SANDBOX / "agent-calls.log"
+AGENT_SHELL = """#!/bin/sh
+script=""
+while [ $# -gt 0 ]; do
+  case "$1" in -c) shift; script="$1" ;; esac
+  shift
+done
+if [ -n "$script" ]; then exec /bin/sh -c "$script"; fi
+exec /bin/sh
+"""
+_agent_calls: list[str] = []
+if os.name != "nt":
+    for _name in ("bin", "shell", "tools"):
+        (_SANDBOX / _name).mkdir()
+    _node = shutil.which("node")
+    if _node:
+        (_SANDBOX / "tools" / "node").symlink_to(os.path.realpath(_node))
+    for _name in AGENT_STAND_INS:
+        (_SANDBOX / "bin" / _name).write_text(f'#!/bin/sh\necho "{_name} $*" >> "{AGENT_CALLS}"\nif [ "$1" = "--version" ]; then echo "0.0.0 (stand-in)"; exit 0; fi\nexit 1\n')
+        (_SANDBOX / "bin" / _name).chmod(0o755)
+    (_SANDBOX / "shell" / "zsh").write_text(AGENT_SHELL)
+    (_SANDBOX / "shell" / "zsh").chmod(0o755)
+    os.environ["SHELL"] = str(_SANDBOX / "shell" / "zsh")
+    os.environ["PATH"] = os.pathsep.join([str(_SANDBOX / "bin"), str(_SANDBOX / "tools"), "/usr/bin", "/bin", "/usr/sbin", "/sbin"])
+    for _key in ("NPM_CONFIG_PREFIX", "npm_config_prefix", "PNPM_HOME", "VOLTA_HOME", "BUN_INSTALL", "NVM_SYMLINK"):
+        os.environ.pop(_key, None)
 sys.path.insert(0, str(BACKEND))
 
 
+@pytest.fixture(autouse=True)
+def only_stand_in_agent_programs(monkeypatch):
+    agent_lookup = importlib.import_module("app.services.agent_lookup")
+    monkeypatch.setattr(agent_lookup, "system_folders", lambda platform=None: [])
+
+
 def pytest_sessionfinish(session, exitstatus):
+    try:
+        _agent_calls.extend(AGENT_CALLS.read_text(encoding="utf-8").splitlines())
+    except OSError:
+        pass
     shutil.rmtree(_SANDBOX, ignore_errors=True)
+
+
+def pytest_terminal_summary(terminalreporter):
+    terminalreporter.write_line(f"agent program stand-ins started {len(_agent_calls)} time(s): " + (", ".join(sorted(set(_agent_calls))) or "none"))
 
 
 def own_origin():
@@ -141,3 +182,49 @@ def engine():
         proc.wait(timeout=10)
     except subprocess.TimeoutExpired:
         proc.kill()
+
+
+STAND_IN_SHELL = """#!/bin/sh
+script=""
+while [ $# -gt 0 ]; do
+  if [ "$1" = "-c" ]; then shift; script="$1"; fi
+  shift
+done
+if [ -f "$HOME/.shell-path" ]; then PATH="$(cat "$HOME/.shell-path"):$PATH"; export PATH; fi
+exec /bin/sh -c "$script"
+"""
+STAND_IN = """#!/bin/sh
+if [ "$1" = "--version" ]; then echo "9.9.9 (stand-in)"; exit 0; fi
+echo "stand-in started"
+read line
+"""
+SYSTEM_PATH = "/usr/bin:/bin:/usr/sbin:/sbin"
+FOLDER_VARS = ("NPM_CONFIG_PREFIX", "npm_config_prefix", "PNPM_HOME", "VOLTA_HOME", "BUN_INSTALL", "NVM_SYMLINK")
+
+
+def stand_in(path, text=STAND_IN):
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+    path.chmod(0o755)
+    return path
+
+
+@pytest.fixture
+def dock_start(tmp_path, monkeypatch):
+    from app.services import agent_lookup, agent_programs, claude_code
+
+    home = tmp_path / "home"
+    home.mkdir()
+    monkeypatch.setenv("HOME", str(home))
+    monkeypatch.setenv("SHELL", str(stand_in(tmp_path / "zsh", STAND_IN_SHELL)))
+    monkeypatch.setenv("PATH", SYSTEM_PATH)
+    for name in [n for names in claude_code.OVERRIDES.values() for n in names] + list(FOLDER_VARS):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setattr(agent_lookup, "system_folders", lambda platform=None: [])
+    claude_code._cache.update(at=0.0, value=None)
+    agent_programs._cache.update(at=0.0, value=None)
+    agent_lookup.forget()
+    yield home
+    claude_code._cache.update(at=0.0, value=None)
+    agent_programs._cache.update(at=0.0, value=None)
+    agent_lookup.forget()

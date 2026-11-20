@@ -2,6 +2,7 @@
 import argparse
 import ast
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -25,7 +26,7 @@ MANIFEST = os.path.join(ROOT, "agents", "manifest.json")
 MANIFEST_REL = "agents/manifest.json"
 MCP_ROUTER = os.path.join(ROOT, "backend", "app", "routers", "mcp.py")
 MCP_BRIDGE = os.path.join(ROOT, "setup", "mcp_stdio.py")
-DOCK = {"present": True, "positions": ["bottom", "right"], "tabs": ["chat", "terminal", "claude-code", "codex", "cursor", "activity"]}
+DOCK = {"present": True, "positions": ["bottom", "right"], "tabs": ["chat", "terminal", "claude-code", "codex", "cursor", "antigravity", "activity"]}
 DOCK_DIR = os.path.join(ROOT, "frontend", "src", "dock")
 DOCK_DIR_REL = "frontend/src/dock"
 DOCK_MANIFEST = os.path.join(DOCK_DIR, "MANIFEST.json")
@@ -178,6 +179,34 @@ def check_dock(problems):
             problems.append(f"{DOCK_DIR_REL}/{name}: does not match MANIFEST.json (the shared dock module changes only as a whole new version, copied from FormVis)")
 
 
+LOOKUP_REL = "backend/app/services/agent_lookup.py"
+LOOKUP = os.path.join(ROOT, "backend", "app", "services", "agent_lookup.py")
+LOOKUP_HASHES = {
+    "1.0.0": "252ea9bb9419d4990f174f91914f09800497bc69e98f849f5643bbf4217cc3f3",
+    "1.0.1": "62667f9b68b7d101e1896ce617240424e33b7e498c560bc79d45f0ab26c77d51",
+}
+
+
+def lookup_problems():
+    try:
+        raw = read_bytes(LOOKUP)
+    except OSError:
+        return [f"{LOOKUP_REL}: missing (the shared finder for the agent programs)"]
+    said = re.search(rb'^VERSION = "([^"\r\n]+)"\r?$', raw, re.M)
+    version = said.group(1).decode("ascii", "replace") if said else "unknown"
+    if LOOKUP_HASHES.get(version) != hashlib.sha256(raw).hexdigest():
+        return [f"{LOOKUP_REL}: does not match the hash recorded for version {version} (the shared finder changes only as a whole new version)"]
+    return []
+
+
+def lookup():
+    spec = importlib.util.spec_from_file_location("formtxt_agent_lookup", LOOKUP)
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
 def sync():
     if not os.path.isdir(SOURCE):
         print("[agents] .claude/skills is missing", file=sys.stderr)
@@ -209,6 +238,7 @@ def sync():
         return 1
     dock = []
     check_dock(dock)
+    dock.extend(lookup_problems())
     for line in dock:
         print(f"[agents] {line}", file=sys.stderr)
     return 1 if dock else 0
@@ -349,6 +379,7 @@ def check():
     check_agent_files(problems)
     check_manifest(problems)
     check_dock(problems)
+    problems.extend(lookup_problems())
     if problems:
         for line in problems:
             print(f"[agents] {line}", file=sys.stderr)
@@ -380,20 +411,23 @@ def copy_skills(root, dry, said):
 
 def install_claude(home, dry, said):
     said.append("Claude Code:")
-    claude = shutil.which("claude")
+    finder = lookup()
+    found = finder.check(finder.find("claude", override_vars=("FORMTXT_CLAUDE_BIN",), home=home))
+    claude = found.path if found.state == "runs" else None
     line = subprocess.list2cmdline([LAUNCH, *ARGS])
     if claude:
-        have = subprocess.run([claude, "mcp", "get", LAUNCHER], capture_output=True, text=True)
+        env = finder.child_env(claude, home=home)
+        have = finder.run([claude, "mcp", "get", LAUNCHER], env, 60)
         if have.returncode == 0 and LAUNCH in have.stdout:
             said.append(f"  MCP server {LAUNCHER} already set (user scope)")
         else:
             said.append(f"  claude mcp add --scope user {LAUNCHER} -- {line}")
             if not dry:
                 if have.returncode == 0:
-                    subprocess.run([claude, "mcp", "remove", LAUNCHER, "--scope", "user"], capture_output=True)
-                subprocess.run([claude, "mcp", "add", "--scope", "user", LAUNCHER, "--", LAUNCH, *ARGS], check=True, capture_output=True)
+                    finder.run([claude, "mcp", "remove", LAUNCHER, "--scope", "user"], env, 60)
+                finder.run([claude, "mcp", "add", "--scope", "user", LAUNCHER, "--", LAUNCH, *ARGS], env, 60).check_returncode()
     else:
-        said.append(f"  the claude command is not installed here; once it is, run: claude mcp add --scope user {LAUNCHER} -- {line}")
+        said.append(f"  {finder.sentence(found, finder.install('claude'))} Once it runs: claude mcp add --scope user {LAUNCHER} -- {line}")
     copy_skills(home / ".claude" / "skills", dry, said)
 
 
@@ -437,11 +471,45 @@ def install_cursor(home, dry, said):
     copy_skills(home / ".agents" / "skills", dry, said)
 
 
+def ours(entry):
+    return isinstance(entry, dict) and entry.get("args") == ARGS and Path(str(entry.get("command", ""))).name == Path(LAUNCH).name
+
+
+def install_antigravity(home, dry, said):
+    said.append("Antigravity:")
+    cfg = home / ".gemini" / "config" / "mcp_config.json"
+    older = home / ".gemini" / "antigravity-cli" / "mcp_config.json"
+    if older.exists() and not cfg.exists():
+        said.append(f"  an older file was seen at {older} and left alone; the documented file is {cfg}")
+    try:
+        data = json.loads(cfg.read_text(encoding="utf-8") or "{}") if cfg.exists() else {}
+    except ValueError:
+        data = None
+    if not isinstance(data, dict) or not isinstance(data.get("mcpServers", {}), dict):
+        said.append(f"  {cfg} is not an MCP servers file FormTxt can read; left alone")
+        return
+    entry = {"command": LAUNCH, "args": ARGS}
+    have = data.get("mcpServers", {}).get(LAUNCHER)
+    if have == entry:
+        said.append(f"  MCP server {LAUNCHER} already in {cfg}")
+    elif have is not None and not ours(have):
+        said.append(f"  {cfg} has a server named {LAUNCHER} that FormTxt did not write; left alone")
+    else:
+        said.append(f"  MCP server {LAUNCHER} -> {cfg}")
+        if not dry:
+            backup(cfg, dry)
+            data.setdefault("mcpServers", {})[LAUNCHER] = entry
+            cfg.parent.mkdir(parents=True, exist_ok=True)
+            part = cfg.with_name(cfg.name + f".part-{os.getpid()}")
+            part.write_text(json.dumps(data, indent=2) + "\n", encoding="utf-8")
+            os.replace(part, cfg)
+
+
 def install(clients, dry):
     home = Path(os.environ.get("HOME", str(Path.home())))
     said = []
-    for client in clients or ["claude", "codex", "cursor"]:
-        {"claude": install_claude, "codex": install_codex, "cursor": install_cursor}[client](home, dry, said)
+    for client in clients or ["claude", "codex", "cursor", "antigravity"]:
+        {"claude": install_claude, "codex": install_codex, "cursor": install_cursor, "antigravity": install_antigravity}[client](home, dry, said)
     print(("Would do (dry run):\n" if dry else "") + "\n".join(said))
     if not dry:
         print("\nRestart the clients. The first command an agent runs asks you once, in the FormTxt window, to allow outside agents.")
@@ -454,8 +522,8 @@ def main():
     sync_parser = sub.add_parser("sync", help="mirror .claude/skills into .agents/skills and write agents/manifest.json")
     sync_parser.add_argument("--check", action="store_true", help="only check, as agents check does")
     sub.add_parser("check", help="check the mirror, the skills, the MCP configs and the manifest")
-    inst = sub.add_parser("install", help="register FormTxt's MCP server and skill with Claude Code, Codex and Cursor for this user")
-    inst.add_argument("clients", nargs="*", choices=["claude", "codex", "cursor"], help="which clients (default all three)")
+    inst = sub.add_parser("install", help="register FormTxt's MCP server with Claude Code, Codex, Cursor and Antigravity for this user, and its skill with the first three")
+    inst.add_argument("clients", nargs="*", choices=["claude", "codex", "cursor", "antigravity"], help="which clients (default all four)")
     inst.add_argument("--dry-run", action="store_true", help="say what would change and change nothing")
     args = parser.parse_args()
     if args.action == "install":

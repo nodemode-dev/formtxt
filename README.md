@@ -11,7 +11,7 @@
 </p>
 
 <p align="center">
-  <img alt="version 0.34.0" src="https://img.shields.io/badge/version-0.34.0-eef0f4?style=flat-square">
+  <img alt="version 0.35.0" src="https://img.shields.io/badge/version-0.35.0-eef0f4?style=flat-square">
   <img alt="TypeScript and Vite" src="https://img.shields.io/badge/TypeScript%20%2B%20Vite-3178c6?style=flat-square&logo=typescript&logoColor=white">
   <img alt="Python and FastAPI" src="https://img.shields.io/badge/Python%20%2B%20FastAPI-009688?style=flat-square">
   <img alt="macOS, Windows, Linux" src="https://img.shields.io/badge/macOS%20%C2%B7%20Windows%20%C2%B7%20Linux-native-2f7bf5?style=flat-square">
@@ -24,7 +24,7 @@
   <a href="#run-it-from-source">Run it from source</a>
 </p>
 
-Version 0.34.0 · Apache-2.0 · macOS, Windows, Linux (browser, or the desktop app built with ./build_app)
+Version 0.35.0 · Apache-2.0 · macOS, Windows, Linux (browser, or the desktop app built with ./build_app)
 
 <br>
 
@@ -107,7 +107,7 @@ The editor's commands live in one catalogue, and the window and the terminal cal
 ./formtxt cli list                                                  # the command catalogue
 ./formtxt cli describe tools.stats                                  # one command and its arguments
 ./formtxt cli run edit.replaceAll find=draft replace=final          # run a command in the open window, as an outside agent
-./formtxt mcp                                                       # MCP server on stdio for Claude Code, Codex and Cursor
+./formtxt mcp                                                       # MCP server on stdio for Claude Code, Codex, Cursor and Antigravity
 ./formtxt agents install                                            # register that server and the formtxt-driving skill for this user
 ```
 

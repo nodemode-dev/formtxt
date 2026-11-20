@@ -4,30 +4,26 @@ import stat
 
 import pytest
 
+from conftest import SYSTEM_PATH, stand_in
+
 
 @pytest.fixture
-def programs(tmp_path, monkeypatch):
-    from app.services import agent_programs, claude_code
-
+def programs(tmp_path, dock_start, monkeypatch):
     folder = tmp_path / "bin"
-    folder.mkdir()
     lines = {"claude": "9.9.9 (Claude Code)", "codex": "codex-cli 0.99.1", "cursor-agent": "2026.11.01-abc123"}
     for name, line in lines.items():
-        script = folder / name
-        script.write_text(f'#!/bin/sh\ncase "$1" in --version) echo "{line}"; exit 0;; auth) echo \'{{"loggedIn": true}}\'; exit 0;; esac\nread line\n')
-        script.chmod(0o755)
-    monkeypatch.setenv("PATH", f"{folder}{os.pathsep}{os.environ.get('PATH', '')}")
+        stand_in(folder / name, f'#!/bin/sh\ncase "$1" in --version) echo "{line}"; exit 0;; auth) echo \'{{"loggedIn": true}}\'; exit 0;; esac\nread line\n')
+    monkeypatch.setenv("PATH", f"{folder}{os.pathsep}{SYSTEM_PATH}")
     monkeypatch.setenv("FORMTXT_CLAUDE_BIN", str(folder / "claude"))
-    yield folder
-    claude_code._cache.update(at=0.0, value=None)
-    agent_programs._cache.update(at=0.0, value=None)
+    return folder
 
 
 @pytest.mark.skipif(os.name == "nt", reason="the stand-ins are shell scripts")
 def test_one_call_reports_the_three_agent_programs(client, programs):
     status = client.get("/api/agents/status?fresh=true").json()
-    assert set(status) == {"claude", "codex", "cursor"}
-    assert status["claude"] == status["claude"] | {"installed": True, "version": "9.9.9", "signedIn": True}
+    assert set(status) == {"claude", "codex", "cursor", "antigravity"}
+    assert status["antigravity"] == status["antigravity"] | {"installed": False, "finding": "missing", "path": None, "signedIn": None, "title": "Antigravity"}
+    assert status["claude"] == status["claude"] | {"installed": True, "version": "9.9.9", "signedIn": True, "how": "override"}
     assert status["codex"] == status["codex"] | {"installed": True, "version": "0.99.1", "signedIn": None, "install": "npm install -g @openai/codex"}
     assert status["cursor"] == status["cursor"] | {"installed": True, "version": "2026.11.01-abc123", "path": str(programs / "cursor-agent")}
     assert all(entry["install"] for entry in status.values())

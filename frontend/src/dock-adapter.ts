@@ -81,7 +81,7 @@ function socketChannel(socket: WebSocket): DockChannel {
   };
 }
 
-export function formtxtDock(openSettings: () => void): DockAdapter {
+export function formtxtDock(openSettings: () => void): DockAdapter<'antigravity'> {
   return {
     words: { app: 'FormTxt', noun: 'document', lead: LEAD, example: 'rewrite this paragraph in plain words', start: './formtxt' },
     strings: { consentChanged: 'The Allow outside agents setting was changed outside {app}, so {app} asks again.' },
@@ -93,7 +93,7 @@ export function formtxtDock(openSettings: () => void): DockAdapter {
     isDockChord,
     chordLabel: () => `${isMac ? 'Cmd' : 'Ctrl'}+J`,
     passKey,
-    tabs: () => ({ builtin: ['chat', 'shell', 'claude', 'codex', 'cursor'] }),
+    tabs: () => ({ builtin: ['chat', 'shell', 'claude', 'codex', 'cursor', 'antigravity'] }),
     classes: { iconButton: 'ft-tt-btn', button: 'ft-btn sm', primaryButton: 'ft-btn sm cta', input: 'ft-input', select: 'ft-input', note: 'ft-note' },
     t: (_key, english) => english,
     onTheme: (handler) => { document.addEventListener('nm:ui-settings-changed', handler); },
@@ -105,7 +105,7 @@ export function formtxtDock(openSettings: () => void): DockAdapter {
         if (!(err instanceof EngineError)) return null;
         if (err.status === 403) return 'refused';
         if ((err.status === 404 || err.status === 405) && /^(Not Found|Method Not Allowed)$/i.test(err.message)) return 'oldEngine';
-        if (/not installed/i.test(err.message)) return 'notInstalled';
+        if (/not installed|was not found\. Looked in|but does not start/i.test(err.message)) return 'notInstalled';
         if (err.status === 409) return 'busy';
         return err.status === 502 || err.status === 503 || err.status === 504 ? 'unreachable' : null;
       },
