@@ -285,7 +285,7 @@ class PrefsDialog {
     this.add('Privacy',
       grp('Online features', this.stockRow.el, this.previewRow.el, nt('Stock pictures contact Openverse and, with a key, Pexels, through the engine. Link previews fetch the title of a page you link to. Nothing else leaves this computer unless you turn on AI or cloud storage.')),
       grp('Pexels', this.pexelsRow.el, this.pexelsForget.el, this.privacyNote),
-      grp('Outside agents', this.agentsRow.el, this.blockRow.el, nt('Agents you run outside FormTxt, such as Claude Code in your own terminal, reach the open window through FormTxt\'s MCP server on this computer. While Allow outside agents is off, each command such an agent runs asks you in the window. Claude Code, Codex, Cursor and Chat in the terminal dock are allowed without asking. Block all agents refuses every agent, the ones in the terminal dock included; the dock and its plain shell still open.')));
+      grp('Outside agents', this.agentsRow.el, this.blockRow.el, nt('Agents you run outside FormTxt, such as Claude Code in your own terminal, reach the open window through FormTxt\'s MCP server on this computer. While Allow outside agents is off, each command such an agent runs asks you in the window. Claude Code, Codex, Cursor, Antigravity and Chat in the terminal dock are allowed without asking. Block all agents refuses every agent, the ones in the terminal dock included; the dock and its plain shell still open.')));
 
     const wrap = el('<div class="ft-prefs"></div>');
     wrap.append(this.pages);

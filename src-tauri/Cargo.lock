@@ -865,7 +865,7 @@ dependencies = [
 
 [[package]]
 name = "formtxt"
-version = "0.36.0"
+version = "0.37.0"
 dependencies = [
  "fontdb",
  "objc2",
@@ -878,6 +878,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-dialog",
  "tauri-plugin-shell",
+ "windows-sys 0.61.2",
 ]
 
 [[package]]

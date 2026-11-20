@@ -12,7 +12,9 @@ if "%TRIPLE%"=="" ( echo [formtxt] rustc not found, install Rust from https://ru
 cd backend
 if exist build\pyinstaller rmdir /s /q build\pyinstaller
 if exist dist-engine rmdir /s /q dist-engine
-pyinstaller --noconfirm --clean --onefile --name formtxt-engine --distpath dist-engine --workpath build\pyinstaller --specpath build\pyinstaller ^
+set "WINDOWED=--noconsole"
+if "%FORMTXT_ENGINE_WINDOWED%"=="0" set "WINDOWED="
+pyinstaller --noconfirm --clean --onefile %WINDOWED% --name formtxt-engine --distpath dist-engine --workpath build\pyinstaller --specpath build\pyinstaller ^
   --add-data "%ROOT%\frontend\dist;frontend_dist" ^
   --add-data "%ROOT%\frontend\node_modules\@fontsource;fonts" ^
   --add-data "%ROOT%\frontend\node_modules\wordnet-db\dict;wordnet" ^
