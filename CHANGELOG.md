@@ -1,5 +1,15 @@
 # Changelog
 
+## 0.37.0 · 2026-11-20
+
+- On Windows, the engine now ends with FormTxt however FormTxt ends, Task Manager included, and takes everything it started with it.
+- When FormTxt cannot start its engine, the message now says what happened, shows the engine's last lines and its exit code, and says where its log is. A second copy of FormTxt on the same folder shows the engine's own line saying that FormTxt is already running there.
+- FormTxt waits at most 90 seconds for its engine to start and then says so, where before it could wait without end. A missing or unstartable engine program is now a message too, where FormTxt closed without a word.
+- On Windows the engine is built with no console window. Setting `FORMTXT_ENGINE_WINDOWED=0` before a build gives the old console build.
+- On macOS, an engine left running that has already ended is now recognised as gone, so the next start no longer refuses with "could not stop an engine that was left running".
+- Preferences names Antigravity beside Claude Code, Codex and Cursor among the agents in the terminal panel that are allowed without asking, and the terminal panel's guide says that Codex, Cursor and Antigravity each get a button when they are on this computer.
+- Nothing in this release was run on Windows or macOS, and the desktop app was not built.
+
 ## 0.36.0 · 2026-11-19
 
 - Only one FormTxt engine uses a data folder at a time. A second copy of FormTxt started on the same folder is told that FormTxt is already running there, and the first copy carries on undisturbed.
