@@ -7,6 +7,11 @@ Last updated: 2026-11-19 · v0.34.0: database merge data, list reports and repor
 
 ---
 
+## after v0.34.0 · no test can start a real agent program (2026-11-19)
+
+- tests/conftest.py :: `AGENT_STAND_INS`, `AGENT_CALLS`, `AGENT_SHELL`, `only_stand_in_agent_programs`, `pytest_sessionfinish`, `pytest_terminal_summary` · before any test module is imported the run gets a PATH of its own stand-ins folder and the system's four folders, a stand-in login shell as `SHELL`, and none of the six folder variables the finder reads. The stand-ins (`claude`, `codex`, `cursor-agent`, `agent`, `agy`) answer `--version`, exit 1 for anything else, and write one line per start to a file in the run's sandbox. The autouse fixture empties the finder's system install folders for every test. The run ends with one line: how many times a stand-in was started, and which. The way FormPath's conftest does it. `dock_start` still narrows this further for the tests that use it.
+- Why: a test that reached the lookup with the machine's own PATH and login shell in reach could run the real Claude Code with `--version`.
+
 ## after v0.34.0 · the family's finder at version 1.0.1 (2026-11-19)
 
 - services/agent_lookup.py · replaced whole by the copy from FormVis ddc893ae, VERSION 1.0.1, SHA-256 `62667f9b68b7d101e1896ce617240424e33b7e498c560bc79d45f0ab26c77d51`. Against 1.0.0 two lines differ: the version, and `_last_line`, which no longer takes env's hint line "use -[v]S to pass options" as a program's error line. Nothing in it is edited here.
