@@ -38,47 +38,61 @@ def selfcheck() -> int:
     return 0 if all(not str(v).startswith("missing") for v in info.values()) else 1
 
 
-def _alive(pid: int) -> bool:
-    if os.name == "nt":
-        import ctypes
+def started_by() -> int:
+    from app.core import startup
 
-        handle = ctypes.windll.kernel32.OpenProcess(0x1000, False, pid)
-        if not handle:
-            return False
-        code = ctypes.c_ulong()
-        ctypes.windll.kernel32.GetExitCodeProcess(handle, ctypes.byref(code))
-        ctypes.windll.kernel32.CloseHandle(handle)
-        return code.value == 259
-    try:
-        os.kill(pid, 0)
-    except ProcessLookupError:
-        return False
-    except PermissionError:
-        return True
-    return True
+    shell = startup.shell_pid()
+    if shell:
+        return shell
+    raw = os.environ.get("FORMTXT_PARENT_PID", "").strip()
+    return int(raw) if raw.isascii() and raw.isdigit() else 0
 
 
-def watch_parent() -> None:
-    raw = os.environ.get("FORMTXT_PARENT_PID", "")
-    if not raw.isdigit():
+def watch_shell(data, shell: int) -> None:
+    if shell <= 1:
         return
-    import threading
-    import time
+    import logging
 
-    pid = int(raw)
+    from app.core import runtime, startup
 
-    def loop() -> None:
-        while _alive(pid):
-            time.sleep(2)
+    def leave() -> None:
+        logging.getLogger("formtxt").info("the app that started this engine is gone (process %s), stopping", shell)
+        runtime.release(data)
         os._exit(0)
 
-    threading.Thread(target=loop, name="parent-watch", daemon=True).start()
+    startup.watch(shell, leave)
 
 
-def main() -> int:
-    if "--selfcheck" in sys.argv:
-        return selfcheck()
-    watch_parent()
+def serve() -> int:
+    import logging
+    from pathlib import Path
+
+    from app.core import config, runtime, startup
+
+    try:
+        data = config.data_dir()
+        logs = runtime.start_logging(data).parent
+    except OSError as err:
+        print(f"formtxt cannot use its data folder: {err}", file=sys.stderr)
+        return 5
+    startup.keep_errors(logs)
+    log = logging.getLogger("formtxt")
+    shell = started_by()
+    if not shell and startup.alone():
+        beside = startup.app_beside(Path(sys.executable))
+        if beside is not None and startup.open_app(beside):
+            log.info("started without its app, so it opened %s and stopped", beside)
+            return 0
+        log.error("started without its app, and no app program was found near %s", sys.executable)
+        print("formtxt-engine is a part of FormTxt and serves nothing on its own. Open FormTxt instead.", file=sys.stderr)
+        return 4
+    try:
+        runtime.claim(data, shell)
+    except startup.Busy as err:
+        log.error("%s", err)
+        print(err, file=sys.stderr)
+        return 2
+    watch_shell(data, shell)
     bundled = os.path.join(resource_dir(), "frontend_dist")
     if os.path.isdir(bundled):
         os.environ.setdefault("FORMTXT_DIST", bundled)
@@ -102,8 +116,32 @@ def main() -> int:
 
     if window_key.stdout_mode():
         print(window_key.LINE + window_key.KEY, flush=True)
-    uvicorn.run(app, host="127.0.0.1", port=port, log_level="info")
-    return 0
+    import signal
+
+    def leave(_signum, _frame) -> None:
+        runtime.release(data)
+        os._exit(0)
+
+    signal.signal(signal.SIGTERM, leave)
+    server = uvicorn.Server(uvicorn.Config(app, host="127.0.0.1", port=port, log_level="info"))
+    runtime.start_logging(data)
+    try:
+        server.run()
+    finally:
+        runtime.release(data)
+    return 0 if server.started else 3
+
+
+def main() -> int:
+    if "--selfcheck" in sys.argv:
+        return selfcheck()
+    try:
+        return serve()
+    except Exception:
+        import logging
+
+        logging.getLogger("formtxt").exception("the engine stopped on an error")
+        raise
 
 
 if __name__ == "__main__":
