@@ -7,6 +7,11 @@ Last updated: 2026-11-19 · v0.34.0: database merge data, list reports and repor
 
 ---
 
+## after v0.34.0 · the engine starts when it has no output streams (2026-11-19)
+
+- formtxt_engine.py (top of the file, before any import of FormTxt's own) · when `sys.stdin`, `sys.stdout` or `sys.stderr` is `None`, it is replaced by the null device opened as text. A Windows engine built without a console has no streams, and the first `print` or log line then stops it at start; a tester saw that in another Form engine. The way FormWeb's entry does it.
+- Seen on Linux: Python started with its three streams closed reports all three as `None`; the entry started that way on port 4742 with its own data folder answered `/api/health` with 200, and before the change the same start gave no answer and exit code 1. Started normally on port 4743 it still printed uvicorn's lines. No test added. Not run on Windows, and not as a frozen engine.
+
 ## after v0.34.0 · an Antigravity tab, and agents install adds FormTxt to Antigravity (2026-11-19)
 
 - routers/terminal.py :: `AgentBody.kind` · takes `antigravity` beside `codex` and `cursor`.
