@@ -31,6 +31,7 @@ Last updated: 2026-11-19 · v0.34.0: database merge data, list reports and repor
 
 - tests/conftest.py :: `AGENT_STAND_INS`, `AGENT_CALLS`, `AGENT_SHELL`, `only_stand_in_agent_programs`, `pytest_sessionfinish`, `pytest_terminal_summary` · before any test module is imported the run gets a PATH of its own stand-ins folder and the system's four folders, a stand-in login shell as `SHELL`, and none of the six folder variables the finder reads. The stand-ins (`claude`, `codex`, `cursor-agent`, `agent`, `agy`) answer `--version`, exit 1 for anything else, and write one line per start to a file in the run's sandbox. The autouse fixture empties the finder's system install folders for every test. The run ends with one line: how many times a stand-in was started, and which. The way FormPath's conftest does it. `dock_start` still narrows this further for the tests that use it.
 - Why: a test that reached the lookup with the machine's own PATH and login shell in reach could run the real Claude Code with `--version`.
+- Later the same day: the narrowed PATH had also taken `node` away, so the test of the dock's `state.ts` in `tests/test_dock_manifest.py` skipped where it had run. The run now gets a `tools` folder in its sandbox, second on PATH, holding one link to the `node` that was on PATH before it was narrowed; the folder `node` came from, which on this machine also holds a real `claude`, stays off PATH.
 
 ## after v0.34.0 · the family's finder at version 1.0.1 (2026-11-19)
 

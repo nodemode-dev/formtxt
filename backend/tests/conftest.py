@@ -59,15 +59,18 @@ exec /bin/sh
 """
 _agent_calls: list[str] = []
 if os.name != "nt":
-    for _name in ("bin", "shell"):
+    for _name in ("bin", "shell", "tools"):
         (_SANDBOX / _name).mkdir()
+    _node = shutil.which("node")
+    if _node:
+        (_SANDBOX / "tools" / "node").symlink_to(os.path.realpath(_node))
     for _name in AGENT_STAND_INS:
         (_SANDBOX / "bin" / _name).write_text(f'#!/bin/sh\necho "{_name} $*" >> "{AGENT_CALLS}"\nif [ "$1" = "--version" ]; then echo "0.0.0 (stand-in)"; exit 0; fi\nexit 1\n')
         (_SANDBOX / "bin" / _name).chmod(0o755)
     (_SANDBOX / "shell" / "zsh").write_text(AGENT_SHELL)
     (_SANDBOX / "shell" / "zsh").chmod(0o755)
     os.environ["SHELL"] = str(_SANDBOX / "shell" / "zsh")
-    os.environ["PATH"] = os.pathsep.join([str(_SANDBOX / "bin"), "/usr/bin", "/bin", "/usr/sbin", "/sbin"])
+    os.environ["PATH"] = os.pathsep.join([str(_SANDBOX / "bin"), str(_SANDBOX / "tools"), "/usr/bin", "/bin", "/usr/sbin", "/sbin"])
     for _key in ("NPM_CONFIG_PREFIX", "npm_config_prefix", "PNPM_HOME", "VOLTA_HOME", "BUN_INSTALL", "NVM_SYMLINK"):
         os.environ.pop(_key, None)
 sys.path.insert(0, str(BACKEND))
