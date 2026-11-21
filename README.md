@@ -195,4 +195,4 @@ FormTxt is licensed under the Apache License 2.0 ([`LICENSE`](LICENSE), SPDX `Ap
 
 <sub>Screenshot content: a CC0 photo from Poly Haven and an original sample document.</sub>
 
-<sub>Microsoft, Word and Office are trademarks of the Microsoft group of companies. Google Docs is a trademark of Google LLC. FormTxt is not affiliated with or endorsed by Microsoft or Google; the names describe file formats, key sets and compatibility only. Claude Code, Codex and Cursor are trademarks of Anthropic, OpenAI and Anysphere respectively, named only as MCP clients FormTxt works with.</sub>
+<sub>Microsoft, Word and Office are trademarks of the Microsoft group of companies. Google Docs and Antigravity are trademarks of Google LLC. FormTxt is not affiliated with or endorsed by Microsoft or Google; the names describe file formats, key sets and compatibility only. Claude Code, Codex and Cursor are trademarks of Anthropic, OpenAI and Anysphere respectively; they and Antigravity are named only as MCP clients FormTxt works with.</sub>
